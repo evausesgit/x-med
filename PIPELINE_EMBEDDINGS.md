@@ -254,7 +254,7 @@ Option sérieuse si les coûts API sont une contrainte forte.
 
 | Modèle | Dimensions | Notes |
 |---|---|---|
-| `ncats/MedCPT-Article-Encoder` | 768 | Développé par la NLM (mêmes auteurs que PubMed), entraîné spécifiquement pour la recherche d'articles médicaux |
+| `ncbi/MedCPT-Article-Encoder` | 768 | Développé par la NLM (mêmes auteurs que PubMed), entraîné spécifiquement pour la recherche d'articles médicaux |
 | `microsoft/BiomedNLP-BiomedBERT-base` | 768 | Entraîné sur littérature biomédicale |
 | `pritamdeka/S-PubMedBert-MS-MARCO` | 768 | Fine-tuné sur PubMed + recherche |
 | `BAAI/bge-m3` | 1024 | Multilingue, excellent benchmark général |
@@ -267,8 +267,8 @@ Option sérieuse si les coûts API sont une contrainte forte.
 from transformers import AutoTokenizer, AutoModel
 import torch
 
-tokenizer = AutoTokenizer.from_pretrained("ncats/MedCPT-Article-Encoder")
-model = AutoModel.from_pretrained("ncats/MedCPT-Article-Encoder")
+tokenizer = AutoTokenizer.from_pretrained("ncbi/MedCPT-Article-Encoder")
+model = AutoModel.from_pretrained("ncbi/MedCPT-Article-Encoder")
 
 inputs = tokenizer(
     [["titre de l'article", "abstract complet"]],

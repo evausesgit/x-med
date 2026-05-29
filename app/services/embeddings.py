@@ -37,10 +37,10 @@ class MedCPT:
             return
         from transformers import AutoModel, AutoTokenizer
 
-        self._art_tok = AutoTokenizer.from_pretrained("ncats/MedCPT-Article-Encoder")
-        self._art = AutoModel.from_pretrained("ncats/MedCPT-Article-Encoder").eval()
-        self._qry_tok = AutoTokenizer.from_pretrained("ncats/MedCPT-Query-Encoder")
-        self._qry = AutoModel.from_pretrained("ncats/MedCPT-Query-Encoder").eval()
+        self._art_tok = AutoTokenizer.from_pretrained("ncbi/MedCPT-Article-Encoder")
+        self._art = AutoModel.from_pretrained("ncbi/MedCPT-Article-Encoder").eval()
+        self._qry_tok = AutoTokenizer.from_pretrained("ncbi/MedCPT-Query-Encoder")
+        self._qry = AutoModel.from_pretrained("ncbi/MedCPT-Query-Encoder").eval()
 
     def _embed(self, model, tok, texts: list[str], max_length: int, batch: int = 32) -> np.ndarray:
         import torch
