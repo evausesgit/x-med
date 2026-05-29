@@ -52,3 +52,30 @@ export async function meshAutocomplete(q: string): Promise<string[]> {
   if (!res.ok) return [];
   return res.json();
 }
+
+export interface EmbeddingModelInfo {
+  name: string;
+  dim: number;
+  embedded: number;
+}
+
+export async function listModels(): Promise<EmbeddingModelInfo[]> {
+  try {
+    const res = await fetch(`${API_BASE}/models`);
+    if (!res.ok) return [];
+    return res.json();
+  } catch {
+    return [];
+  }
+}
+
+export async function searchHybrid(
+  q: string,
+  model: string,
+  limit = 20,
+): Promise<SearchResponse> {
+  const qs = new URLSearchParams({ q, model, limit: String(limit) });
+  const res = await fetch(`${API_BASE}/search/hybrid?${qs.toString()}`);
+  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  return res.json();
+}

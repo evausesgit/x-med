@@ -3,7 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ArticleResult,
+  EmbeddingModelInfo,
+  listModels,
   meshAutocomplete,
+  searchHybrid,
   searchMesh,
   SearchResponse,
 } from "@/lib/api";
@@ -25,10 +28,13 @@ function Badge({ level }: { level: number | null }) {
   );
 }
 
+type Mode = "keyword" | "semantic";
+
 export default function Home() {
+  const [mode, setMode] = useState<Mode>("keyword");
   const [q, setQ] = useState("");
   const [mesh, setMesh] = useState<string[]>([]);
-  const [mode, setMode] = useState<"and" | "or">("or");
+  const [meshMode, setMeshMode] = useState<"and" | "or">("or");
   const [yearFrom, setYearFrom] = useState("");
   const [yearTo, setYearTo] = useState("");
   const [evidenceMax, setEvidenceMax] = useState("");
@@ -36,12 +42,24 @@ export default function Home() {
   const [meshInput, setMeshInput] = useState("");
   const [suggestions, setSuggestions] = useState<string[]>([]);
 
+  const [models, setModels] = useState<EmbeddingModelInfo[]>([]);
+  const [model, setModel] = useState("");
+
   const [data, setData] = useState<SearchResponse | null>(null);
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // autocomplétion MeSH (debounce léger)
+  // modèles d'embedding disponibles (pour le mode sémantique)
+  useEffect(() => {
+    listModels().then((ms) => {
+      setModels(ms);
+      const ready = ms.find((m) => m.embedded > 0) || ms[0];
+      if (ready) setModel(ready.name);
+    });
+  }, []);
+
+  // autocomplétion MeSH
   const acTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (acTimer.current) clearTimeout(acTimer.current);
@@ -58,16 +76,25 @@ export default function Home() {
     setLoading(true);
     setError(null);
     try {
-      const res = await searchMesh({
-        q: q.trim() || undefined,
-        mesh,
-        mode,
-        yearFrom: yearFrom ? Number(yearFrom) : undefined,
-        yearTo: yearTo ? Number(yearTo) : undefined,
-        evidenceMax: evidenceMax ? Number(evidenceMax) : undefined,
-        limit: PAGE,
-        offset: newOffset,
-      });
+      let res: SearchResponse;
+      if (mode === "semantic") {
+        if (!q.trim()) {
+          setLoading(false);
+          return;
+        }
+        res = await searchHybrid(q.trim(), model, PAGE);
+      } else {
+        res = await searchMesh({
+          q: q.trim() || undefined,
+          mesh,
+          mode: meshMode,
+          yearFrom: yearFrom ? Number(yearFrom) : undefined,
+          yearTo: yearTo ? Number(yearTo) : undefined,
+          evidenceMax: evidenceMax ? Number(evidenceMax) : undefined,
+          limit: PAGE,
+          offset: newOffset,
+        });
+      }
       setData(res);
       setOffset(newOffset);
     } catch (e) {
@@ -84,14 +111,36 @@ export default function Home() {
     setSuggestions([]);
   }
 
+  const selectedModel = models.find((m) => m.name === model);
+  const noEmbeddings = mode === "semantic" && selectedModel && selectedModel.embedded === 0;
+
   return (
     <main className="container">
       <h1>X-Med — Recherche PubMed</h1>
       <p className="subtitle">
-        Cherchez par phrase libre (langage naturel) et/ou par tags MeSH.
+        Cherchez par mots-clés / tags MeSH, ou par phrase en langage naturel
+        (recherche sémantique).
       </p>
 
       <div className="panel">
+        {/* Bascule de mode */}
+        <div className="toggle" style={{ marginBottom: 14 }}>
+          <button
+            type="button"
+            className={mode === "keyword" ? "on" : ""}
+            onClick={() => setMode("keyword")}
+          >
+            Mots-clés / MeSH
+          </button>
+          <button
+            type="button"
+            className={mode === "semantic" ? "on" : ""}
+            onClick={() => setMode("semantic")}
+          >
+            Par sens (sémantique)
+          </button>
+        </div>
+
         <form
           className="search-row"
           onSubmit={(e) => {
@@ -101,7 +150,11 @@ export default function Home() {
         >
           <input
             type="text"
-            placeholder="Ex. : anticoagulation chez le sujet âgé avec fibrillation atriale…"
+            placeholder={
+              mode === "semantic"
+                ? "Ex. : crise cardiaque chez le patient diabétique âgé…"
+                : "Mots-clés (anglais) : myocardial infarction, diabetes…"
+            }
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
@@ -110,101 +163,127 @@ export default function Home() {
           </button>
         </form>
 
-        <div className="mesh-box">
-          {mesh.length > 0 && (
-            <div className="chips">
-              {mesh.map((m) => (
-                <span className="chip" key={m}>
-                  {m}
-                  <button
-                    type="button"
-                    onClick={() => setMesh(mesh.filter((x) => x !== m))}
-                    aria-label={`Retirer ${m}`}
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-          <input
-            type="text"
-            placeholder="Ajouter un tag MeSH (autocomplétion)…"
-            value={meshInput}
-            onChange={(e) => setMeshInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && suggestions.length) {
-                e.preventDefault();
-                addMesh(suggestions[0]);
-              }
-            }}
-            style={{ width: "100%" }}
-          />
-          {suggestions.length > 0 && (
-            <div className="suggestions">
-              {suggestions.map((s) => (
-                <div key={s} onClick={() => addMesh(s)}>
-                  {s}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="filters">
-          {mesh.length > 1 && (
+        {/* Mode sémantique : sélecteur de modèle */}
+        {mode === "semantic" && (
+          <div className="filters">
             <div className="field">
-              <label>Combinaison des tags</label>
-              <div className="toggle">
-                <button
-                  type="button"
-                  className={mode === "or" ? "on" : ""}
-                  onClick={() => setMode("or")}
+              <label>Modèle d&apos;embedding</label>
+              <select value={model} onChange={(e) => setModel(e.target.value)}>
+                {models.map((m) => (
+                  <option key={m.name} value={m.name}>
+                    {m.name} ({m.embedded.toLocaleString("fr-FR")} articles)
+                  </option>
+                ))}
+              </select>
+            </div>
+            {noEmbeddings && (
+              <p className="error" style={{ alignSelf: "center" }}>
+                ⚠ Ce modèle n&apos;a pas encore d&apos;articles vectorisés.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Mode mots-clés : chips MeSH + filtres */}
+        {mode === "keyword" && (
+          <>
+            <div className="mesh-box">
+              {mesh.length > 0 && (
+                <div className="chips">
+                  {mesh.map((m) => (
+                    <span className="chip" key={m}>
+                      {m}
+                      <button
+                        type="button"
+                        onClick={() => setMesh(mesh.filter((x) => x !== m))}
+                        aria-label={`Retirer ${m}`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <input
+                type="text"
+                placeholder="Ajouter un tag MeSH (autocomplétion)…"
+                value={meshInput}
+                onChange={(e) => setMeshInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && suggestions.length) {
+                    e.preventDefault();
+                    addMesh(suggestions[0]);
+                  }
+                }}
+                style={{ width: "100%" }}
+              />
+              {suggestions.length > 0 && (
+                <div className="suggestions">
+                  {suggestions.map((s) => (
+                    <div key={s} onClick={() => addMesh(s)}>
+                      {s}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="filters">
+              {mesh.length > 1 && (
+                <div className="field">
+                  <label>Combinaison des tags</label>
+                  <div className="toggle">
+                    <button
+                      type="button"
+                      className={meshMode === "or" ? "on" : ""}
+                      onClick={() => setMeshMode("or")}
+                    >
+                      OU
+                    </button>
+                    <button
+                      type="button"
+                      className={meshMode === "and" ? "on" : ""}
+                      onClick={() => setMeshMode("and")}
+                    >
+                      ET
+                    </button>
+                  </div>
+                </div>
+              )}
+              <div className="field">
+                <label>Année min.</label>
+                <input
+                  type="number"
+                  value={yearFrom}
+                  onChange={(e) => setYearFrom(e.target.value)}
+                  placeholder="1975"
+                />
+              </div>
+              <div className="field">
+                <label>Année max.</label>
+                <input
+                  type="number"
+                  value={yearTo}
+                  onChange={(e) => setYearTo(e.target.value)}
+                  placeholder="2026"
+                />
+              </div>
+              <div className="field">
+                <label>Niveau de preuve max.</label>
+                <select
+                  value={evidenceMax}
+                  onChange={(e) => setEvidenceMax(e.target.value)}
                 >
-                  OU (au moins un)
-                </button>
-                <button
-                  type="button"
-                  className={mode === "and" ? "on" : ""}
-                  onClick={() => setMode("and")}
-                >
-                  ET (tous)
-                </button>
+                  <option value="">Tous</option>
+                  <option value="1">1 — élevée</option>
+                  <option value="2">≤ 2</option>
+                  <option value="3">≤ 3</option>
+                  <option value="4">≤ 4</option>
+                </select>
               </div>
             </div>
-          )}
-          <div className="field">
-            <label>Année min.</label>
-            <input
-              type="number"
-              value={yearFrom}
-              onChange={(e) => setYearFrom(e.target.value)}
-              placeholder="1975"
-            />
-          </div>
-          <div className="field">
-            <label>Année max.</label>
-            <input
-              type="number"
-              value={yearTo}
-              onChange={(e) => setYearTo(e.target.value)}
-              placeholder="2026"
-            />
-          </div>
-          <div className="field">
-            <label>Niveau de preuve max.</label>
-            <select
-              value={evidenceMax}
-              onChange={(e) => setEvidenceMax(e.target.value)}
-            >
-              <option value="">Tous</option>
-              <option value="1">1 — élevée</option>
-              <option value="2">≤ 2</option>
-              <option value="3">≤ 3</option>
-              <option value="4">≤ 4</option>
-            </select>
-          </div>
-        </div>
+          </>
+        )}
       </div>
 
       {error && <p className="error">⚠ {error}</p>}
@@ -213,7 +292,7 @@ export default function Home() {
         <>
           <p className="meta">
             {data.total.toLocaleString("fr-FR")} résultat(s)
-            {data.total > 0 &&
+            {mode === "keyword" && data.total > 0 &&
               ` · affichage ${offset + 1}–${Math.min(offset + PAGE, data.total)}`}
           </p>
 
@@ -245,7 +324,7 @@ export default function Home() {
             </article>
           ))}
 
-          {data.total > PAGE && (
+          {mode === "keyword" && data.total > PAGE && (
             <div className="pager">
               <button
                 disabled={offset === 0 || loading}

@@ -180,6 +180,38 @@ def _fetch_articles(session: Session, pmids: list[int]) -> dict[int, Article]:
     return {a.pmid: a for a in rows}
 
 
+@router.get("/bench/leaderboard")
+def bench_leaderboard(session: Session = Depends(get_session)) -> list[dict]:
+    """Dernier run par (modèle, dataset) avec ses métriques."""
+    rows = session.execute(
+        sql_text(
+            """
+            SELECT DISTINCT ON (r.model_name, r.dataset)
+                   r.id, r.model_name, r.dataset, r.created_at
+            FROM bench_runs r
+            ORDER BY r.model_name, r.dataset, r.created_at DESC
+            """
+        )
+    ).all()
+    out = []
+    for run_id, model_name, dataset, created_at in rows:
+        metrics = dict(
+            session.execute(
+                sql_text("SELECT metric, value FROM bench_results WHERE run_id = :r"),
+                {"r": run_id},
+            ).all()
+        )
+        out.append(
+            {
+                "model": model_name,
+                "dataset": dataset,
+                "created_at": created_at.isoformat(),
+                "metrics": metrics,
+            }
+        )
+    return out
+
+
 @router.post("/search/semantic", response_model=SearchResponse)
 def search_semantic(req: SemanticRequest, session: Session = Depends(get_session)):
     """Recherche par sens : embed la requête, plus proches voisins (cosinus)."""
