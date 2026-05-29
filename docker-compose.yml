@@ -1,0 +1,27 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: xmed
+      POSTGRES_PASSWORD: xmed
+      POSTGRES_DB: xmed
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xmed -d xmed"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  # api:  (ajouté à l'étape E — FastAPI)
+  # web:  (ajouté à l'étape F — React/Next)
+
+volumes:
+  pgdata:
