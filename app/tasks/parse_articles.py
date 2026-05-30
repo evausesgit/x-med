@@ -208,6 +208,16 @@ _UPSERT_COLS = [
 def _flush_articles(session: Session, rows: list[dict]) -> None:
     if not rows:
         return
+    # Dédup intra-lot : un même PMID peut apparaître plusieurs fois dans un
+    # updatefile (citation révisée dans le même fichier). Postgres refuse
+    # ON CONFLICT DO UPDATE si la même ligne est visée deux fois dans un seul
+    # INSERT (CardinalityViolation). On garde la dernière occurrence = version
+    # la plus récente du fichier.
+    deduped: dict[int, dict] = {}
+    for row in rows:
+        deduped[row["pmid"]] = row
+    rows = list(deduped.values())
+
     stmt = insert(Article).values(rows)
     update_cols = {c: getattr(stmt.excluded, c) for c in _UPSERT_COLS if c != "pmid"}
     stmt = stmt.on_conflict_do_update(index_elements=["pmid"], set_=update_cols)
