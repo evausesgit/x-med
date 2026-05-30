@@ -28,6 +28,30 @@ function Badge({ level }: { level: number | null }) {
   );
 }
 
+// Barre de « match » pour la recherche par sens.
+// Le score brut renvoyé par l'API hybride est un score de fusion RRF
+// (Reciprocal Rank Fusion) : il plafonne vers ~0,03 et ne se lit PAS comme un
+// pourcentage de certitude. On affiche donc une pertinence *relative*,
+// normalisée au meilleur résultat de la page, + un libellé qualitatif.
+function MatchBar({ score, max }: { score: number; max: number }) {
+  const rel = max > 0 ? score / max : 0;
+  const pct = Math.round(rel * 100);
+  const tier = rel >= 0.85 ? "high" : rel >= 0.6 ? "mid" : "low";
+  const label = rel >= 0.85 ? "Très pertinent" : rel >= 0.6 ? "Pertinent" : "Lié";
+  return (
+    <div
+      className="match"
+      title={`Score de fusion RRF : ${score.toFixed(4)} — la barre indique la pertinence relative au meilleur résultat de la page (ce n'est pas un % de certitude).`}
+    >
+      <span className={`match-label ml-${tier}`}>{label}</span>
+      <div className="match-bar">
+        <div className="match-fill" style={{ width: `${pct}%` }} />
+      </div>
+      <span className="match-pct">{pct}%</span>
+    </div>
+  );
+}
+
 type Mode = "keyword" | "semantic";
 
 export default function Home() {
@@ -113,6 +137,12 @@ export default function Home() {
 
   const selectedModel = models.find((m) => m.name === model);
   const noEmbeddings = mode === "semantic" && selectedModel && selectedModel.embedded === 0;
+
+  // Meilleur score de la page : sert à normaliser les barres de « match ».
+  const maxScore =
+    data && data.results.length
+      ? Math.max(0, ...data.results.map((r) => r.score ?? 0))
+      : 0;
 
   return (
     <main className="container">
@@ -296,9 +326,10 @@ export default function Home() {
               ` · affichage ${offset + 1}–${Math.min(offset + PAGE, data.total)}`}
           </p>
 
-          {data.results.map((r: ArticleResult) => (
+          {data.results.map((r: ArticleResult, i: number) => (
             <article className="result" key={r.pmid}>
               <h3>
+                <span className="rank">#{offset + i + 1}</span>
                 <a href={r.pubmed_url} target="_blank" rel="noreferrer">
                   {r.title}
                 </a>
@@ -307,8 +338,10 @@ export default function Home() {
                 <Badge level={r.evidence_level} />
                 {r.journal || "Journal inconnu"}
                 {r.pub_year ? ` · ${r.pub_year}` : ""}
-                {r.score != null ? ` · score ${r.score.toFixed(3)}` : ""}
               </div>
+              {r.score != null && maxScore > 0 && (
+                <MatchBar score={r.score} max={maxScore} />
+              )}
               {r.abstract_snippet && (
                 <p className="abstract">{r.abstract_snippet}</p>
               )}

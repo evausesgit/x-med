@@ -100,3 +100,58 @@ button:disabled { opacity: 0.5; cursor: default; }
 
 .pager { display: flex; gap: 8px; justify-content: center; margin-top: 20px; }
 .error { color: #a40e26; }
+
+/* Rang du résultat (#1, #2, …) — fiable dans tous les modes */
+.rank {
+  display: inline-block; min-width: 30px; text-align: center;
+  background: #eef1f4; color: #444; border-radius: 6px;
+  padding: 1px 7px; font-size: 12px; font-weight: 700;
+  margin-right: 8px; vertical-align: middle;
+}
+
+/* Barre de « match » (recherche par sens) — pertinence relative */
+.match { display: flex; align-items: center; gap: 8px; margin: 6px 0 2px; cursor: help; }
+.match-bar { flex: 0 0 160px; height: 8px; background: #eef1f4; border-radius: 999px; overflow: hidden; }
+.match-fill { height: 100%; background: linear-gradient(90deg, #1f6feb, #2da44e); border-radius: 999px; }
+.match-pct { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.match-label { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; }
+.ml-high { background: #dafbe1; color: #116329; }
+.ml-mid { background: #ddf4ff; color: #0a3069; }
+.ml-low { background: #eef1f4; color: #656d76; }
+
+/* Barre de navigation partagée (layout) */
+.topnav { background: var(--card); border-bottom: 1px solid var(--border); }
+.topnav-inner {
+  max-width: 900px; margin: 0 auto; padding: 10px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.topnav .brand { font-weight: 700; color: var(--text); text-decoration: none; }
+.topnav-links { display: flex; gap: 16px; }
+.topnav-links a { color: var(--accent); text-decoration: none; font-size: 14px; }
+.topnav-links a:hover { text-decoration: underline; }
+
+/* Page « Comment ça marche » */
+.arch-step {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 10px; padding: 16px 20px; margin-bottom: 16px;
+}
+.arch-step .step-head { display: flex; align-items: center; gap: 12px; }
+.arch-step h2 { font-size: 17px; margin: 0; }
+.arch-step h3 { font-size: 14px; margin: 18px 0 6px; }
+.step-num {
+  flex: 0 0 auto; width: 30px; height: 30px; border-radius: 999px;
+  background: var(--accent); color: #fff; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.step-body { margin-top: 8px; }
+.arch-step p { margin: 8px 0; }
+.arch-step ul { margin: 8px 0; padding-left: 20px; }
+.arch-step li { margin: 4px 0; }
+.arch-step code {
+  background: #eef1f4; border-radius: 4px; padding: 1px 5px;
+  font-size: 13px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.note {
+  background: var(--accent-soft); border: 1px solid #b6e3ff;
+  border-radius: 8px; padding: 8px 12px; font-size: 14px; color: #0a3069;
+}
