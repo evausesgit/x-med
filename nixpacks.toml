@@ -1,0 +1,14 @@
+[phases.setup]
+nixPkgs = ["python312", "uv", "nodejs_22"]
+
+[phases.install]
+cmds = [
+  "uv sync --frozen --no-dev",
+  "cd web && npm ci",
+]
+
+[phases.build]
+cmds = ["cd web && npm run build"]
+
+[start]
+cmd = "sh -c 'uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 & cd web && API_INTERNAL_URL=http://127.0.0.1:8000 npm run start'"

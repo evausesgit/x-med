@@ -21,6 +21,16 @@ app.add_middleware(
 app.include_router(search.router, tags=["search"])
 
 
+@app.get("/")
+def root() -> dict:
+    return {
+        "name": "X-Med API",
+        "status": "ok",
+        "health": "/health",
+        "docs": "/docs",
+    }
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
