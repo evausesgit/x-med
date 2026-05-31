@@ -41,6 +41,9 @@ body {
 
 body {
   border-top: 4px solid var(--text);
+  -webkit-text-size-adjust: 100%;
+  /* évite tout débordement horizontal sur les titres/termes longs */
+  overflow-wrap: break-word;
 }
 
 .container {
@@ -547,6 +550,18 @@ button:disabled {
     width: 100%;
   }
 
+  /* la bascule de mode (Mots-clés / Par sens) passe pleine largeur
+     pour ne pas déborder — ses libellés sont longs */
+  .panel > .toggle {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+
+  .panel > .toggle button {
+    text-align: center;
+  }
+
   .filters {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -573,5 +588,32 @@ button:disabled {
   .match-bar {
     width: 100%;
     flex-basis: 7px;
+  }
+}
+
+@media (max-width: 460px) {
+  h1 {
+    font-size: clamp(28px, 8.5vw, 40px);
+  }
+
+  .subtitle {
+    font-size: 15.5px;
+  }
+
+  .panel {
+    padding: 14px;
+  }
+
+  /* un seul filtre par ligne : deux colonnes sont trop serrées ici */
+  .filters {
+    grid-template-columns: 1fr;
+  }
+
+  .topnav-links {
+    gap: 14px;
+  }
+
+  .result {
+    padding: 14px 13px;
   }
 }
