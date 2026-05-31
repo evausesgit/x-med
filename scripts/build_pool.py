@@ -101,25 +101,28 @@ def do_pool(k: int) -> None:
             pmids = list(found)
             meta = {}
             if pmids:
-                for pmid, title, journal, year in s.execute(
+                for pmid, title, journal, year, abstract in s.execute(
                     sql_text(
-                        "SELECT pmid, title, journal, pub_year FROM articles "
+                        "SELECT pmid, title, journal, pub_year, abstract FROM articles "
                         "WHERE pmid = ANY(:ids)"
                     ),
                     {"ids": pmids},
                 ).all():
-                    meta[pmid] = (title, journal, year)
+                    meta[pmid] = (title, journal, year, abstract)
             for pmid in pmids:
-                title, journal, year = meta.get(pmid, ("", "", None))
+                title, journal, year, abstract = meta.get(pmid, ("", "", None, ""))
+                snippet = (abstract or "")[:600]
                 rows_out.append(
                     {
                         "query_id": qid,
                         "theme": q.get("theme", ""),
                         "query": qtext,
                         "pmid": pmid,
+                        "pubmed_url": f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
                         "title": title,
                         "journal": journal or "",
                         "pub_year": year or "",
+                        "abstract": snippet,
                         "found_by": ",".join(sorted(found[pmid])),
                         "grade": "",  # à remplir : 0 / 1 / 2
                     }
@@ -131,8 +134,8 @@ def do_pool(k: int) -> None:
         w = csv.DictWriter(
             f,
             fieldnames=[
-                "query_id", "theme", "query", "pmid", "title",
-                "journal", "pub_year", "found_by", "grade",
+                "query_id", "theme", "query", "pmid", "pubmed_url", "title",
+                "journal", "pub_year", "abstract", "found_by", "grade",
             ],
         )
         w.writeheader()
