@@ -8,7 +8,10 @@ cmds = [
 ]
 
 [phases.build]
-cmds = ["cd web && npm run build"]
+# ⚠️ Next 16 fige les `rewrites()` AU BUILD (destination écrite en dur dans
+# routes-manifest.json) — la valeur runtime de API_INTERNAL_URL est ignorée.
+# On doit donc fixer la cible du proxy /api ICI, pas seulement au démarrage.
+cmds = ["cd web && API_INTERNAL_URL=http://10.0.1.1:8800 npm run build"]
 
 [start]
 # Option A : le frontend déployé relaie /api vers l'API dev de la machine hôte

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Démarre toute la stack X-Med en dev :
 #   - Postgres + Redis (docker compose)
-#   - API FastAPI sur :8800 (proxiée par le front, donc en localhost)
+#   - API FastAPI sur :8800 — exposée en 0.0.0.0 pour que le site DÉPLOYÉ
+#     (conteneur Coolify, réseau 10.0.1.0/24) la joigne via 10.0.1.1:8800.
+#     L'accès au port 8800 est restreint à ce sous-réseau par ufw.
 #   - Frontend Next (build de prod) sur :3003 (exposé en 0.0.0.0)
 #
 # Idempotent : relancer ne crée pas de doublons (kill des anciens process X-Med).
@@ -22,7 +24,7 @@ echo "→ API FastAPI :8800"
 # ne tue que NOTRE uvicorn (port 8800), pas ceux des autres projets
 pkill -f "uvicorn app.main:app .*8800" 2>/dev/null || true
 sleep 1
-setsid nohup uv run uvicorn app.main:app --host 127.0.0.1 --port 8800 \
+setsid nohup uv run uvicorn app.main:app --host 0.0.0.0 --port 8800 \
   --log-level warning >/tmp/xmed-api.log 2>&1 < /dev/null &
 
 echo "→ Frontend Next :3003 (build)"
