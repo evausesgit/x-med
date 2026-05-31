@@ -1,13 +1,11 @@
-// Page « Digest quotidien » — APERÇU (mockup). Montre à quoi ressemblera le
-// digest lié à un profil sauvegardé : chaque article sélectionné pourra être
-// traduit, résumé et écouté en vocal. Ces fonctionnalités ne sont PAS encore
-// implémentées : les actions sont affichées en « Bientôt ». Données factices.
-import type { Metadata } from "next";
+"use client";
 
-export const metadata: Metadata = {
-  title: "X-Med — Digest quotidien",
-  description: "Aperçu du digest quotidien personnalisé (fonctionnalités à venir).",
-};
+// Page « Digest quotidien ». L'en-tête (profil) est RÉEL (lu depuis /api/doctors) ;
+// la liste d'articles est encore un APERÇU (la génération du digest n'est pas
+// implémentée) avec actions Traduire / Résumer / Écouter en « Bientôt ».
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Doctor, listDoctors } from "@/lib/api";
 
 type DemoArticle = {
   title: string;
@@ -19,12 +17,6 @@ type DemoArticle = {
   matchLabel: string;
   snippet: string;
   tags: string[];
-};
-
-const PROFILE = {
-  name: "Dr Eva Attal",
-  specialty: "Gynécologie-obstétrique",
-  interests: ["Grossesse à risque", "Endométriose", "Cancer du col", "Pré-éclampsie"],
 };
 
 const ARTICLES: DemoArticle[] = [
@@ -79,6 +71,22 @@ function SoonAction({ icon, label }: { icon: string; label: string }) {
 }
 
 export default function DigestPage() {
+  const [doctors, setDoctors] = useState<Doctor[] | null>(null);
+  const [idx, setIdx] = useState(0);
+
+  useEffect(() => {
+    listDoctors().then(setDoctors);
+  }, []);
+
+  const doctor = doctors?.[idx] ?? null;
+  const interests = doctor?.profile
+    ? [
+        ...doctor.profile.subspecialties,
+        ...doctor.profile.pathologies,
+        ...doctor.profile.mesh_terms_extra,
+      ].slice(0, 8)
+    : [];
+
   return (
     <main className="container">
       <h1>Digest quotidien</h1>
@@ -89,29 +97,58 @@ export default function DigestPage() {
       </p>
 
       <div className="preview-banner">
-        Aperçu — cette page et les actions ci-dessous (traduction, résumé, écoute
-        vocale) arrivent bientôt.
+        Aperçu — l&apos;en-tête est lié à un vrai profil ; la sélection
+        d&apos;articles et les actions (traduction, résumé, écoute) arrivent
+        bientôt.
       </div>
 
-      {/* Profil sauvegardé */}
-      <div className="panel profile-card">
-        <div>
-          <div className="profile-name">{PROFILE.name}</div>
-          <div className="journal">{PROFILE.specialty}</div>
-          <div className="chips" style={{ marginTop: 10, marginBottom: 0 }}>
-            {PROFILE.interests.map((i) => (
-              <span className="chip" key={i}>
-                {i}
-              </span>
-            ))}
+      {doctors !== null && doctors.length === 0 && (
+        <div className="panel">
+          <p style={{ margin: 0 }}>
+            Aucun profil pour l&apos;instant.{" "}
+            <Link href="/profil">Créer un profil →</Link>
+          </p>
+        </div>
+      )}
+
+      {doctor && (
+        <div className="panel profile-card">
+          <div>
+            <div className="profile-name">{doctor.name}</div>
+            <div className="journal">
+              {doctor.profile?.specialty_main || "Spécialité non renseignée"}
+            </div>
+            {interests.length > 0 && (
+              <div className="chips" style={{ marginTop: 10, marginBottom: 0 }}>
+                {interests.map((i, k) => (
+                  <span className="chip" key={`${i}-${k}`}>
+                    {i}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
+            {doctors && doctors.length > 1 && (
+              <select value={idx} onChange={(e) => setIdx(Number(e.target.value))}>
+                {doctors.map((d, k) => (
+                  <option key={d.id} value={k}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            <Link href="/profil" className="action" style={{ textDecoration: "none" }}>
+              Modifier le profil
+            </Link>
           </div>
         </div>
-        <button type="button" className="action" disabled title="Fonctionnalité à venir">
-          Modifier le profil <span className="soon">Bientôt</span>
-        </button>
-      </div>
+      )}
 
-      <p className="meta">Digest du 31 mai 2026 · {ARTICLES.length} nouveaux articles</p>
+      <p className="meta">
+        Digest du 31 mai 2026 · {ARTICLES.length} nouveaux articles{" "}
+        <span className="soon">Aperçu</span>
+      </p>
 
       {ARTICLES.map((a) => (
         <article className="result" key={a.title}>

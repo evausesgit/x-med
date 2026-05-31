@@ -97,3 +97,101 @@ export async function listLeaderboard(): Promise<BenchRow[]> {
     return [];
   }
 }
+
+// ---------- Annotation (gold set) ----------
+export interface EvalQueryProgress {
+  query_id: number;
+  theme: string | null;
+  query: string;
+  n_candidates: number;
+  n_annotated: number;
+}
+export interface EvalCandidate {
+  pmid: number;
+  title: string;
+  journal: string | null;
+  pub_year: number | null;
+  abstract: string | null;
+  pubmed_url: string;
+  found_by: string | null;
+  grade: number | null;
+}
+export interface EvalPool {
+  query_id: number;
+  theme: string | null;
+  query: string;
+  candidates: EvalCandidate[];
+}
+
+export async function listEvalQueries(): Promise<EvalQueryProgress[]> {
+  const res = await fetch(`${API_BASE}/eval/queries`);
+  if (!res.ok) return [];
+  return res.json();
+}
+export async function getEvalPool(queryId: number): Promise<EvalPool> {
+  const res = await fetch(`${API_BASE}/eval/pool/${queryId}`);
+  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  return res.json();
+}
+export async function annotate(
+  query_id: number,
+  pmid: number,
+  grade: number,
+  annotator?: string,
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/eval/annotate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query_id, pmid, grade, annotator }),
+  });
+  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+}
+
+// ---------- Médecins / profils ----------
+export interface DoctorProfile {
+  specialty_main: string;
+  subspecialties: string[];
+  pathologies: string[];
+  treatments: string[];
+  study_types: string[];
+  min_evidence_level: number | null;
+  preferred_journals: string[];
+  mesh_terms_extra: string[];
+  keywords_extra: string[];
+}
+export interface Doctor {
+  id: string;
+  email: string;
+  name: string;
+  language: string;
+  digest_frequency: string;
+  profile: DoctorProfile | null;
+}
+
+export async function listDoctors(): Promise<Doctor[]> {
+  const res = await fetch(`${API_BASE}/doctors`);
+  if (!res.ok) return [];
+  return res.json();
+}
+export async function createDoctor(body: {
+  email: string;
+  name: string;
+  profile: DoctorProfile;
+}): Promise<Doctor> {
+  const res = await fetch(`${API_BASE}/doctors`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  return res.json();
+}
+export async function updateProfile(id: string, profile: DoctorProfile): Promise<Doctor> {
+  const res = await fetch(`${API_BASE}/doctors/${id}/profile`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(profile),
+  });
+  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  return res.json();
+}

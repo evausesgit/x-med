@@ -672,6 +672,92 @@ button:disabled {
   letter-spacing: 0.03em;
 }
 
+/* --- Page Annotation --- */
+.q-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0 20px;
+}
+
+.q-item {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 14px;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.q-item.on {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.q-text {
+  font-weight: 560;
+}
+
+.q-prog {
+  flex: 0 0 auto;
+  padding: 2px 9px;
+  background: var(--surface-soft);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.q-prog.q-done {
+  background: #dff1e8;
+  color: #1d5b43;
+}
+
+.grade-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.grade-btn {
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 560;
+}
+
+.grade-btn.on {
+  font-weight: 750;
+}
+
+.grade-btn.g2.on {
+  background: #dff1e8;
+  border-color: #1d5b43;
+  color: #1d5b43;
+}
+
+.grade-btn.g1.on {
+  background: #edf3ff;
+  border-color: #284b7b;
+  color: #284b7b;
+}
+
+.grade-btn.g0.on {
+  background: var(--red-soft);
+  border-color: #9b2f1f;
+  color: #9b2f1f;
+}
+
 @media (max-width: 720px) {
   .container,
   .topnav-inner {
