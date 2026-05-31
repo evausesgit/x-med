@@ -86,3 +86,71 @@ def run_db_corpus(model_name: str, dataset: str, queries: dict, qrels: dict) -> 
     scores = _evaluate(qrels, run)
     _store(model_name, dataset, scores, {"queries": len(queries), "corpus": "pubmed"})
     return scores
+
+
+def run_db_fulltext(dataset: str, queries: dict, qrels: dict) -> dict:
+    """Baseline plein-texte (ts_rank), restreinte au corpus vectorisé (emb_bge_m3)."""
+    run: dict[str, dict[str, float]] = {}
+    with SessionLocal() as s:
+        for qid, qtext in queries.items():
+            rows = s.execute(
+                sql_text(
+                    """
+                    SELECT a.pmid,
+                           ts_rank(a.fts, websearch_to_tsquery('english', :q)) AS r
+                    FROM articles a
+                    JOIN emb_bge_m3 e ON e.pmid = a.pmid
+                    WHERE a.fts @@ websearch_to_tsquery('english', :q)
+                    ORDER BY r DESC
+                    LIMIT 100
+                    """
+                ),
+                {"q": qtext},
+            ).all()
+            run[qid] = {str(pmid): float(r) for pmid, r in rows}
+    scores = _evaluate(qrels, run)
+    _store("fulltext", dataset, scores, {"queries": len(queries), "corpus": "pubmed"})
+    return scores
+
+
+def run_db_hybrid(model_name: str, dataset: str, queries: dict, qrels: dict, pool: int = 50) -> dict:
+    """Hybride RRF (plein-texte + sémantique) — ce que le site sert réellement."""
+    model = get_model(model_name)
+    table = model.table
+    run: dict[str, dict[str, float]] = {}
+    with SessionLocal() as s:
+        for qid, qtext in queries.items():
+            ft_ids = [
+                r[0]
+                for r in s.execute(
+                    sql_text(
+                        f"""
+                        SELECT a.pmid FROM articles a
+                        JOIN {table} e ON e.pmid = a.pmid
+                        WHERE a.fts @@ websearch_to_tsquery('english', :q)
+                        ORDER BY ts_rank(a.fts, websearch_to_tsquery('english', :q)) DESC
+                        LIMIT :pool
+                        """
+                    ),
+                    {"q": qtext, "pool": pool},
+                ).all()
+            ]
+            qv = model.encode_query([qtext])[0]
+            vec = "[" + ",".join(f"{x:.6f}" for x in qv) + "]"
+            sem_ids = [
+                r[0]
+                for r in s.execute(
+                    sql_text(f"SELECT pmid FROM {table} ORDER BY v <=> (:qv)::vector LIMIT :pool"),
+                    {"qv": vec, "pool": pool},
+                ).all()
+            ]
+            # fusion RRF (k=60), identique à app/api/search.py
+            rrf: dict[int, float] = {}
+            for ranking in (ft_ids, sem_ids):
+                for rank, pmid in enumerate(ranking):
+                    rrf[pmid] = rrf.get(pmid, 0.0) + 1.0 / (60 + rank + 1)
+            ordered = sorted(rrf, key=lambda p: rrf[p], reverse=True)[:100]
+            run[qid] = {str(p): float(rrf[p]) for p in ordered}
+    scores = _evaluate(qrels, run)
+    _store(f"hybrid:{model_name}", dataset, scores, {"queries": len(queries), "pool": pool})
+    return scores

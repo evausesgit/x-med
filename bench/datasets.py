@@ -43,7 +43,10 @@ def load_nfcorpus(max_docs: int | None = None) -> tuple[dict, dict, dict]:
 
 
 def load_gold_fr() -> tuple[dict, dict, dict] | None:
-    """Gold set FR : bench/gold_fr.json = [{id, query, relevant:[pmid,…]}].
+    """Gold set FR (bench/gold_fr.json). Deux formats acceptés :
+
+      gradué (recommandé) : [{id, theme, query, judgments: {"<pmid>": 0|1|2}}]
+      binaire (historique): [{id, query, relevant: [pmid, …]}]
 
     Les 'docs' sont des PMIDs de NOTRE corpus → le runner les résout via la base.
     Renvoie None si le fichier n'existe pas encore.
@@ -53,5 +56,16 @@ def load_gold_fr() -> tuple[dict, dict, dict] | None:
         return None
     items = json.loads(path.read_text())
     queries = {str(it["id"]): it["query"] for it in items}
-    qrels = {str(it["id"]): {str(p): 1 for p in it["relevant"]} for it in items}
+    qrels: dict[str, dict[str, int]] = {}
+    for it in items:
+        qid = str(it["id"])
+        if "judgments" in it:
+            qrels[qid] = {str(p): int(g) for p, g in it["judgments"].items()}
+        else:
+            qrels[qid] = {str(p): 1 for p in it.get("relevant", [])}
+    # ranx exige au moins un document pertinent (grade > 0) par requête
+    queries = {
+        qid: t for qid, t in queries.items()
+        if any(g > 0 for g in qrels.get(qid, {}).values())
+    }
     return {}, queries, qrels  # docs vide : corpus = base PubMed

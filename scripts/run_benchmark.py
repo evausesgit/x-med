@@ -11,7 +11,7 @@ from __future__ import annotations
 import argparse
 
 from bench.datasets import load_gold_fr, load_nfcorpus
-from bench.runner import run_db_corpus, run_selfcontained
+from bench.runner import run_db_corpus, run_db_fulltext, run_db_hybrid, run_selfcontained
 from app.services.embeddings import REGISTRY
 
 
@@ -35,9 +35,12 @@ def main() -> None:
     if gold is not None:
         _, queries, qrels = gold
         print(f"Gold FR : {len(queries)} requêtes")
+        # Baseline plein-texte (une seule fois, indépendante du modèle d'embedding)
+        board.append(("fulltext", "gold_fr", run_db_fulltext("gold_fr", queries, qrels)))
         for m in args.models:
-            scores = run_db_corpus(m, "gold_fr", queries, qrels)
-            board.append((m, "gold_fr", scores))
+            # sémantique pur + hybride RRF (ce que le site sert)
+            board.append((m, "gold_fr", run_db_corpus(m, "gold_fr", queries, qrels)))
+            board.append((f"hybrid:{m}", "gold_fr", run_db_hybrid(m, "gold_fr", queries, qrels)))
     else:
         print("(pas de gold set FR — bench/gold_fr.json absent, étape ultérieure)")
 
