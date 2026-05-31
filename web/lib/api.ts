@@ -79,3 +79,21 @@ export async function searchHybrid(
   if (!res.ok) throw new Error(`Erreur API (${res.status})`);
   return res.json();
 }
+
+// Leaderboard du benchmark (table bench_*), pour la page « Évaluation ».
+export interface BenchRow {
+  model: string;
+  dataset: string;
+  created_at: string;
+  metrics: Record<string, number>;
+}
+
+export async function listLeaderboard(): Promise<BenchRow[]> {
+  try {
+    const res = await fetch(`${API_BASE}/bench/leaderboard`);
+    if (!res.ok) return [];
+    return res.json();
+  } catch {
+    return [];
+  }
+}

@@ -536,6 +536,77 @@ button:disabled {
   font-size: 14px;
 }
 
+.bench-ds {
+  margin: 0 0 10px;
+  font-size: 16px;
+  font-weight: 620;
+}
+
+.bench-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 14px;
+}
+
+.bench-table th,
+.bench-table td {
+  padding: 9px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+
+.bench-table thead th {
+  background: var(--surface-soft);
+  color: var(--faint);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  cursor: help;
+}
+
+.bench-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.bench-method {
+  font-weight: 560;
+  white-space: nowrap;
+}
+
+.bench-val {
+  font-variant-numeric: tabular-nums;
+}
+
+.bench-bar {
+  display: block;
+  height: 5px;
+  margin-top: 4px;
+  overflow: hidden;
+  background: var(--surface-soft);
+  border-radius: 999px;
+}
+
+.bench-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+}
+
+.bench-best .bench-val {
+  font-weight: 750;
+  color: var(--accent);
+}
+
+.bench-best .bench-fill {
+  background: var(--accent-hover);
+}
+
 @media (max-width: 720px) {
   .container,
   .topnav-inner {
