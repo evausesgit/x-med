@@ -55,7 +55,7 @@ function MatchBar({ score, max }: { score: number; max: number }) {
 type Mode = "keyword" | "semantic";
 
 export default function Home() {
-  const [mode, setMode] = useState<Mode>("keyword");
+  const [mode, setMode] = useState<Mode>("semantic");
   const [q, setQ] = useState("");
   const [mesh, setMesh] = useState<string[]>([]);
   const [meshMode, setMeshMode] = useState<"and" | "or">("or");
@@ -146,10 +146,10 @@ export default function Home() {
 
   return (
     <main className="container">
-      <h1>X-Med — Recherche PubMed</h1>
+      <h1>X-Med — Recherche d&apos;articles scientifiques médicaux</h1>
       <p className="subtitle">
-        Cherchez par mots-clés / tags MeSH, ou par phrase en langage naturel
-        (recherche sémantique).
+        Cherchez par phrase en langage naturel (recherche sémantique), ou par
+        mots-clés / tags MeSH.
       </p>
 
       <div className="panel">
@@ -157,17 +157,17 @@ export default function Home() {
         <div className="toggle" style={{ marginBottom: 14 }}>
           <button
             type="button"
-            className={mode === "keyword" ? "on" : ""}
-            onClick={() => setMode("keyword")}
-          >
-            Mots-clés / MeSH
-          </button>
-          <button
-            type="button"
             className={mode === "semantic" ? "on" : ""}
             onClick={() => setMode("semantic")}
           >
             Par sens (sémantique)
+          </button>
+          <button
+            type="button"
+            className={mode === "keyword" ? "on" : ""}
+            onClick={() => setMode("keyword")}
+          >
+            Mots-clés / MeSH
           </button>
         </div>
 

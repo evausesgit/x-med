@@ -3,7 +3,7 @@ import Link from "next/link";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "X-Med — Recherche PubMed",
+  title: "X-Med — Recherche d'articles scientifiques médicaux",
   description: "Recherche d'articles médicaux par tags MeSH ou par phrase libre",
 };
 
