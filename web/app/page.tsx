@@ -146,7 +146,8 @@ export default function Home() {
 
   return (
     <main className="container">
-      <h1>X-Med — Explorez la recherche médicale</h1>
+      <h1>X-Med</h1>
+      <p className="tagline">Explorez la recherche médicale</p>
       <p className="subtitle">
         Décrivez votre question en français — ou cherchez par mots-clés et tags
         MeSH.
