@@ -20,6 +20,7 @@ export default function RootLayout({
             </Link>
             <div className="topnav-links">
               <Link href="/">Recherche</Link>
+              <Link href="/digest">Digest</Link>
               <Link href="/evaluation">Évaluation</Link>
               <Link href="/architecture">Comment ça marche</Link>
             </div>

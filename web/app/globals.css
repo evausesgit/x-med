@@ -451,7 +451,8 @@ button:disabled {
 
 .topnav-links {
   display: flex;
-  gap: 20px;
+  flex-wrap: wrap;
+  gap: 14px 20px;
 }
 
 .topnav-links a {
@@ -605,6 +606,70 @@ button:disabled {
 
 .bench-best .bench-fill {
   background: var(--accent-hover);
+}
+
+/* --- Page Digest (aperçu) --- */
+.preview-banner {
+  margin-bottom: 22px;
+  padding: 10px 14px;
+  background: var(--amber-soft);
+  border: 1px solid #ecd9a6;
+  border-radius: 8px;
+  color: #7a4b00;
+  font-size: 14px;
+}
+
+.profile-card {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.profile-name {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.action {
+  display: inline-flex;
+  gap: 7px;
+  align-items: center;
+  min-height: 36px;
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 560;
+}
+
+.action:disabled {
+  cursor: not-allowed;
+  opacity: 1;
+  color: var(--muted);
+}
+
+.soon {
+  padding: 1px 7px;
+  background: var(--accent-soft);
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 @media (max-width: 720px) {
