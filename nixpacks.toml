@@ -11,4 +11,10 @@ cmds = [
 cmds = ["cd web && npm run build"]
 
 [start]
-cmd = "sh -c 'uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 & cd web && API_INTERNAL_URL=http://127.0.0.1:8000 npm run start'"
+# Option A : le frontend déployé relaie /api vers l'API dev de la machine hôte
+# (10.0.1.1 = passerelle du réseau Docker « coolify »), qui dispose de torch + des
+# modèles d'embedding pour la recherche sémantique. L'API n'est donc PAS embarquée
+# dans ce conteneur. Pré-requis côté hôte (voir aussi ETAT_DEMO.md) :
+#   - API dev en écoute sur 0.0.0.0:8800 (et plus seulement 127.0.0.1) ;
+#   - règle ufw : `ufw allow from 10.0.1.0/24 to any port 8800 proto tcp`.
+cmd = "sh -c 'cd web && API_INTERNAL_URL=http://10.0.1.1:8800 npm run start'"
