@@ -146,10 +146,10 @@ export default function Home() {
 
   return (
     <main className="container">
-      <h1>X-Med — Recherche d&apos;articles scientifiques médicaux</h1>
+      <h1>X-Med — Explorez la recherche médicale</h1>
       <p className="subtitle">
-        Cherchez par phrase en langage naturel (recherche sémantique), ou par
-        mots-clés / tags MeSH.
+        Décrivez votre question en français — ou cherchez par mots-clés et tags
+        MeSH.
       </p>
 
       <div className="panel">
