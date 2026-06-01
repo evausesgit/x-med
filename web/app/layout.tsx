@@ -25,6 +25,9 @@ export default function RootLayout({
               <Link href="/annotate">Annoter</Link>
               <Link href="/evaluation">Évaluation</Link>
               <Link href="/architecture">Comment ça marche</Link>
+              {/* Page statique servie depuis public/recherche-guidee/ : <a> et non
+                  <Link> (le routeur Next traiterait ce chemin comme une route → 404). */}
+              <a href="/recherche-guidee/">Visite guidée</a>
             </div>
           </div>
         </nav>
