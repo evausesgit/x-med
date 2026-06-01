@@ -26,8 +26,10 @@ export default function RootLayout({
               <Link href="/evaluation">Évaluation</Link>
               <Link href="/architecture">Comment ça marche</Link>
               {/* Page statique servie depuis public/recherche-guidee/ : <a> et non
-                  <Link> (le routeur Next traiterait ce chemin comme une route → 404). */}
-              <a href="/recherche-guidee/">Visite guidée</a>
+                  <Link> (le routeur Next traiterait ce chemin comme une route → 404).
+                  On vise index.html explicitement : l'URL « dossier » /recherche-guidee/
+                  déclenche le 308 de Next (strip du slash) puis un 404. */}
+              <a href="/recherche-guidee/index.html">Visite guidée</a>
             </div>
           </div>
         </nav>

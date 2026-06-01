@@ -17,6 +17,19 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async redirects() {
+    // La visite guidée est une page statique (public/recherche-guidee/index.html).
+    // Next sert les fichiers publics par chemin exact et, trailingSlash=false oblige,
+    // renvoie un 308 sur le dossier /recherche-guidee/ → 404. On redirige donc
+    // l'URL « dossier » vers index.html (les assets relatifs s'y résolvent bien).
+    return [
+      {
+        source: "/recherche-guidee",
+        destination: "/recherche-guidee/index.html",
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
