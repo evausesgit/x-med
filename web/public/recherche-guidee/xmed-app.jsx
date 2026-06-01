@@ -441,16 +441,23 @@ function App() {
   function nextStep() { setStepIdx((i) => Math.min(steps.length - 1, i + 1)); }
   function prevStep() { setStepIdx((i) => Math.max(0, i - 1)); }
 
-  const navLinks = ["Recherche", "Digest", "Profils", "Annoter", "Évaluation", "Comment ça marche"];
+  const navLinks = [
+    { label: "Recherche", href: "/" },
+    { label: "Digest", href: "/digest" },
+    { label: "Profils", href: "/profil" },
+    { label: "Annoter", href: "/annotate" },
+    { label: "Évaluation", href: "/evaluation" },
+    { label: "Comment ça marche", href: "/architecture" },
+  ];
 
   return (
     <React.Fragment>
       <nav className="topnav">
         <div className="topnav-inner">
-          <a className="brand" href="#">X-Med</a>
+          <a className="brand" href="/">X-Med</a>
           <div className="topnav-links">
             {navLinks.map((l, i) => (
-              <a key={l} className={i === 0 ? "active" : ""} href={l === "Annoter" ? ANNOTATE_URL : "#"} target={l === "Annoter" ? "_blank" : undefined} rel="noreferrer">{l}</a>
+              <a key={l.label} className={i === 0 ? "active" : ""} href={l.href}>{l.label}</a>
             ))}
           </div>
         </div>
