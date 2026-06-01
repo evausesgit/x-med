@@ -1,5 +1,7 @@
 /* X-Med — démo guidée : application principale + moteur de visite guidée. */
-const { useState, useEffect } = React;
+// useState/useEffect sont déjà déclarés globalement par xmed-components.jsx
+// (chargé avant ce script). Les redéclarer ici en `const` provoquerait une
+// SyntaxError « Identifier 'useState' has already been declared » → page blanche.
 const ANNOTATE_URL = "https://x-med.ia-do-it.com/annotate";
 
 // ---------------- Vue d'ensemble (digest + profil, en contexte) ----------------
