@@ -6,8 +6,6 @@ const ANNOTATE_URL = "https://x-med.ia-do-it.com/annotate";
 
 // ---------------- Vue d'ensemble (digest + profil, en contexte) ----------------
 function BigPicture() {
-  const d = window.XMED.doctor;
-  const digest = window.XMED.semantic.slice(0, 2);
   return (
     <section data-tour="bigpicture">
       <div className="flow-head">
@@ -20,39 +18,7 @@ function BigPicture() {
         compose un <b>digest</b> adapté à votre profil — sans que vous ayez à chercher.
       </p>
 
-      <div className="panel profile-card">
-        <div>
-          <div className="profile-name">{d.name}</div>
-          <div className="journal">{d.specialty}</div>
-          <div className="chips" style={{ marginTop: 10, marginBottom: 0 }}>
-            {d.interests.map((i) => (
-              <span className="chip" key={i}>{i}</span>
-            ))}
-          </div>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
-          <span className="soon">Votre profil</span>
-        </div>
-      </div>
-
-      <p className="meta">Digest du 31 mai 2026 · 2 nouveaux articles pour ce profil <span className="soon">Aperçu</span></p>
-      {digest.map((a) => (
-        <article className="result" key={a.pmid}>
-          <h3 style={{ gridTemplateColumns: "auto minmax(0,1fr)" }}>
-            <span className="match-label ml-high">Prioritaire</span>
-            <a href={pubmedUrl(a)} target="_blank" rel="noreferrer">{a.title}</a>
-          </h3>
-          <div className="journal">
-            <Badge level={a.evidence_level} />
-            {a.journal} · {a.pub_year}
-          </div>
-          <p className="abstract">{a.abstract}</p>
-          <div className="actions">
-            <span className="action">🌐 Traduire en français <span className="soon">Bientôt</span></span>
-            <span className="action">✨ Résumé IA <span className="soon">Bientôt</span></span>
-          </div>
-        </article>
-      ))}
+      <DigestMagazine data={window.XMED.digest} />
     </section>
   );
 }
