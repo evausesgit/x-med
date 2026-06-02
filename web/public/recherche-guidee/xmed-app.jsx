@@ -441,6 +441,13 @@ function App() {
   function nextStep() { setStepIdx((i) => Math.min(steps.length - 1, i + 1)); }
   function prevStep() { setStepIdx((i) => Math.max(0, i - 1)); }
 
+  useEffect(() => {
+    if (!tourActive) return;
+    const onKey = (e) => { if (e.key === "Escape") endTour(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [tourActive]);
+
   const navLinks = [
     { label: "Recherche", href: "/" },
     { label: "Digest", href: "/digest" },
