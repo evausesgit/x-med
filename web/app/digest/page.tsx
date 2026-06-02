@@ -1,73 +1,46 @@
 "use client";
 
-// Page « Digest quotidien ». L'en-tête (profil) est RÉEL (lu depuis /api/doctors) ;
-// la liste d'articles est encore un APERÇU (la génération du digest n'est pas
-// implémentée) avec actions Traduire / Résumer / Écouter en « Bientôt ».
-import { useEffect, useState } from "react";
+// Page « Digest quotidien » — rendu « magazine » (composant DigestMagazine).
+// L'EN-TÊTE est RÉEL : médecin + thèmes lus depuis /api/doctors.
+// La SÉLECTION d'articles reste un APERÇU (sampleDigest) tant que la génération
+// du digest n'est pas branchée. Voir getDigest() ci-dessous : remplacez la
+// partie `articles`/`lead` par la vraie sélection au format DigestData.
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Doctor, listDoctors } from "@/lib/api";
+import DigestMagazine from "./DigestMagazine";
+import { sampleDigest } from "./sample-data";
+import type { DigestData } from "./types";
 
-type DemoArticle = {
-  title: string;
-  journal: string;
-  year: number;
-  level: number;
-  levelLabel: string;
-  match: number;
-  matchLabel: string;
-  snippet: string;
-  tags: string[];
-};
+// Date du jour en français, ex. « Lundi 2 juin 2026 » (capitalisée).
+function todayFr(): string {
+  const s = new Intl.DateTimeFormat("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date());
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
-const ARTICLES: DemoArticle[] = [
-  {
-    title:
-      "Aspirin for the prevention of pre-eclampsia in high-risk pregnancies: an updated meta-analysis",
-    journal: "American Journal of Obstetrics & Gynecology",
-    year: 2026,
-    level: 1,
-    levelLabel: "Preuve élevée",
-    match: 94,
-    matchLabel: "Très pertinent",
-    snippet:
-      "Low-dose aspirin initiated before 16 weeks of gestation significantly reduced the incidence of pre-eclampsia in women identified as high-risk…",
-    tags: ["Pre-Eclampsia", "Aspirin", "Pregnancy, High-Risk"],
-  },
-  {
-    title:
-      "Long-term outcomes of conservative versus surgical management of deep endometriosis",
-    journal: "Human Reproduction",
-    year: 2026,
-    level: 2,
-    levelLabel: "Preuve modérée",
-    match: 88,
-    matchLabel: "Très pertinent",
-    snippet:
-      "A prospective cohort comparing medical and surgical strategies for deep infiltrating endometriosis, with pain and fertility endpoints at 5 years…",
-    tags: ["Endometriosis", "Pelvic Pain", "Fertility"],
-  },
-  {
-    title:
-      "HPV self-sampling to improve cervical cancer screening coverage: a randomized trial",
-    journal: "The Lancet",
-    year: 2026,
-    level: 1,
-    levelLabel: "Preuve élevée",
-    match: 81,
-    matchLabel: "Pertinent",
-    snippet:
-      "Offering HPV self-sampling increased screening participation among under-screened women compared with standard invitation…",
-    tags: ["Uterine Cervical Neoplasms", "Mass Screening", "Papillomavirus"],
-  },
-];
+// Construit le DigestData rendu par le composant.
+// Aujourd'hui : en-tête issu du vrai profil, articles encore en aperçu.
+// Demain : remplacer lead/articles par la sélection renvoyée par l'API.
+function getDigest(doctor: Doctor): DigestData {
+  const p = doctor.profile;
+  const themes = p
+    ? [...p.subspecialties, ...p.pathologies, ...p.mesh_terms_extra].slice(0, 6)
+    : sampleDigest.themes;
 
-function SoonAction({ icon, label }: { icon: string; label: string }) {
-  return (
-    <button type="button" className="action" disabled title="Fonctionnalité à venir">
-      <span aria-hidden>{icon}</span> {label}
-      <span className="soon">Bientôt</span>
-    </button>
-  );
+  return {
+    ...sampleDigest, // lead + articles : aperçu (sélection non implémentée)
+    date: todayFr(),
+    doctor: {
+      name: doctor.name,
+      specialty: p?.specialty_main || "Spécialité non renseignée",
+    },
+    themes: themes.length ? themes : sampleDigest.themes,
+  };
 }
 
 export default function DigestPage() {
@@ -79,27 +52,17 @@ export default function DigestPage() {
   }, []);
 
   const doctor = doctors?.[idx] ?? null;
-  const interests = doctor?.profile
-    ? [
-        ...doctor.profile.subspecialties,
-        ...doctor.profile.pathologies,
-        ...doctor.profile.mesh_terms_extra,
-      ].slice(0, 8)
-    : [];
+  const data = useMemo(
+    () => (doctor ? getDigest(doctor) : null),
+    [doctor],
+  );
 
   return (
     <main className="container">
-      <h1>Digest quotidien</h1>
-      <p className="tagline">Vos nouveaux articles, choisis pour votre profil</p>
-      <p className="subtitle">
-        Chaque matin, X-Med parcourt les nouvelles publications PubMed et
-        sélectionne celles qui comptent pour votre pratique.
-      </p>
-
       <div className="preview-banner">
-        Aperçu — l&apos;en-tête est lié à un vrai profil ; la sélection
-        d&apos;articles et les actions (traduction, résumé, écoute) arrivent
-        bientôt.
+        Aperçu — l&apos;en-tête (médecin, thèmes) est lié à un vrai profil ; la
+        sélection d&apos;articles est encore un exemple en attendant la
+        génération du digest.
       </div>
 
       {doctors !== null && doctors.length === 0 && (
@@ -111,74 +74,24 @@ export default function DigestPage() {
         </div>
       )}
 
-      {doctor && (
-        <div className="panel profile-card">
-          <div>
-            <div className="profile-name">{doctor.name}</div>
-            <div className="journal">
-              {doctor.profile?.specialty_main || "Spécialité non renseignée"}
-            </div>
-            {interests.length > 0 && (
-              <div className="chips" style={{ marginTop: 10, marginBottom: 0 }}>
-                {interests.map((i, k) => (
-                  <span className="chip" key={`${i}-${k}`}>
-                    {i}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
-            {doctors && doctors.length > 1 && (
-              <select value={idx} onChange={(e) => setIdx(Number(e.target.value))}>
-                {doctors.map((d, k) => (
-                  <option key={d.id} value={k}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-            )}
-            <Link href="/profil" className="action" style={{ textDecoration: "none" }}>
-              Modifier le profil
-            </Link>
-          </div>
+      {doctors && doctors.length > 1 && (
+        <div className="panel" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <label htmlFor="doctor-select">Profil :</label>
+          <select
+            id="doctor-select"
+            value={idx}
+            onChange={(e) => setIdx(Number(e.target.value))}
+          >
+            {doctors.map((d, k) => (
+              <option key={d.id} value={k}>
+                {d.name}
+              </option>
+            ))}
+          </select>
         </div>
       )}
 
-      <p className="meta">
-        Digest du 31 mai 2026 · {ARTICLES.length} nouveaux articles{" "}
-        <span className="soon">Aperçu</span>
-      </p>
-
-      {ARTICLES.map((a) => (
-        <article className="result" key={a.title}>
-          <h3>
-            <span className={`match-label ml-${a.match >= 85 ? "high" : "mid"}`}>
-              {a.matchLabel}
-            </span>
-            <span>{a.title}</span>
-          </h3>
-          <div className="journal">
-            <span className={`badge ev${a.level}`}>
-              Niv. {a.level} · {a.levelLabel}
-            </span>
-            {a.journal} · {a.year}
-          </div>
-          <p className="abstract">{a.snippet}</p>
-          <div className="tags">
-            {a.tags.map((t) => (
-              <span className="tag" key={t}>
-                {t}
-              </span>
-            ))}
-          </div>
-          <div className="actions">
-            <SoonAction icon="🌐" label="Traduire en français" />
-            <SoonAction icon="✨" label="Résumé IA" />
-            <SoonAction icon="🔊" label="Écouter" />
-          </div>
-        </article>
-      ))}
+      {data && <DigestMagazine data={data} />}
     </main>
   );
 }
