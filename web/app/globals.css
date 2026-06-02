@@ -680,6 +680,16 @@ button:disabled {
   margin: 8px 0 20px;
 }
 
+.error-panel {
+  border-color: #d47a69;
+  background: var(--red-soft);
+  color: #7d2418;
+}
+
+.error-panel p {
+  margin: 0;
+}
+
 .q-item {
   display: flex;
   gap: 12px;

@@ -24,13 +24,21 @@ export default function AnnotatePage() {
   const [pool, setPool] = useState<EvalPool | null>(null);
   const [annotator, setAnnotator] = useState("");
   const [loaded, setLoaded] = useState(false);
+  const [selectedQueryId, setSelectedQueryId] = useState<number | null>(null);
+  const [loadingQueryId, setLoadingQueryId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setAnnotator(localStorage.getItem("xmed_annotator") || "");
-    listEvalQueries().then((q) => {
-      setQueries(q);
-      setLoaded(true);
-    });
+    listEvalQueries()
+      .then((q) => {
+        setQueries(q);
+        setLoaded(true);
+      })
+      .catch(() => {
+        setError("Impossible de charger les lignes à annoter.");
+        setLoaded(true);
+      });
   }, []);
 
   function saveAnnotator(v: string) {
@@ -39,13 +47,28 @@ export default function AnnotatePage() {
   }
 
   async function openQuery(qid: number) {
+    setSelectedQueryId(qid);
+    setLoadingQueryId(qid);
+    setError(null);
     setPool(null);
-    setPool(await getEvalPool(qid));
+    try {
+      setPool(await getEvalPool(qid));
+    } catch {
+      setError("Impossible d'ouvrir cette ligne d'annotation.");
+    } finally {
+      setLoadingQueryId(null);
+    }
   }
 
   async function grade(c: EvalCandidate, g: number) {
     if (!pool) return;
-    await annotate(pool.query_id, c.pmid, g, annotator || undefined);
+    setError(null);
+    try {
+      await annotate(pool.query_id, c.pmid, g, annotator || undefined);
+    } catch {
+      setError("La note n'a pas pu être enregistrée.");
+      return;
+    }
     // maj locale
     setPool({
       ...pool,
@@ -89,6 +112,12 @@ export default function AnnotatePage() {
         />
       </div>
 
+      {error && (
+        <div className="panel error-panel">
+          <p>{error}</p>
+        </div>
+      )}
+
       {loaded && queries.length === 0 && (
         <div className="panel">
           <p style={{ margin: 0 }}>
@@ -106,13 +135,17 @@ export default function AnnotatePage() {
             const done = q.n_annotated >= q.n_candidates && q.n_candidates > 0;
             return (
               <button
+                type="button"
                 key={q.query_id}
-                className={`q-item ${pool?.query_id === q.query_id ? "on" : ""}`}
+                className={`q-item ${selectedQueryId === q.query_id ? "on" : ""}`}
                 onClick={() => openQuery(q.query_id)}
+                aria-pressed={selectedQueryId === q.query_id}
               >
                 <span className="q-text">{q.query}</span>
                 <span className={`q-prog ${done ? "q-done" : ""}`}>
-                  {q.n_annotated}/{q.n_candidates}
+                  {loadingQueryId === q.query_id
+                    ? "Chargement..."
+                    : `${q.n_annotated}/${q.n_candidates}`}
                 </span>
               </button>
             );
@@ -131,6 +164,7 @@ export default function AnnotatePage() {
               <div className="grade-row">
                 {GRADES.map((gr) => (
                   <button
+                    type="button"
                     key={gr.g}
                     className={`grade-btn ${gr.cls} ${c.grade === gr.g ? "on" : ""}`}
                     onClick={() => grade(c, gr.g)}
