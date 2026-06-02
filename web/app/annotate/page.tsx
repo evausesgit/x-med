@@ -3,7 +3,7 @@
 // Page d'annotation in-site du gold set : on choisit une requête, on juge chaque
 // article candidat 0/1/2 (boutons), enregistré en base (/eval/annotate).
 // Voir bench/GUIDE_ANNOTATION.md.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   annotate,
   EvalCandidate,
@@ -27,6 +27,7 @@ export default function AnnotatePage() {
   const [selectedQueryId, setSelectedQueryId] = useState<number | null>(null);
   const [loadingQueryId, setLoadingQueryId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const poolRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     setAnnotator(localStorage.getItem("xmed_annotator") || "");
@@ -52,7 +53,11 @@ export default function AnnotatePage() {
     setError(null);
     setPool(null);
     try {
-      setPool(await getEvalPool(qid));
+      const nextPool = await getEvalPool(qid);
+      setPool(nextPool);
+      window.requestAnimationFrame(() => {
+        poolRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
     } catch {
       setError("Impossible d'ouvrir cette ligne d'annotation.");
     } finally {
@@ -155,10 +160,13 @@ export default function AnnotatePage() {
 
       {/* Candidats de la requête sélectionnée */}
       {pool && (
-        <section style={{ marginTop: 8 }}>
+        <section ref={poolRef} className="annotation-pool">
           <p className="meta">
             Requête : <b>{pool.query}</b> · {pool.candidates.length} articles à juger
           </p>
+          <div className="annotation-help">
+            Cliquez sur une note pour annoter l'article.
+          </div>
           {pool.candidates.map((c) => (
             <article className="result" key={c.pmid}>
               <div className="grade-row">

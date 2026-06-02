@@ -728,6 +728,17 @@ button:disabled {
   color: #1d5b43;
 }
 
+.annotation-pool {
+  scroll-margin-top: 18px;
+}
+
+.annotation-help {
+  margin: -8px 2px 14px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 650;
+}
+
 .grade-row {
   display: flex;
   flex-wrap: wrap;
