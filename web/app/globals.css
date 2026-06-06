@@ -415,6 +415,21 @@ button:disabled {
   color: var(--muted);
 }
 
+.ml-off {
+  background: #f6ead9;
+  color: #8a5a1c;
+}
+
+.notice {
+  margin: 4px 0 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f6ead9;
+  color: #6f4a17;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
 .pager {
   display: flex;
   gap: 8px;

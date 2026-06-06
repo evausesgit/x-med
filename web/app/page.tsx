@@ -6,8 +6,8 @@ import {
   EmbeddingModelInfo,
   listModels,
   meshAutocomplete,
-  searchHybrid,
   searchMesh,
+  searchSemantic,
   SearchResponse,
 } from "@/lib/api";
 
@@ -28,20 +28,32 @@ function Badge({ level }: { level: number | null }) {
   );
 }
 
-// Barre de « match » pour la recherche par sens.
-// Le score brut renvoyé par l'API hybride est un score de fusion RRF
-// (Reciprocal Rank Fusion) : il plafonne vers ~0,03 et ne se lit PAS comme un
-// pourcentage de certitude. On affiche donc une pertinence *relative*,
-// normalisée au meilleur résultat de la page, + un libellé qualitatif.
-function MatchBar({ score, max }: { score: number; max: number }) {
-  const rel = max > 0 ? score / max : 0;
-  const pct = Math.round(rel * 100);
-  const tier = rel >= 0.85 ? "high" : rel >= 0.6 ? "mid" : "low";
-  const label = rel >= 0.85 ? "Très pertinent" : rel >= 0.6 ? "Pertinent" : "Lié";
+// Seuils de pertinence pour la recherche par sens (similarité cosinus bge-m3).
+// ⚠ Provisoires : à caler sur le gold set annoté par les médecins (/annotate).
+const SEM_RELEVANT = 0.5; // en-dessous : on prévient que rien n'est vraiment pertinent
+const SEM_FLOOR = 0.45; // en-dessous : hors périmètre couvert
+
+// Barre de pertinence pour la recherche par sens.
+// En sémantique pur, `score` EST la similarité cosinus (0–1) renvoyée par
+// /search/semantic : un signal ABSOLU et interprétable. On l'affiche tel quel
+// (plus de normalisation au meilleur de la page, qui faisait passer tous les
+// résultats pour « ~100 % Très pertinent »).
+function MatchBar({ score }: { score: number }) {
+  const pct = Math.round(score * 100);
+  const tier =
+    score >= 0.6 ? "high" : score >= SEM_RELEVANT ? "mid" : score >= SEM_FLOOR ? "low" : "off";
+  const label =
+    score >= 0.6
+      ? "Très pertinent"
+      : score >= SEM_RELEVANT
+        ? "Pertinent"
+        : score >= SEM_FLOOR
+          ? "Lié"
+          : "Hors périmètre";
   return (
     <div
       className="match"
-      title={`Score de fusion RRF : ${score.toFixed(4)} — la barre indique la pertinence relative au meilleur résultat de la page (ce n'est pas un % de certitude).`}
+      title={`Similarité de sens : ${score.toFixed(3)} (0–1, signal absolu, non normalisé).`}
     >
       <span className={`match-label ml-${tier}`}>{label}</span>
       <div className="match-bar">
@@ -106,7 +118,7 @@ export default function Home() {
           setLoading(false);
           return;
         }
-        res = await searchHybrid(q.trim(), model, PAGE);
+        res = await searchSemantic(q.trim(), model, PAGE);
       } else {
         res = await searchMesh({
           q: q.trim() || undefined,
@@ -138,11 +150,14 @@ export default function Home() {
   const selectedModel = models.find((m) => m.name === model);
   const noEmbeddings = mode === "semantic" && selectedModel && selectedModel.embedded === 0;
 
-  // Meilleur score de la page : sert à normaliser les barres de « match ».
-  const maxScore =
+  // Meilleure similarité de la page (mode sémantique) : sert à prévenir quand
+  // rien n'est vraiment pertinent, sans normaliser les barres.
+  const topScore =
     data && data.results.length
       ? Math.max(0, ...data.results.map((r) => r.score ?? 0))
       : 0;
+  const weakSemantic =
+    mode === "semantic" && data !== null && data.results.length > 0 && topScore < SEM_RELEVANT;
 
   return (
     <main className="container">
@@ -327,6 +342,16 @@ export default function Home() {
               ` · affichage ${offset + 1}–${Math.min(offset + PAGE, data.total)}`}
           </p>
 
+          {weakSemantic && (
+            <p className="notice">
+              Aucun article vraiment pertinent pour cette requête. Le périmètre
+              couvert par la recherche sémantique est encore limité (surtout
+              gynéco-obstétrique &amp; ophtalmologie) — les résultats ci-dessous
+              sont les plus proches, pas forcément adaptés. Essayez le mode
+              «&nbsp;Mots-clés&nbsp;».
+            </p>
+          )}
+
           {data.results.map((r: ArticleResult, i: number) => (
             <article className="result" key={r.pmid}>
               <h3>
@@ -340,8 +365,8 @@ export default function Home() {
                 {r.journal || "Journal inconnu"}
                 {r.pub_year ? ` · ${r.pub_year}` : ""}
               </div>
-              {r.score != null && maxScore > 0 && (
-                <MatchBar score={r.score} max={maxScore} />
+              {mode === "semantic" && r.score != null && (
+                <MatchBar score={r.score} />
               )}
               {r.abstract_snippet && (
                 <p className="abstract">{r.abstract_snippet}</p>
