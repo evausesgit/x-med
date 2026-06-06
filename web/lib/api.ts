@@ -13,7 +13,9 @@ export interface ArticleResult {
   doi: string | null;
   score: number | null;
   pubmed_url: string;
-  explanation: ArticleExplanation;
+  // Optionnel pendant les déploiements où le frontend et l'API ne basculent
+  // pas exactement au même instant.
+  explanation?: ArticleExplanation;
 }
 
 export interface ArticleExplanation {

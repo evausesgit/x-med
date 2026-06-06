@@ -66,6 +66,8 @@ function MatchBar({ score }: { score: number }) {
 
 function Explanation({ article }: { article: ArticleResult }) {
   const explanation = article.explanation;
+  if (!explanation) return null;
+
   const hasExplanation =
     explanation.concepts.length > 0 ||
     explanation.population ||
