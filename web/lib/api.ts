@@ -80,6 +80,23 @@ export async function searchHybrid(
   return res.json();
 }
 
+// Recherche « par sens » pure : plus proches voisins par similarité cosinus.
+// Contrairement à /search/hybrid, le `score` renvoyé est la similarité cosinus
+// (0–1), un signal ABSOLU et interprétable — pas un score de fusion RRF.
+export async function searchSemantic(
+  query: string,
+  model: string,
+  k = 20,
+): Promise<SearchResponse> {
+  const res = await fetch(`${API_BASE}/search/semantic`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query, model, k }),
+  });
+  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  return res.json();
+}
+
 // Leaderboard du benchmark (table bench_*), pour la page « Évaluation ».
 export interface BenchRow {
   model: string;
