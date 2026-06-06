@@ -6,6 +6,8 @@ export interface LocalizedText {
   title: string;
   /** Chapô / accroche (1–2 phrases) */
   stand: string;
+  /** Abstract complet (révélé au clic sur la carte) */
+  abstract: string;
 }
 
 export interface Article {
@@ -27,6 +29,8 @@ export interface Article {
   why: string[];
   /** Texte lu à voix haute (synthèse vocale FR) */
   spoken: string;
+  /** Termes MeSH (chips, révélés au clic sur la carte) */
+  mesh: string[];
 }
 
 export interface DigestData {

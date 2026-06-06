@@ -8,7 +8,7 @@
 
 import { useState, useEffect } from "react";
 import "./digest.css";
-import type { DigestData, Article } from "./types";
+import type { DigestData, Article, LocalizedText } from "./types";
 
 /* ---------- icons ---------- */
 const Ic = {
@@ -137,6 +137,33 @@ function Actions({ lang, setLang, iaOpen, setIaOpen, playing, onAudio, dark }: {
   );
 }
 
+/* ---------- abstract + MeSH (révélé au clic sur la carte) ---------- */
+function Detail({ t, mesh, open, onToggle, dark }: {
+  t: LocalizedText; mesh: string[]; open: boolean; onToggle: () => void; dark?: boolean;
+}) {
+  const k = dark ? "on-ink" : "";
+  return (
+    <>
+      <button type="button" className={`cue ${k} ${open ? "on" : ""}`} onClick={onToggle} aria-expanded={open}>
+        <span className="cv">{Ic.arrow}</span>
+        {open ? "Masquer l’abstract" : "Abstract complet & termes MeSH"}
+      </button>
+      {open && (
+        <div className={`reveal ia-enter ${k}`}>
+          <div className="abstract">{t.abstract}</div>
+          {mesh.length > 0 && (
+            <div className="mesh">
+              {mesh.map((m) => (
+                <a key={m} className="mchip" href={PUB(m)} target="_blank" rel="noreferrer">{m}</a>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
 /* ---------- gauge ring ---------- */
 function Gauge({ pct }: { pct: number }) {
   const [p, setP] = useState(0);
@@ -153,9 +180,13 @@ function Gauge({ pct }: { pct: number }) {
 function Lead({ a, playing, onAudio }: { a: Article; playing: boolean; onAudio: () => void }) {
   const [lang, setLang] = useState<"fr" | "en">("fr");
   const [iaOpen, setIaOpen] = useState(false);
+  const [open, setOpen] = useState(false);
   const t = a[lang];
+  const cardClick = (e: React.MouseEvent) => {
+    if (!(e.target as HTMLElement).closest("button, a")) setOpen((o) => !o);
+  };
   return (
-    <section className="lead">
+    <section className="lead" onClick={cardClick} aria-expanded={open}>
       <div className="lead-grid">
         <div>
           <div className="lk">
@@ -170,6 +201,7 @@ function Lead({ a, playing, onAudio }: { a: Article; playing: boolean; onAudio: 
             <span className="m">{a.journal} · {a.year}</span>
             <span className="m">Lecture {a.read}</span>
           </div>
+          <Detail t={t} mesh={a.mesh} open={open} onToggle={() => setOpen((o) => !o)} dark />
           <Actions lang={lang} setLang={setLang} iaOpen={iaOpen} setIaOpen={setIaOpen} playing={playing} onAudio={onAudio} dark />
           {iaOpen && <IASummary bullets={a.why} dark />}
           {playing && <AudioBar playing={playing} onToggle={onAudio} spoken={a.spoken} dark />}
@@ -190,13 +222,17 @@ function Lead({ a, playing, onAudio }: { a: Article; playing: boolean; onAudio: 
 function Item({ a, n, playing, onAudio }: { a: Article; n: number; playing: boolean; onAudio: () => void }) {
   const [lang, setLang] = useState<"fr" | "en">("fr");
   const [iaOpen, setIaOpen] = useState(false);
+  const [open, setOpen] = useState(false);
   const [bar, setBar] = useState(0);
   useEffect(() => { const t = setTimeout(() => setBar(a.match), 250); return () => clearTimeout(t); }, [a.match]);
   const t = a[lang];
   const tier = a.match >= 85 ? "" : a.match >= 70 ? "mid" : "low";
   const lab = a.match >= 85 ? "Très pertinent" : a.match >= 70 ? "Pertinent" : "Lié";
+  const cardClick = (e: React.MouseEvent) => {
+    if (!(e.target as HTMLElement).closest("button, a")) setOpen((o) => !o);
+  };
   return (
-    <article className="item">
+    <article className="item" onClick={cardClick} aria-expanded={open}>
       <div className="top">
         <span className="no">{String(n).padStart(2, "0")}</span>
         <span className={`relchip ${tier}`}><span className="d" /> {lab}</span>
@@ -213,6 +249,7 @@ function Item({ a, n, playing, onAudio }: { a: Article; n: number; playing: bool
         <div className="relbar"><span style={{ width: bar + "%" }} /></div>
         <span className="relpct">{a.match}%</span>
       </div>
+      <Detail t={t} mesh={a.mesh} open={open} onToggle={() => setOpen((o) => !o)} />
       <Actions lang={lang} setLang={setLang} iaOpen={iaOpen} setIaOpen={setIaOpen} playing={playing} onAudio={onAudio} />
       {iaOpen && <IASummary bullets={a.why} />}
       {playing && <AudioBar playing={playing} onToggle={onAudio} spoken={a.spoken} />}

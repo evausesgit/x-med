@@ -309,7 +309,42 @@
 .xmed-digest .readmore { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--accent); text-decoration: none; }
 .xmed-digest .readmore:hover { gap: 9px; }
 .xmed-digest .lead .readmore { color: var(--glow-2); }
+/* ---- abstract + MeSH révélés au clic sur la carte ---- */
+.xmed-digest .lead, .xmed-digest .item { cursor: pointer; }
+.xmed-digest .cue {
+  display: inline-flex; align-items: center; gap: 8px; margin-top: 14px;
+  padding: 6px 13px; border-radius: 999px; border: 1px dashed var(--line-2);
+  background: transparent; cursor: pointer;
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--muted); transition: border-color .2s, color .2s;
+}
+.xmed-digest .cue:hover { border-color: var(--accent); color: var(--accent); }
+.xmed-digest .cue .cv { display: inline-flex; }
+.xmed-digest .cue .cv svg { transition: transform .25s; transform: rotate(90deg); }
+.xmed-digest .cue.on .cv svg { transform: rotate(-90deg); }
+.xmed-digest .cue.on-ink { border-color: var(--ink-line); color: var(--on-ink-mut); }
+.xmed-digest .cue.on-ink:hover { border-color: var(--glow); color: var(--glow-2); }
+
+.xmed-digest .reveal { margin-top: 14px; }
+.xmed-digest .reveal .abstract {
+  white-space: pre-line; font-size: 14px; line-height: 1.6; color: #2c2820;
+  padding: 14px 16px; border-radius: 12px;
+  border: 1px solid var(--line-2); background: var(--paper);
+}
+.xmed-digest .reveal.on-ink .abstract { color: #eef4ee; border-color: var(--ink-line); background: rgba(255,255,255,0.04); }
+.xmed-digest .reveal .mesh { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+.xmed-digest .reveal .mchip {
+  padding: 4px 11px; border-radius: 999px; border: 1px solid var(--line-2);
+  background: var(--paper); font-family: var(--mono); font-size: 11px;
+  letter-spacing: 0.03em; color: var(--muted); text-decoration: none;
+  transition: border-color .2s, color .2s;
+}
+.xmed-digest .reveal .mchip:hover { border-color: var(--accent); color: var(--accent); }
+.xmed-digest .reveal.on-ink .mchip { border-color: var(--ink-line); background: rgba(255,255,255,0.05); color: var(--on-ink-mut); }
+.xmed-digest .reveal.on-ink .mchip:hover { border-color: var(--glow); color: var(--glow-2); }
+
 @media (prefers-reduced-motion: reduce) {
 .xmed-digest .relbar > span, .xmed-digest .gauge { transition: none; }
 .xmed-digest .live .dot, .xmed-digest .audiobar.playing .wave i, .xmed-digest .spin, .xmed-digest .shimmer-line { animation: none; }
+.xmed-digest .cue .cv svg { transition: none; }
 }
