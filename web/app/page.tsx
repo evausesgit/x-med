@@ -90,7 +90,11 @@ export default function Home() {
   useEffect(() => {
     listModels().then((ms) => {
       setModels(ms);
-      const ready = ms.find((m) => m.embedded > 0) || ms[0];
+      // bge-m3 par défaut : multilingue, adapté aux requêtes françaises.
+      const ready =
+        ms.find((m) => m.name === "bge_m3" && m.embedded > 0) ||
+        ms.find((m) => m.embedded > 0) ||
+        ms[0];
       if (ready) setModel(ready.name);
     });
   }, []);
