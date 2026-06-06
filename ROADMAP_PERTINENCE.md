@@ -19,7 +19,7 @@ Le système actuel constitue la baseline `A`. Toute évolution doit être compar
 | Recherche plein texte | Toujours disponible dans l'API et le benchmark | La laisser hors du parcours français tant qu'une approche adaptée n'est pas validée | Basse |
 | Classement final | Ordre produit directement par `bge-m3` | Ajouter un reranker médical ou cross-encoder sur les candidats | Haute |
 | Métadonnées | Année, MeSH, type d'étude et niveau de preuve stockés | Permettre filtres et bonus explicites selon la question | Moyenne |
-| Explicabilité | Score de similarité et informations de l'article | Indiquer pourquoi l'article correspond : concepts, population, intervention et type d'étude | Moyenne |
+| Explicabilité | Score de similarité + panneau factuel : concepts MeSH, population, intervention et type d'étude quand identifiables | Evaluer la qualité des explications avec les médecins, puis les relier au futur reranker | Moyenne |
 | Suivi terrain | Annotation médicale dédiée | Journaliser anonymement requêtes, clics et jugements utile ou non pertinent | Moyenne |
 | Comparaison | Modèles comparés dans le benchmark | Comparer `A` actuel, `B` enrichi, `C` expansion de requête et `D` reranking | Haute |
 

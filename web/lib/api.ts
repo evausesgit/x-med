@@ -13,6 +13,14 @@ export interface ArticleResult {
   doi: string | null;
   score: number | null;
   pubmed_url: string;
+  explanation: ArticleExplanation;
+}
+
+export interface ArticleExplanation {
+  concepts: string[];
+  population: string | null;
+  intervention: string | null;
+  study_type: string | null;
 }
 
 export interface SearchResponse {

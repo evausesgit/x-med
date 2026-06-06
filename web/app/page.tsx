@@ -64,6 +64,54 @@ function MatchBar({ score }: { score: number }) {
   );
 }
 
+function Explanation({ article }: { article: ArticleResult }) {
+  const explanation = article.explanation;
+  const hasExplanation =
+    explanation.concepts.length > 0 ||
+    explanation.population ||
+    explanation.intervention ||
+    explanation.study_type;
+
+  if (!hasExplanation) return null;
+
+  return (
+    <details className="explanation">
+      <summary>Pourquoi ce résultat ?</summary>
+      <p className="explanation-note">
+        Indices issus de l&apos;indexation PubMed et des mentions repérées dans le
+        résumé. Ils expliquent le contenu rapproché de la question, sans constituer
+        une validation clinique.
+      </p>
+      <dl className="explanation-grid">
+        {explanation.concepts.length > 0 && (
+          <div>
+            <dt>Concepts</dt>
+            <dd>{explanation.concepts.join(" · ")}</dd>
+          </div>
+        )}
+        {explanation.population && (
+          <div>
+            <dt>Population</dt>
+            <dd>{explanation.population}</dd>
+          </div>
+        )}
+        {explanation.intervention && (
+          <div>
+            <dt>Intervention</dt>
+            <dd>{explanation.intervention}</dd>
+          </div>
+        )}
+        {explanation.study_type && (
+          <div>
+            <dt>Type d&apos;étude</dt>
+            <dd>{explanation.study_type}</dd>
+          </div>
+        )}
+      </dl>
+    </details>
+  );
+}
+
 type Mode = "keyword" | "semantic";
 
 export default function Home() {
@@ -375,6 +423,7 @@ export default function Home() {
               {r.abstract_snippet && (
                 <p className="abstract">{r.abstract_snippet}</p>
               )}
+              <Explanation article={r} />
               {r.mesh_terms && r.mesh_terms.length > 0 && (
                 <div className="tags">
                   {r.mesh_terms.slice(0, 8).map((t) => (
