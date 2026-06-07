@@ -1,0 +1,5380 @@
+<!DOCTYPE html>
+<!-- saved from url=(0193)https://research.google/blog/unlocking-dependable-responses-with-gemini-enterprise-agent-platforms-agentic-rag/?utm_source=twitter&utm_medium=social&utm_campaign=social_post&utm_content=gr-acct -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+    
+        
+<link rel="canonical" href="https://research.google/blog/unlocking-dependable-responses-with-gemini-enterprise-agent-platforms-agentic-rag/"><meta property="og:title" content="Unlocking dependable responses with Gemini Enterprise Agent Platform’s Agentic RAG"><meta property="og:url" content="https://research.google/blog/unlocking-dependable-responses-with-gemini-enterprise-agent-platforms-agentic-rag/"><meta property="og:image" content="https://storage.googleapis.com/gweb-research2023-media/images/HO_previewImage1.width-800.format-jpeg.jpg"><meta property="og:image:secure_url" content="https://storage.googleapis.com/gweb-research2023-media/images/HO_previewImage1.width-800.format-jpeg.jpg"><meta property="og:type" content="Website">
+
+    
+    
+    <title>Unlocking dependable responses with Gemini Enterprise Agent Platform’s Agentic RAG</title>
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1 viewport-fit=cover">
+
+    
+    
+
+    <link rel="icon" type="image/png" href="https://www.gstatic.com/images/branding/googleg_gradient/1x/googleg_gradient_standard_20dp.png">
+
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com/">
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
+    <link rel="preload" href="./googlesearch_files/css2" as="style">
+    <link rel="stylesheet" href="./googlesearch_files/css2">
+    <link rel="preload" href="./googlesearch_files/css2(1)" as="style">
+    <link rel="stylesheet" href="./googlesearch_files/css2(1)">
+    <link href="./googlesearch_files/css2(2)" rel="stylesheet">
+    <link rel="preload" href="./googlesearch_files/css2(3)" as="style">
+    <link rel="stylesheet" href="./googlesearch_files/css2(3)">
+
+    
+    <link href="./googlesearch_files/cookienotificationbar.min.css" rel="stylesheet">
+    <link href="./googlesearch_files/glue-material.min.css" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="./googlesearch_files/googleresearch.css">
+    
+    
+    
+
+    
+    
+      <script type="text/javascript" async="" src="./googlesearch_files/analytics.js"></script><script type="text/javascript" async="" src="./googlesearch_files/js"></script><script async="" src="./googlesearch_files/gtm.js"></script><script type="text/javascript" id="www-widgetapi-script" src="./googlesearch_files/www-widgetapi.js" async=""></script><script id="analyticsScript" data-blog-publish-date="20260605" data-blog-word-count="1570">
+        window.dataLayer = window.dataLayer || [];
+        const blogData = document.querySelector('#analyticsScript')
+
+        dataLayer.push({
+          publishDate: blogData?.dataset.blogPublishDate,
+          wordCount: blogData?.dataset.blogWordCount,
+        });
+      </script>
+    
+
+    <!-- Google Tag Manager -->
+    <script>
+      function glueCookieNotificationBarLoaded() {
+        (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+        new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+        j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+        'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+        })(window,document,'script','dataLayer','GTM-K8QBZ7Q');
+      }
+    </script>
+    <!-- End Google Tag Manager -->
+</head>
+
+<body class="js-google-tag-wrapper" data-gt-page-path="https://research.google/blog/unlocking-dependable-responses-with-gemini-enterprise-agent-platforms-agentic-rag/" data-env="production" style=""><div class="glue-cookie-notification-bar" id="glue-cookie-notification-bar-1" aria-labelledby="glue-cookie-notification-bar-1-label" role="region" data-nosnippet="" tabindex="-1" style="font-size: 1rem;"><p class="glue-cookie-notification-bar__text"><span id="glue-cookie-notification-bar-1-label">research.google uses cookies from Google to deliver and enhance the quality of its services and to analyze traffic. </span><a href="https://policies.google.com/technologies/cookies?hl=en" class="glue-cookie-notification-bar__more" rel="noopener" aria-describedby="glue-cookie-notification-bar-1-label" target="_blank" aria-label="Learn more about how Google uses cookies. Opens in a new tab.">Learn more</a></p><button class="glue-cookie-notification-bar__accept">Understood</button></div>
+    
+    <div class="button-group skip-link">
+      <a href="https://research.google/blog/unlocking-dependable-responses-with-gemini-enterprise-agent-platforms-agentic-rag/?utm_source=twitter&amp;utm_medium=social&amp;utm_campaign=social_post&amp;utm_content=gr-acct#page-content" class="glue-button glue-button--high-emphasis">Skip to main content</a>
+    </div>
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-K8QBZ7Q"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    <!-- End Google Tag Manager (noscript) -->
+    
+    
+      
+
+
+
+
+  
+    
+    
+      
+        
+  <site-nav>
+    <header class="site-navigation-isolation header glue-header glue-header--no-cta deepai-header js-header js-site-navigation partial-show">
+      <div class="header-container">
+        <div class="header__background mobile tablet"></div>
+        
+          <div class="header flyout__desktop-container">
+            
+              
+                
+<nav class="header flyout desktop" data-section="Research" aria-labelledby="Research">
+  <div class="flyout__container grid">
+    
+    <div class="flyout__intro">
+      <div>
+        <h2 class="headline-6">Explore our many areas of focus</h2>
+        
+      </div>
+      
+        <div class="button-group button-group--compact">
+          <div class="button-group__buttons">
+            
+              
+
+
+
+  
+  
+    <a href="https://research.google/research-areas/" class="glue-button glue-button--medium-emphasis cta-small" data-gtm-event="nav_select" data-event-nav-type="subheader" data-event-nav-name="Research - Explore all research areas">
+      <div class="button__label">
+        
+          Explore all research areas
+        
+      </div>
+    </a>
+  
+
+
+            
+          </div>
+        </div>
+      
+    </div>
+
+    
+    <div class="flyout__content-desktop">
+      <div class="flyout__subnav subnav subnav--3-column">
+        
+          <div class="subnav__column">
+            <div class="subnav__content">
+              
+                <div class="subnav__header">
+                  
+                    <div class="cta-small">Applied AI &amp; sciences</div>
+                  
+                  
+                </div>
+              
+
+              
+              
+                <div class="subnav__links">
+                  
+                    
+                      
+                      <a class="subnav__link cta-small " href="https://research.google/research-areas/google-earth-ai/">
+                        
+                          <div class="subnav__link-image subnav__link-image--small">
+                            <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/earth_AI_nav.svg" class="image image--svg picture__image " loading="lazy" alt="earth_AI_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                          </div>
+                        
+                        <div class="subnav__link-text">
+                          <div class="cta-small">Earth AI</div>
+                          <div class="small-text"></div>
+                        </div>
+                      </a>
+                      
+                    
+                  
+                    
+                      
+                      <a class="subnav__link cta-small " href="https://research.google/research-areas/health-ai/">
+                        
+                          <div class="subnav__link-image subnav__link-image--small">
+                            <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/health_AI_nav.svg" class="image image--svg picture__image " loading="lazy" alt="health_AI_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                          </div>
+                        
+                        <div class="subnav__link-text">
+                          <div class="cta-small">Health AI</div>
+                          <div class="small-text"></div>
+                        </div>
+                      </a>
+                      
+                    
+                  
+                    
+                      
+                      <a class="subnav__link cta-small " href="https://research.google/research-areas/science-ai/">
+                        
+                          <div class="subnav__link-image subnav__link-image--small">
+                            <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/science_AI_nav.svg" class="image image--svg picture__image " loading="lazy" alt="science_AI_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                          </div>
+                        
+                        <div class="subnav__link-text">
+                          <div class="cta-small">Science AI</div>
+                          <div class="small-text"></div>
+                        </div>
+                      </a>
+                      
+                    
+                  
+                    
+                      
+                      <a class="subnav__link cta-small " href="https://research.google/research-areas/sustainability-crisis-resilience/">
+                        
+                          <div class="subnav__link-image subnav__link-image--small">
+                            <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/sustainability_crisis_resilience_nav.svg" class="image image--svg picture__image " loading="lazy" alt="sustainability_crisis_resilience_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                          </div>
+                        
+                        <div class="subnav__link-text">
+                          <div class="cta-small">Sustainability &amp; crisis resilience</div>
+                          <div class="small-text"></div>
+                        </div>
+                      </a>
+                      
+                    
+                  
+                </div>
+              
+
+              
+              
+            </div>
+          </div>
+        
+          <div class="subnav__column">
+            <div class="subnav__content">
+              
+                <div class="subnav__header">
+                  
+                    <div class="cta-small">Foundational ML &amp; algorithms</div>
+                  
+                  
+                </div>
+              
+
+              
+              
+                <div class="subnav__links">
+                  
+                    
+                      
+                      <a class="subnav__link cta-small " href="https://research.google/research-areas/algorithms-and-theory/">
+                        
+                          <div class="subnav__link-image subnav__link-image--small">
+                            <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/algorithms_theory_nav.svg" class="image image--svg picture__image " loading="lazy" alt="algorithms_theory_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                          </div>
+                        
+                        <div class="subnav__link-text">
+                          <div class="cta-small">Algorithms &amp; theory</div>
+                          <div class="small-text"></div>
+                        </div>
+                      </a>
+                      
+                    
+                  
+                    
+                      
+                      <a class="subnav__link cta-small " href="https://research.google/research-areas/information-retrieval/">
+                        
+                          <div class="subnav__link-image subnav__link-image--small">
+                            <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/information_retrieval_nav.svg" class="image image--svg picture__image " loading="lazy" alt="information_retrieval_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                          </div>
+                        
+                        <div class="subnav__link-text">
+                          <div class="cta-small">Information retrieval</div>
+                          <div class="small-text"></div>
+                        </div>
+                      </a>
+                      
+                    
+                  
+                    
+                      
+                      <a class="subnav__link cta-small " href="https://research.google/research-areas/machine-intelligence/">
+                        
+                          <div class="subnav__link-image subnav__link-image--small">
+                            <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/machine_intelligence_nav.svg" class="image image--svg picture__image " loading="lazy" alt="machine_intelligence_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                          </div>
+                        
+                        <div class="subnav__link-text">
+                          <div class="cta-small">Machine intelligence</div>
+                          <div class="small-text"></div>
+                        </div>
+                      </a>
+                      
+                    
+                  
+                    
+                      
+                      <a class="subnav__link cta-small " href="https://research.google/research-areas/machine-perception/">
+                        
+                          <div class="subnav__link-image subnav__link-image--small">
+                            <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/machine_perception_nav.svg" class="image image--svg picture__image " loading="lazy" alt="machine_perception_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                          </div>
+                        
+                        <div class="subnav__link-text">
+                          <div class="cta-small">Machine perception</div>
+                          <div class="small-text"></div>
+                        </div>
+                      </a>
+                      
+                    
+                  
+                    
+                      
+                      <a class="subnav__link cta-small " href="https://research.google/research-areas/natural-language-processing/">
+                        
+                          <div class="subnav__link-image subnav__link-image--small">
+                            <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/NLP_nav.svg" class="image image--svg picture__image " loading="lazy" alt="NLP_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                          </div>
+                        
+                        <div class="subnav__link-text">
+                          <div class="cta-small">Natural language processing</div>
+                          <div class="small-text"></div>
+                        </div>
+                      </a>
+                      
+                    
+                  
+                </div>
+              
+
+              
+              
+            </div>
+          </div>
+        
+          <div class="subnav__column">
+            <div class="subnav__content">
+              
+                <div class="subnav__header">
+                  
+                    <div class="cta-small">People, systems &amp; quantum AI</div>
+                  
+                  
+                </div>
+              
+
+              
+              
+                <div class="subnav__links">
+                  
+                    
+                      
+                      <a class="subnav__link cta-small " href="https://research.google/research-areas/human-computer-interaction-and-visualization/">
+                        
+                          <div class="subnav__link-image subnav__link-image--small">
+                            <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/human_computer_interaction_nav.svg" class="image image--svg picture__image " loading="lazy" alt="human_computer_interaction_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                          </div>
+                        
+                        <div class="subnav__link-text">
+                          <div class="cta-small">Human-computer interaction and visualization</div>
+                          <div class="small-text"></div>
+                        </div>
+                      </a>
+                      
+                    
+                  
+                    
+                      
+                      <a class="subnav__link cta-small " href="https://research.google/research-areas/networking/">
+                        
+                          <div class="subnav__link-image subnav__link-image--small">
+                            <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/networking_nav.svg" class="image image--svg picture__image " loading="lazy" alt="networking_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                          </div>
+                        
+                        <div class="subnav__link-text">
+                          <div class="cta-small">Networking</div>
+                          <div class="small-text"></div>
+                        </div>
+                      </a>
+                      
+                    
+                  
+                    
+                      
+                      <a class="subnav__link cta-small " href="https://research.google/research-areas/quantum-computing/">
+                        
+                          <div class="subnav__link-image subnav__link-image--small">
+                            <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/quantum_AI_nav.svg" class="image image--svg picture__image " loading="lazy" alt="quantum_AI_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                          </div>
+                        
+                        <div class="subnav__link-text">
+                          <div class="cta-small">Quantum AI</div>
+                          <div class="small-text"></div>
+                        </div>
+                      </a>
+                      
+                    
+                  
+                    
+                      
+                      <a class="subnav__link cta-small " href="https://research.google/research-areas/responsible-ai/">
+                        
+                          <div class="subnav__link-image subnav__link-image--small">
+                            <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/responsible_AI_nav.svg" class="image image--svg picture__image " loading="lazy" alt="responsible_AI_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                          </div>
+                        
+                        <div class="subnav__link-text">
+                          <div class="cta-small">Responsible AI</div>
+                          <div class="small-text"></div>
+                        </div>
+                      </a>
+                      
+                    
+                  
+                    
+                      
+                      <a class="subnav__link cta-small " href="https://research.google/research-areas/anti-abuse/">
+                        
+                          <div class="subnav__link-image subnav__link-image--small">
+                            <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/anti_abuse_nav.svg" class="image image--svg picture__image " loading="lazy" alt="anti_abuse_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                          </div>
+                        
+                        <div class="subnav__link-text">
+                          <div class="cta-small">Anti abuse</div>
+                          <div class="small-text"></div>
+                        </div>
+                      </a>
+                      
+                    
+                  
+                    
+                      
+                      <a class="subnav__link cta-small " href="https://research.google/research-areas/software-engineering/">
+                        
+                          <div class="subnav__link-image subnav__link-image--small">
+                            <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/software_engineering_nav.svg" class="image image--svg picture__image " loading="lazy" alt="software_engineering_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                          </div>
+                        
+                        <div class="subnav__link-text">
+                          <div class="cta-small">Software engineering</div>
+                          <div class="small-text"></div>
+                        </div>
+                      </a>
+                      
+                    
+                  
+                    
+                      
+                      <a class="subnav__link cta-small " href="https://research.google/research-areas/software-systems/">
+                        
+                          <div class="subnav__link-image subnav__link-image--small">
+                            <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/software_systems_nav.svg" class="image image--svg picture__image " loading="lazy" alt="software_systems_nav1">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                          </div>
+                        
+                        <div class="subnav__link-text">
+                          <div class="cta-small">Software systems</div>
+                          <div class="small-text"></div>
+                        </div>
+                      </a>
+                      
+                    
+                  
+                </div>
+              
+
+              
+              
+            </div>
+          </div>
+        
+          <div class="subnav__column">
+            <div class="subnav__content">
+              
+                <div class="subnav__header">
+                  
+                    <div class="cta-small">Learn More</div>
+                  
+                  
+                </div>
+              
+
+              
+              
+                <div class="subnav__links">
+                  
+                    
+                      
+                      <a class="subnav__link cta-small " href="https://research.google/pubs/">
+                        
+                          <div class="subnav__link-image subnav__link-image--small">
+                            <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/publications_nav.svg" class="image image--svg picture__image " loading="lazy" alt="publications_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                          </div>
+                        
+                        <div class="subnav__link-text">
+                          <div class="cta-small">Publications</div>
+                          <div class="small-text"></div>
+                        </div>
+                      </a>
+                      
+                    
+                  
+                    
+                      
+                      <a class="subnav__link cta-small " href="https://research.google/resources/our-projects/">
+                        
+                          <div class="subnav__link-image subnav__link-image--small">
+                            <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/projects_nav.svg" class="image image--svg picture__image " loading="lazy" alt="projects_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                          </div>
+                        
+                        <div class="subnav__link-text">
+                          <div class="cta-small">Projects</div>
+                          <div class="small-text"></div>
+                        </div>
+                      </a>
+                      
+                    
+                  
+                </div>
+              
+
+              
+              
+            </div>
+          </div>
+        
+      </div>
+    </div>
+  </div>
+</nav>
+              
+            
+              
+                
+<nav class="header flyout desktop" data-section="Resources" aria-labelledby="Resources">
+  <div class="flyout__container grid">
+    
+    <div class="flyout__intro">
+      <div>
+        <h2 class="headline-6">Building a collaborative ecosystem</h2>
+        
+      </div>
+      
+    </div>
+
+    
+    <div class="flyout__content-desktop">
+      <div class="flyout__subnav subnav subnav--2-column">
+        
+          <div class="subnav__column">
+            <div class="subnav__content">
+              
+
+              
+              
+                <div class="subnav__links">
+                  
+                    
+                      
+                      <a class="subnav__link cta-small  subnav__link--has-icon" href="https://research.google/resources/#datasets-1" target="_self">
+                        
+                          <div class="subnav__link-image subnav__link-image--large">
+                            <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/dataset_nav.svg" class="image image--svg picture__image " loading="lazy" alt="dataset_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                          </div>
+                        
+                        <div class="subnav__link-text">
+                          <div class="cta-small">Datasets</div>
+                          <div class="small-text">Access high-quality datasets to accelerate your research.</div>
+                        </div>
+                      </a>
+                      
+                    
+                  
+                    
+                      
+                      <a class="subnav__link cta-small  subnav__link--has-icon" href="https://research.google/resources/#tools-services-2" target="_self">
+                        
+                          <div class="subnav__link-image subnav__link-image--large">
+                            <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/models_products_nav.svg" class="image image--svg picture__image " loading="lazy" alt="models_products_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                          </div>
+                        
+                        <div class="subnav__link-text">
+                          <div class="cta-small">Tools &amp; services</div>
+                          <div class="small-text">Explore our latest AI models and products.</div>
+                        </div>
+                      </a>
+                      
+                    
+                  
+                </div>
+              
+
+              
+              
+            </div>
+          </div>
+        
+          <div class="subnav__column">
+            <div class="subnav__content">
+              
+
+              
+              
+                <div class="subnav__links">
+                  
+                    
+                      
+                      <a class="subnav__link cta-small  subnav__link--has-icon" href="https://research.google/resources/#open-source-3" target="_self">
+                        
+                          <div class="subnav__link-image subnav__link-image--large">
+                            <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/software_engineering_nav.svg" class="image image--svg picture__image " loading="lazy" alt="software_engineering_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                          </div>
+                        
+                        <div class="subnav__link-text">
+                          <div class="cta-small">Open source</div>
+                          <div class="small-text">Discover open-source code and collaborate with the community.</div>
+                        </div>
+                      </a>
+                      
+                    
+                  
+                </div>
+              
+
+              
+              
+            </div>
+          </div>
+        
+      </div>
+    </div>
+  </div>
+</nav>
+              
+            
+              
+            
+              
+                
+<nav class="header flyout desktop" data-section="Careers" aria-labelledby="Careers">
+  <div class="flyout__container grid">
+    
+    <div class="flyout__intro">
+      <div>
+        <h2 class="headline-6">Shaping the future together</h2>
+        
+      </div>
+      
+        <div class="button-group button-group--compact">
+          <div class="button-group__buttons">
+            
+              
+
+
+
+  
+  
+    <a href="https://research.google/programs-and-events/" class="glue-button glue-button--medium-emphasis cta-small" data-gtm-event="nav_select" data-event-nav-type="subheader" data-event-nav-name="Careers - See all programs">
+      <div class="button__label">
+        
+          See all programs
+        
+      </div>
+    </a>
+  
+
+
+            
+          </div>
+        </div>
+      
+    </div>
+
+    
+    <div class="flyout__content-desktop">
+      <div class="flyout__subnav subnav subnav--2-column">
+        
+          <div class="subnav__column">
+            <div class="subnav__content">
+              
+
+              
+              
+                <div class="subnav__links">
+                  
+                    
+                      
+                      <a class="subnav__link cta-small  subnav__link--has-icon" href="https://research.google/programs-and-events/faculty-engagement/">
+                        
+                          <div class="subnav__link-image subnav__link-image--large">
+                            <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/faculty_programs_nav.svg" class="image image--svg picture__image " loading="lazy" alt="faculty_programs_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                          </div>
+                        
+                        <div class="subnav__link-text">
+                          <div class="cta-small">Faculty programs</div>
+                          <div class="small-text">Participating in the academic research community through meaningful engagement with university faculty.</div>
+                        </div>
+                      </a>
+                      
+                    
+                  
+                    
+                      
+                      <a class="subnav__link cta-small  subnav__link--has-icon" href="https://research.google/programs-and-events/student-engagement/">
+                        
+                          <div class="subnav__link-image subnav__link-image--large">
+                            <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/student_programs_nav.svg" class="image image--svg picture__image " loading="lazy" alt="student_programs_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                          </div>
+                        
+                        <div class="subnav__link-text">
+                          <div class="cta-small">Student programs</div>
+                          <div class="small-text">Supporting the next generation of researchers through a wide range of programming.</div>
+                        </div>
+                      </a>
+                      
+                    
+                  
+                </div>
+              
+
+              
+              
+            </div>
+          </div>
+        
+          <div class="subnav__column">
+            <div class="subnav__content">
+              
+
+              
+              
+                <div class="subnav__links">
+                  
+                    
+                      
+                      <a class="subnav__link cta-small  subnav__link--has-icon" href="https://research.google/careers/">
+                        
+                          <div class="subnav__link-image subnav__link-image--large">
+                            <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/locations_nav.svg" class="image image--svg picture__image " loading="lazy" alt="locations_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                          </div>
+                        
+                        <div class="subnav__link-text">
+                          <div class="cta-small">Locations</div>
+                          <div class="small-text">Find your place in our global offices and research labs.</div>
+                        </div>
+                      </a>
+                      
+                    
+                  
+                </div>
+              
+
+              
+              
+            </div>
+          </div>
+        
+      </div>
+    </div>
+  </div>
+</nav>
+              
+            
+              
+            
+              
+                
+<nav class="header flyout desktop" data-section="About" aria-labelledby="About">
+  <div class="flyout__container grid">
+    
+    <div class="flyout__intro">
+      <div>
+        <h2 class="headline-6">Translating discovery into real-world impact</h2>
+        
+      </div>
+      
+    </div>
+
+    
+    <div class="flyout__content-desktop">
+      <div class="flyout__subnav subnav subnav--2-column">
+        
+          <div class="subnav__column">
+            <div class="subnav__content">
+              
+
+              
+              
+                <div class="subnav__links">
+                  
+                    
+                      
+                      <a class="subnav__link cta-small  subnav__link--has-icon" href="https://research.google/people/">
+                        
+                          <div class="subnav__link-image subnav__link-image--large">
+                            <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/earth_AI_nav.svg" class="image image--svg picture__image " loading="lazy" alt="earth_AI_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                          </div>
+                        
+                        <div class="subnav__link-text">
+                          <div class="cta-small">People</div>
+                          <div class="small-text">Our researchers drive advancements in computer science through both fundamental and applied research.</div>
+                        </div>
+                      </a>
+                      
+                    
+                  
+                </div>
+              
+
+              
+              
+            </div>
+          </div>
+        
+          <div class="subnav__column">
+            <div class="subnav__content">
+              
+
+              
+              
+                <div class="subnav__links">
+                  
+                    
+                      
+                      <a class="subnav__link cta-small  subnav__link--has-icon" href="https://research.google/teams/">
+                        
+                          <div class="subnav__link-image subnav__link-image--large">
+                            <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/teams_nav.svg" class="image image--svg picture__image " loading="lazy" alt="teams_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                          </div>
+                        
+                        <div class="subnav__link-text">
+                          <div class="cta-small">Teams</div>
+                          <div class="small-text">Collaborative groups tackling the world's most challenging AI problems.</div>
+                        </div>
+                      </a>
+                      
+                    
+                  
+                </div>
+              
+
+              
+              
+            </div>
+          </div>
+        
+      </div>
+    </div>
+  </div>
+</nav>
+              
+            
+          </div>
+        
+
+        
+
+<nav class="header flyout mobile" tabindex="-1">
+  <div class="flyout__container">
+    <div class="flyout__content-mobile">
+      
+        
+          <div class="flyout__accordion">
+            
+            <button type="button" data-title="Research" class="main-menu__label-tablet flyout__accordion__toggle text-call-to-action" aria-expanded="false" aria-controls="submenu-1">
+              <span class="flyout__accordion__label cta">Research</span>
+              <span class="button-group button-group--compact" aria-hidden="true">
+                <span class="button-group__buttons">
+                  
+                  <span class="button flyout__accordion__icon open">
+                    <span class="icon-md-outlined">
+                      
+<svg xmlns="http://www.w3.org/2000/svg" height="18px" width="18px" viewBox="0 -960 960 960" fill="currentColor" class="" aria-hidden="true" role="presentation">
+  
+    <path d="M480-357.85 253.85-584l32.61-32.61L480-423.08l193.54-193.53L706.15-584 480-357.85Z"></path>
+  
+</svg>
+
+                    </span>
+                  </span>
+                  <span class="button flyout__accordion__icon close">
+                    <span class="icon-md-outlined">
+                      
+<svg xmlns="http://www.w3.org/2000/svg" height="18px" width="18px" viewBox="0 -960 960 960" fill="currentColor" class="" aria-hidden="true" role="presentation">
+  
+    <path d="m480-541.85-184 184L253.85-400 480-626.15 706.15-400 664-357.85l-184-184Z"></path>
+  
+</svg>
+
+                    </span>
+                  </span>
+                </span>
+              </span>
+            </button>
+            
+            <div id="submenu-1" class="flyout__accordion__content" data-section="Research" hidden="" inert="">
+              <div class="flyout__accordion__content-inner">
+                <div class="flyout__intro">
+                  <div>
+                    <h2 class="flyout__title headline-5">Explore our many areas of focus</h2>
+                    
+                  </div>
+                  
+                    <div class="button-group button-group--row_start button-group--compact">
+                      <div class="button-group__buttons">
+                        
+                          
+
+
+
+  
+  
+    <a href="https://research.google/research-areas/" class="glue-button glue-button--medium-emphasis cta-small" data-gtm-event="nav_select" data-event-nav-type="subheader" data-event-nav-name="Research - Explore all research areas">
+      <div class="button__label">
+        
+          Explore all research areas
+        
+      </div>
+    </a>
+  
+
+
+                        
+                      </div>
+                    </div>
+                  
+                </div>
+                <div class="flyout__subnav subnav subnav--3-column">
+                  
+                    <div class="subnav__column">
+                      <div class="subnav__content">
+                        
+                        
+                          
+                            <div class="subnav__header">
+                              
+                                <div class="subnav__title">Applied AI &amp; sciences</div>
+                              
+                              
+                            </div>
+                          
+                        
+                        <div class="subnav__links">
+                        
+                          
+                          
+                            
+                              
+                                <a class="subnav__link" href="https://research.google/research-areas/google-earth-ai/">
+                                  
+                                    <div class="subnav__link-image subnav__link-image--small">
+                                      <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/earth_AI_nav.svg" class="image image--svg picture__image " loading="lazy" alt="earth_AI_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                                    </div>
+                                  
+                                  <div class="subnav__link-text">
+                                    <div class="subnav__link-label caption">Earth AI</div>
+                                    <div class="subnav__link-description small-text"></div>
+                                  </div>
+                                </a>
+                              
+                            
+                              
+                                <a class="subnav__link" href="https://research.google/research-areas/health-ai/">
+                                  
+                                    <div class="subnav__link-image subnav__link-image--small">
+                                      <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/health_AI_nav.svg" class="image image--svg picture__image " loading="lazy" alt="health_AI_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                                    </div>
+                                  
+                                  <div class="subnav__link-text">
+                                    <div class="subnav__link-label caption">Health AI</div>
+                                    <div class="subnav__link-description small-text"></div>
+                                  </div>
+                                </a>
+                              
+                            
+                              
+                                <a class="subnav__link" href="https://research.google/research-areas/science-ai/">
+                                  
+                                    <div class="subnav__link-image subnav__link-image--small">
+                                      <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/science_AI_nav.svg" class="image image--svg picture__image " loading="lazy" alt="science_AI_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                                    </div>
+                                  
+                                  <div class="subnav__link-text">
+                                    <div class="subnav__link-label caption">Science AI</div>
+                                    <div class="subnav__link-description small-text"></div>
+                                  </div>
+                                </a>
+                              
+                            
+                              
+                                <a class="subnav__link" href="https://research.google/research-areas/sustainability-crisis-resilience/">
+                                  
+                                    <div class="subnav__link-image subnav__link-image--small">
+                                      <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/sustainability_crisis_resilience_nav.svg" class="image image--svg picture__image " loading="lazy" alt="sustainability_crisis_resilience_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                                    </div>
+                                  
+                                  <div class="subnav__link-text">
+                                    <div class="subnav__link-label caption">Sustainability &amp; crisis resilience</div>
+                                    <div class="subnav__link-description small-text"></div>
+                                  </div>
+                                </a>
+                              
+                            
+                          
+                        
+                        </div> 
+
+                        
+                          
+                        
+                      </div>
+                    </div>
+                  
+                    <div class="subnav__column">
+                      <div class="subnav__content">
+                        
+                        
+                          
+                            <div class="subnav__header">
+                              
+                                <div class="subnav__title">Foundational ML &amp; algorithms</div>
+                              
+                              
+                            </div>
+                          
+                        
+                        <div class="subnav__links">
+                        
+                          
+                          
+                            
+                              
+                                <a class="subnav__link" href="https://research.google/research-areas/algorithms-and-theory/">
+                                  
+                                    <div class="subnav__link-image subnav__link-image--small">
+                                      <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/algorithms_theory_nav.svg" class="image image--svg picture__image " loading="lazy" alt="algorithms_theory_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                                    </div>
+                                  
+                                  <div class="subnav__link-text">
+                                    <div class="subnav__link-label caption">Algorithms &amp; theory</div>
+                                    <div class="subnav__link-description small-text"></div>
+                                  </div>
+                                </a>
+                              
+                            
+                              
+                                <a class="subnav__link" href="https://research.google/research-areas/information-retrieval/">
+                                  
+                                    <div class="subnav__link-image subnav__link-image--small">
+                                      <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/information_retrieval_nav.svg" class="image image--svg picture__image " loading="lazy" alt="information_retrieval_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                                    </div>
+                                  
+                                  <div class="subnav__link-text">
+                                    <div class="subnav__link-label caption">Information retrieval</div>
+                                    <div class="subnav__link-description small-text"></div>
+                                  </div>
+                                </a>
+                              
+                            
+                              
+                                <a class="subnav__link" href="https://research.google/research-areas/machine-intelligence/">
+                                  
+                                    <div class="subnav__link-image subnav__link-image--small">
+                                      <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/machine_intelligence_nav.svg" class="image image--svg picture__image " loading="lazy" alt="machine_intelligence_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                                    </div>
+                                  
+                                  <div class="subnav__link-text">
+                                    <div class="subnav__link-label caption">Machine intelligence</div>
+                                    <div class="subnav__link-description small-text"></div>
+                                  </div>
+                                </a>
+                              
+                            
+                              
+                                <a class="subnav__link" href="https://research.google/research-areas/machine-perception/">
+                                  
+                                    <div class="subnav__link-image subnav__link-image--small">
+                                      <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/machine_perception_nav.svg" class="image image--svg picture__image " loading="lazy" alt="machine_perception_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                                    </div>
+                                  
+                                  <div class="subnav__link-text">
+                                    <div class="subnav__link-label caption">Machine perception</div>
+                                    <div class="subnav__link-description small-text"></div>
+                                  </div>
+                                </a>
+                              
+                            
+                              
+                                <a class="subnav__link" href="https://research.google/research-areas/natural-language-processing/">
+                                  
+                                    <div class="subnav__link-image subnav__link-image--small">
+                                      <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/NLP_nav.svg" class="image image--svg picture__image " loading="lazy" alt="NLP_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                                    </div>
+                                  
+                                  <div class="subnav__link-text">
+                                    <div class="subnav__link-label caption">Natural language processing</div>
+                                    <div class="subnav__link-description small-text"></div>
+                                  </div>
+                                </a>
+                              
+                            
+                          
+                        
+                        </div> 
+
+                        
+                          
+                        
+                      </div>
+                    </div>
+                  
+                    <div class="subnav__column">
+                      <div class="subnav__content">
+                        
+                        
+                          
+                            <div class="subnav__header">
+                              
+                                <div class="subnav__title">People, systems &amp; quantum AI</div>
+                              
+                              
+                            </div>
+                          
+                        
+                        <div class="subnav__links">
+                        
+                          
+                          
+                            
+                              
+                                <a class="subnav__link" href="https://research.google/research-areas/human-computer-interaction-and-visualization/">
+                                  
+                                    <div class="subnav__link-image subnav__link-image--small">
+                                      <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/human_computer_interaction_nav.svg" class="image image--svg picture__image " loading="lazy" alt="human_computer_interaction_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                                    </div>
+                                  
+                                  <div class="subnav__link-text">
+                                    <div class="subnav__link-label caption">Human-computer interaction and visualization</div>
+                                    <div class="subnav__link-description small-text"></div>
+                                  </div>
+                                </a>
+                              
+                            
+                              
+                                <a class="subnav__link" href="https://research.google/research-areas/networking/">
+                                  
+                                    <div class="subnav__link-image subnav__link-image--small">
+                                      <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/networking_nav.svg" class="image image--svg picture__image " loading="lazy" alt="networking_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                                    </div>
+                                  
+                                  <div class="subnav__link-text">
+                                    <div class="subnav__link-label caption">Networking</div>
+                                    <div class="subnav__link-description small-text"></div>
+                                  </div>
+                                </a>
+                              
+                            
+                              
+                                <a class="subnav__link" href="https://research.google/research-areas/quantum-computing/">
+                                  
+                                    <div class="subnav__link-image subnav__link-image--small">
+                                      <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/quantum_AI_nav.svg" class="image image--svg picture__image " loading="lazy" alt="quantum_AI_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                                    </div>
+                                  
+                                  <div class="subnav__link-text">
+                                    <div class="subnav__link-label caption">Quantum AI</div>
+                                    <div class="subnav__link-description small-text"></div>
+                                  </div>
+                                </a>
+                              
+                            
+                              
+                                <a class="subnav__link" href="https://research.google/research-areas/responsible-ai/">
+                                  
+                                    <div class="subnav__link-image subnav__link-image--small">
+                                      <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/responsible_AI_nav.svg" class="image image--svg picture__image " loading="lazy" alt="responsible_AI_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                                    </div>
+                                  
+                                  <div class="subnav__link-text">
+                                    <div class="subnav__link-label caption">Responsible AI</div>
+                                    <div class="subnav__link-description small-text"></div>
+                                  </div>
+                                </a>
+                              
+                            
+                              
+                                <a class="subnav__link" href="https://research.google/research-areas/anti-abuse/">
+                                  
+                                    <div class="subnav__link-image subnav__link-image--small">
+                                      <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/anti_abuse_nav.svg" class="image image--svg picture__image " loading="lazy" alt="anti_abuse_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                                    </div>
+                                  
+                                  <div class="subnav__link-text">
+                                    <div class="subnav__link-label caption">Anti abuse</div>
+                                    <div class="subnav__link-description small-text"></div>
+                                  </div>
+                                </a>
+                              
+                            
+                              
+                                <a class="subnav__link" href="https://research.google/research-areas/software-engineering/">
+                                  
+                                    <div class="subnav__link-image subnav__link-image--small">
+                                      <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/software_engineering_nav.svg" class="image image--svg picture__image " loading="lazy" alt="software_engineering_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                                    </div>
+                                  
+                                  <div class="subnav__link-text">
+                                    <div class="subnav__link-label caption">Software engineering</div>
+                                    <div class="subnav__link-description small-text"></div>
+                                  </div>
+                                </a>
+                              
+                            
+                              
+                                <a class="subnav__link" href="https://research.google/research-areas/software-systems/">
+                                  
+                                    <div class="subnav__link-image subnav__link-image--small">
+                                      <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/software_systems_nav.svg" class="image image--svg picture__image " loading="lazy" alt="software_systems_nav1">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                                    </div>
+                                  
+                                  <div class="subnav__link-text">
+                                    <div class="subnav__link-label caption">Software systems</div>
+                                    <div class="subnav__link-description small-text"></div>
+                                  </div>
+                                </a>
+                              
+                            
+                          
+                        
+                        </div> 
+
+                        
+                          
+                        
+                      </div>
+                    </div>
+                  
+                    <div class="subnav__column">
+                      <div class="subnav__content">
+                        
+                        
+                          
+                            <div class="subnav__header">
+                              
+                                <div class="subnav__title">Learn More</div>
+                              
+                              
+                            </div>
+                          
+                        
+                        <div class="subnav__links">
+                        
+                          
+                          
+                            
+                              
+                                <a class="subnav__link" href="https://research.google/pubs/">
+                                  
+                                    <div class="subnav__link-image subnav__link-image--small">
+                                      <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/publications_nav.svg" class="image image--svg picture__image " loading="lazy" alt="publications_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                                    </div>
+                                  
+                                  <div class="subnav__link-text">
+                                    <div class="subnav__link-label caption">Publications</div>
+                                    <div class="subnav__link-description small-text"></div>
+                                  </div>
+                                </a>
+                              
+                            
+                              
+                                <a class="subnav__link" href="https://research.google/resources/our-projects/">
+                                  
+                                    <div class="subnav__link-image subnav__link-image--small">
+                                      <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/projects_nav.svg" class="image image--svg picture__image " loading="lazy" alt="projects_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                                    </div>
+                                  
+                                  <div class="subnav__link-text">
+                                    <div class="subnav__link-label caption">Projects</div>
+                                    <div class="subnav__link-description small-text"></div>
+                                  </div>
+                                </a>
+                              
+                            
+                          
+                        
+                        </div> 
+
+                        
+                          
+                        
+                      </div>
+                    </div>
+                  
+                </div>
+              </div>
+            </div>
+          </div>
+        
+      
+        
+          <div class="flyout__accordion">
+            
+            <button type="button" data-title="Resources" class="main-menu__label-tablet flyout__accordion__toggle text-call-to-action" aria-expanded="false" aria-controls="submenu-2">
+              <span class="flyout__accordion__label cta">Resources</span>
+              <span class="button-group button-group--compact" aria-hidden="true">
+                <span class="button-group__buttons">
+                  
+                  <span class="button flyout__accordion__icon open">
+                    <span class="icon-md-outlined">
+                      
+<svg xmlns="http://www.w3.org/2000/svg" height="18px" width="18px" viewBox="0 -960 960 960" fill="currentColor" class="" aria-hidden="true" role="presentation">
+  
+    <path d="M480-357.85 253.85-584l32.61-32.61L480-423.08l193.54-193.53L706.15-584 480-357.85Z"></path>
+  
+</svg>
+
+                    </span>
+                  </span>
+                  <span class="button flyout__accordion__icon close">
+                    <span class="icon-md-outlined">
+                      
+<svg xmlns="http://www.w3.org/2000/svg" height="18px" width="18px" viewBox="0 -960 960 960" fill="currentColor" class="" aria-hidden="true" role="presentation">
+  
+    <path d="m480-541.85-184 184L253.85-400 480-626.15 706.15-400 664-357.85l-184-184Z"></path>
+  
+</svg>
+
+                    </span>
+                  </span>
+                </span>
+              </span>
+            </button>
+            
+            <div id="submenu-2" class="flyout__accordion__content" data-section="Resources" hidden="" inert="">
+              <div class="flyout__accordion__content-inner">
+                <div class="flyout__intro">
+                  <div>
+                    <h2 class="flyout__title headline-5">Building a collaborative ecosystem</h2>
+                    
+                  </div>
+                  
+                </div>
+                <div class="flyout__subnav subnav subnav--2-column">
+                  
+                    <div class="subnav__column">
+                      <div class="subnav__content">
+                        
+                        
+                          
+                        
+                        <div class="subnav__links">
+                        
+                          
+                          
+                            
+                              
+                                <a class="subnav__link subnav__link--has-icon" href="https://research.google/resources/#datasets-1" target="_self">
+                                  
+                                    <div class="subnav__link-image subnav__link-image--large">
+                                      <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/dataset_nav.svg" class="image image--svg picture__image " loading="lazy" alt="dataset_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                                    </div>
+                                  
+                                  <div class="subnav__link-text">
+                                    <div class="subnav__link-label caption">Datasets</div>
+                                    <div class="subnav__link-description small-text">Access high-quality datasets to accelerate your research.</div>
+                                  </div>
+                                </a>
+                              
+                            
+                              
+                                <a class="subnav__link subnav__link--has-icon" href="https://research.google/resources/#tools-services-2" target="_self">
+                                  
+                                    <div class="subnav__link-image subnav__link-image--large">
+                                      <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/models_products_nav.svg" class="image image--svg picture__image " loading="lazy" alt="models_products_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                                    </div>
+                                  
+                                  <div class="subnav__link-text">
+                                    <div class="subnav__link-label caption">Tools &amp; services</div>
+                                    <div class="subnav__link-description small-text">Explore our latest AI models and products.</div>
+                                  </div>
+                                </a>
+                              
+                            
+                          
+                        
+                          
+                          
+                            
+                              
+                                <a class="subnav__link subnav__link--has-icon" href="https://research.google/resources/#open-source-3" target="_self">
+                                  
+                                    <div class="subnav__link-image subnav__link-image--large">
+                                      <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/software_engineering_nav.svg" class="image image--svg picture__image " loading="lazy" alt="software_engineering_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                                    </div>
+                                  
+                                  <div class="subnav__link-text">
+                                    <div class="subnav__link-label caption">Open source</div>
+                                    <div class="subnav__link-description small-text">Discover open-source code and collaborate with the community.</div>
+                                  </div>
+                                </a>
+                              
+                            
+                          
+                        
+                        </div> 
+
+                        
+                          
+                        
+                          
+                        
+                      </div>
+                    </div>
+                  
+                </div>
+              </div>
+            </div>
+          </div>
+        
+      
+        
+          <a href="https://research.google/conferences-and-events/" class="main-menu__label-tablet text-call-to-action cta" data-title="Conferences &amp; events">
+            Conferences &amp; events
+          </a>
+        
+      
+        
+          <div class="flyout__accordion">
+            
+            <button type="button" data-title="Careers" class="main-menu__label-tablet flyout__accordion__toggle text-call-to-action" aria-expanded="false" aria-controls="submenu-4">
+              <span class="flyout__accordion__label cta">Careers</span>
+              <span class="button-group button-group--compact" aria-hidden="true">
+                <span class="button-group__buttons">
+                  
+                  <span class="button flyout__accordion__icon open">
+                    <span class="icon-md-outlined">
+                      
+<svg xmlns="http://www.w3.org/2000/svg" height="18px" width="18px" viewBox="0 -960 960 960" fill="currentColor" class="" aria-hidden="true" role="presentation">
+  
+    <path d="M480-357.85 253.85-584l32.61-32.61L480-423.08l193.54-193.53L706.15-584 480-357.85Z"></path>
+  
+</svg>
+
+                    </span>
+                  </span>
+                  <span class="button flyout__accordion__icon close">
+                    <span class="icon-md-outlined">
+                      
+<svg xmlns="http://www.w3.org/2000/svg" height="18px" width="18px" viewBox="0 -960 960 960" fill="currentColor" class="" aria-hidden="true" role="presentation">
+  
+    <path d="m480-541.85-184 184L253.85-400 480-626.15 706.15-400 664-357.85l-184-184Z"></path>
+  
+</svg>
+
+                    </span>
+                  </span>
+                </span>
+              </span>
+            </button>
+            
+            <div id="submenu-4" class="flyout__accordion__content" data-section="Careers" hidden="" inert="">
+              <div class="flyout__accordion__content-inner">
+                <div class="flyout__intro">
+                  <div>
+                    <h2 class="flyout__title headline-5">Shaping the future together</h2>
+                    
+                  </div>
+                  
+                    <div class="button-group button-group--row_start button-group--compact">
+                      <div class="button-group__buttons">
+                        
+                          
+
+
+
+  
+  
+    <a href="https://research.google/programs-and-events/" class="glue-button glue-button--medium-emphasis cta-small" data-gtm-event="nav_select" data-event-nav-type="subheader" data-event-nav-name="Careers - See all programs">
+      <div class="button__label">
+        
+          See all programs
+        
+      </div>
+    </a>
+  
+
+
+                        
+                      </div>
+                    </div>
+                  
+                </div>
+                <div class="flyout__subnav subnav subnav--2-column">
+                  
+                    <div class="subnav__column">
+                      <div class="subnav__content">
+                        
+                        
+                          
+                        
+                        <div class="subnav__links">
+                        
+                          
+                          
+                            
+                              
+                                <a class="subnav__link subnav__link--has-icon" href="https://research.google/programs-and-events/faculty-engagement/">
+                                  
+                                    <div class="subnav__link-image subnav__link-image--large">
+                                      <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/faculty_programs_nav.svg" class="image image--svg picture__image " loading="lazy" alt="faculty_programs_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                                    </div>
+                                  
+                                  <div class="subnav__link-text">
+                                    <div class="subnav__link-label caption">Faculty programs</div>
+                                    <div class="subnav__link-description small-text">Participating in the academic research community through meaningful engagement with university faculty.</div>
+                                  </div>
+                                </a>
+                              
+                            
+                              
+                                <a class="subnav__link subnav__link--has-icon" href="https://research.google/programs-and-events/student-engagement/">
+                                  
+                                    <div class="subnav__link-image subnav__link-image--large">
+                                      <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/student_programs_nav.svg" class="image image--svg picture__image " loading="lazy" alt="student_programs_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                                    </div>
+                                  
+                                  <div class="subnav__link-text">
+                                    <div class="subnav__link-label caption">Student programs</div>
+                                    <div class="subnav__link-description small-text">Supporting the next generation of researchers through a wide range of programming.</div>
+                                  </div>
+                                </a>
+                              
+                            
+                          
+                        
+                          
+                          
+                            
+                              
+                                <a class="subnav__link subnav__link--has-icon" href="https://research.google/careers/">
+                                  
+                                    <div class="subnav__link-image subnav__link-image--large">
+                                      <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/locations_nav.svg" class="image image--svg picture__image " loading="lazy" alt="locations_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                                    </div>
+                                  
+                                  <div class="subnav__link-text">
+                                    <div class="subnav__link-label caption">Locations</div>
+                                    <div class="subnav__link-description small-text">Find your place in our global offices and research labs.</div>
+                                  </div>
+                                </a>
+                              
+                            
+                          
+                        
+                        </div> 
+
+                        
+                          
+                        
+                          
+                        
+                      </div>
+                    </div>
+                  
+                </div>
+              </div>
+            </div>
+          </div>
+        
+      
+        
+          <a href="https://research.google/blog/" class="main-menu__label-tablet text-call-to-action cta" data-title="Blog">
+            Blog
+          </a>
+        
+      
+        
+          <div class="flyout__accordion">
+            
+            <button type="button" data-title="About" class="main-menu__label-tablet flyout__accordion__toggle text-call-to-action" aria-expanded="false" aria-controls="submenu-6">
+              <span class="flyout__accordion__label cta">About</span>
+              <span class="button-group button-group--compact" aria-hidden="true">
+                <span class="button-group__buttons">
+                  
+                  <span class="button flyout__accordion__icon open">
+                    <span class="icon-md-outlined">
+                      
+<svg xmlns="http://www.w3.org/2000/svg" height="18px" width="18px" viewBox="0 -960 960 960" fill="currentColor" class="" aria-hidden="true" role="presentation">
+  
+    <path d="M480-357.85 253.85-584l32.61-32.61L480-423.08l193.54-193.53L706.15-584 480-357.85Z"></path>
+  
+</svg>
+
+                    </span>
+                  </span>
+                  <span class="button flyout__accordion__icon close">
+                    <span class="icon-md-outlined">
+                      
+<svg xmlns="http://www.w3.org/2000/svg" height="18px" width="18px" viewBox="0 -960 960 960" fill="currentColor" class="" aria-hidden="true" role="presentation">
+  
+    <path d="m480-541.85-184 184L253.85-400 480-626.15 706.15-400 664-357.85l-184-184Z"></path>
+  
+</svg>
+
+                    </span>
+                  </span>
+                </span>
+              </span>
+            </button>
+            
+            <div id="submenu-6" class="flyout__accordion__content" data-section="About" hidden="" inert="">
+              <div class="flyout__accordion__content-inner">
+                <div class="flyout__intro">
+                  <div>
+                    <h2 class="flyout__title headline-5">Translating discovery into real-world impact</h2>
+                    
+                  </div>
+                  
+                </div>
+                <div class="flyout__subnav subnav subnav--2-column">
+                  
+                    <div class="subnav__column">
+                      <div class="subnav__content">
+                        
+                        
+                          
+                        
+                        <div class="subnav__links">
+                        
+                          
+                          
+                            
+                              
+                                <a class="subnav__link subnav__link--has-icon" href="https://research.google/people/">
+                                  
+                                    <div class="subnav__link-image subnav__link-image--large">
+                                      <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/earth_AI_nav.svg" class="image image--svg picture__image " loading="lazy" alt="earth_AI_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                                    </div>
+                                  
+                                  <div class="subnav__link-text">
+                                    <div class="subnav__link-label caption">People</div>
+                                    <div class="subnav__link-description small-text">Our researchers drive advancements in computer science through both fundamental and applied research.</div>
+                                  </div>
+                                </a>
+                              
+                            
+                          
+                        
+                          
+                          
+                            
+                              
+                                <a class="subnav__link subnav__link--has-icon" href="https://research.google/teams/">
+                                  
+                                    <div class="subnav__link-image subnav__link-image--large">
+                                      <div class="block-icon">
+
+
+  
+  <div class="media-image-block no-light-mode-mobile no-dark-mode no-dark-mode-mobile has-default-media">
+    
+      
+      
+      
+
+
+
+  
+    
+      
+      
+        <img src="./googlesearch_files/teams_nav.svg" class="image image--svg picture__image " loading="lazy" alt="teams_nav">
+      
+      
+    
+  
+
+
+      
+    
+  </div>
+
+</div>
+                                    </div>
+                                  
+                                  <div class="subnav__link-text">
+                                    <div class="subnav__link-label caption">Teams</div>
+                                    <div class="subnav__link-description small-text">Collaborative groups tackling the world's most challenging AI problems.</div>
+                                  </div>
+                                </a>
+                              
+                            
+                          
+                        
+                        </div> 
+
+                        
+                          
+                        
+                          
+                        
+                      </div>
+                    </div>
+                  
+                </div>
+              </div>
+            </div>
+          </div>
+        
+      
+      <div class="divider"></div>
+      <div class="flyout__accordion__right-ctas">
+        
+      </div>
+    </div>
+  </div>
+</nav>
+        <div class="header-bar__background"></div>
+        
+<div class="header-bar">
+  <div class="header-bar__blur" aria-hidden="true">
+    <span class="header-bar__blur-layer header-bar__blur-layer--1"></span>
+    <span class="header-bar__blur-layer header-bar__blur-layer--2"></span>
+    <span class="header-bar__blur-layer header-bar__blur-layer--3"></span>
+    <span class="header-bar__blur-layer header-bar__blur-layer--4"></span>
+    <span class="header-bar__blur-layer header-bar__blur-layer--5"></span>
+  </div>
+  <div class="left-menu">
+    <div class="hamburger-mobile">
+      <div class="button-group button-group--compact">
+        <div class="button-group__buttons">
+          <button class="button open button--background-blur icon-center icon-center--wide" aria-label="Open the site navigation">
+            <span class="icon-md-outlined">
+              
+<svg xmlns="http://www.w3.org/2000/svg" height="18px" width="18px" viewBox="0 -960 960 960" fill="currentColor" class="" aria-hidden="true" role="presentation">
+  
+    <path d="M164-278.62v-51.99h632v51.99H164ZM164-454v-52h632v52H164Zm0-175.39v-51.99h632v51.99H164Z"></path>
+  
+</svg>
+
+            </span>
+          </button>
+          <button class="button close button--outlined icon-center icon-center--wide" aria-label="Close the site navigation">
+            <span class="icon-md-outlined">
+              
+<svg xmlns="http://www.w3.org/2000/svg" height="18px" width="18px" viewBox="0 -960 960 960" fill="currentColor" class="" aria-hidden="true" role="presentation">
+  
+    <path d="M480-448 266.92-234.92q-6.69 6.69-15.8 6.88-9.12.19-16.2-6.88-7.07-7.08-7.07-16 0-8.93 7.07-16L448-480 234.92-693.08q-6.69-6.69-6.88-15.8-.19-9.12 6.88-16.2 7.08-7.07 16-7.07 8.93 0 16 7.07L480-512l213.08-213.08q6.69-6.69 15.8-6.88 9.12-.19 16.2 6.88 7.07 7.08 7.07 16 0 8.93-7.07 16L512-480l213.08 213.08q6.69 6.69 6.88 15.8.19 9.12-6.88 16.2-7.08 7.07-16 7.07-8.93 0-16-7.07L480-448Z"></path>
+  
+</svg>
+
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="site-switcher">
+      <div class="site-switcher__bar">
+        <a class="site-switcher__home" href="https://research.google/" data-gtm-tag="header-selection" data-event-io="nav_select" data-event-nav-type="header" data-event-nav-name="Site Home logo">
+          <span class="sr-only">Google</span>
+          
+            
+              
+
+
+
+  
+
+<svg role="presentation" aria-hidden="true" class="glue-icon  site-switcher__google-logo">
+  <use href="/gr/static/assets/icons/glue-icons.svg#google-solid-logo"></use>
+</svg>
+
+              <span class="site-switcher__title">Research</span>
+            
+          
+        </a>
+        
+          <div class="button-group button-group--micro site-switcher__toggle">
+            <div class="button-group__buttons site-switcher__toggle">
+              <button class="open button button--background-blur icon-center icon-center--wide" aria-label="Open the website selector panel" data-gtm-event="nav_select" data-event-nav-type="site selector" data-event-nav-name="open" data-event-interaction-type="expand">
+                      <span class="icon-md-outlined">
+                        
+<svg xmlns="http://www.w3.org/2000/svg" height="18px" width="18px" viewBox="0 -960 960 960" fill="currentColor" class="" aria-hidden="true" role="presentation">
+  
+    <path d="M480-357.85 253.85-584l32.61-32.61L480-423.08l193.54-193.53L706.15-584 480-357.85Z"></path>
+  
+</svg>
+
+                      </span>
+              </button>
+              <button class="close button button--outlined icon-center icon-center--wide" aria-label="Close the website selector panel" data-gtm-event="nav_select" data-event-nav-type="site selector" data-event-nav-name="close" data-event-interaction-type="collapse">
+                      <span class="icon-md-outlined">
+                        
+<svg xmlns="http://www.w3.org/2000/svg" height="18px" width="18px" viewBox="0 -960 960 960" fill="currentColor" class="" aria-hidden="true" role="presentation">
+  
+    <path d="m480-541.85-184 184L253.85-400 480-626.15 706.15-400 664-357.85l-184-184Z"></path>
+  
+</svg>
+
+                      </span>
+              </button>
+            </div>
+          </div>
+        
+      </div>
+    </div>
+    
+      <nav class="site-switcher__nav">
+  
+    <div class="site-switcher__group">
+      
+      
+        <a class="site-switcher__link" aria-label="Google AI" target="_blank" href="https://ai.google/?utm_source=deepmind.google&amp;utm_medium=referral&amp;utm_campaign=gdm&amp;utm_content=">
+          <div class="site-switcher__link-title cta-small">Google AI</div>
+          <div class="site-switcher__link-description small-text">Learn about all our AI</div>
+        </a>
+      
+        <a class="site-switcher__link" aria-label="Google DeepMind" target="_blank" href="https://deepmind.google/?utm_source=deepmind.google&amp;utm_medium=referral&amp;utm_campaign=gdm&amp;utm_content=/">
+          <div class="site-switcher__link-title cta-small">Google DeepMind</div>
+          <div class="site-switcher__link-description small-text">Explore the frontier of AI</div>
+        </a>
+      
+        <a class="site-switcher__link" aria-label="Google Labs" target="_blank" href="https://labs.google/?utm_source=deepmind.google&amp;utm_medium=referral&amp;utm_campaign=gdm&amp;utm_content=">
+          <div class="site-switcher__link-title cta-small">Google Labs</div>
+          <div class="site-switcher__link-description small-text">Try our AI experiments</div>
+        </a>
+      
+    </div>
+  
+</nav>
+
+    
+  </div>
+  <div class="main-menu">
+
+<nav class="main-menu__container button-group button-group--compact" aria-label="Main menu">
+  
+    <div class="main-menu__item" data-title="Research">
+      
+        <button type="button" class="main-menu__label deepai-text-call-to-action--nav button button--hover_outline cta-small" data-title="Research" aria-haspopup="true" aria-expanded="false">
+          Research
+        </button>
+      
+
+      
+        <button type="button" class="main-menu__submenu-toggle" data-title="Research" aria-label="Open submenu for Research" aria-expanded="false" aria-haspopup="true">
+          
+<svg xmlns="http://www.w3.org/2000/svg" height="18px" width="18px" viewBox="0 -960 960 960" fill="currentColor" class="" aria-hidden="true" role="presentation">
+  
+    <path d="M480-357.85 253.85-584l32.61-32.61L480-423.08l193.54-193.53L706.15-584 480-357.85Z"></path>
+  
+</svg>
+
+        </button>
+      
+    </div>
+  
+    <div class="main-menu__item" data-title="Resources">
+      
+        <button type="button" class="main-menu__label deepai-text-call-to-action--nav button button--hover_outline cta-small" data-title="Resources" aria-haspopup="true" aria-expanded="false">
+          Resources
+        </button>
+      
+
+      
+        <button type="button" class="main-menu__submenu-toggle" data-title="Resources" aria-label="Open submenu for Resources" aria-expanded="false" aria-haspopup="true">
+          
+<svg xmlns="http://www.w3.org/2000/svg" height="18px" width="18px" viewBox="0 -960 960 960" fill="currentColor" class="" aria-hidden="true" role="presentation">
+  
+    <path d="M480-357.85 253.85-584l32.61-32.61L480-423.08l193.54-193.53L706.15-584 480-357.85Z"></path>
+  
+</svg>
+
+        </button>
+      
+    </div>
+  
+    <div class="main-menu__item" data-title="Conferences &amp; events">
+      
+        <a href="https://research.google/conferences-and-events/" class="main-menu__label deepai-text-call-to-action--nav button button--hover_outline cta-small" data-title="Conferences &amp; events" default="">
+          Conferences &amp; events
+        </a>
+      
+
+      
+    </div>
+  
+    <div class="main-menu__item" data-title="Careers">
+      
+        <button type="button" class="main-menu__label deepai-text-call-to-action--nav button button--hover_outline cta-small" data-title="Careers" aria-haspopup="true" aria-expanded="false">
+          Careers
+        </button>
+      
+
+      
+        <button type="button" class="main-menu__submenu-toggle" data-title="Careers" aria-label="Open submenu for Careers" aria-expanded="false" aria-haspopup="true">
+          
+<svg xmlns="http://www.w3.org/2000/svg" height="18px" width="18px" viewBox="0 -960 960 960" fill="currentColor" class="" aria-hidden="true" role="presentation">
+  
+    <path d="M480-357.85 253.85-584l32.61-32.61L480-423.08l193.54-193.53L706.15-584 480-357.85Z"></path>
+  
+</svg>
+
+        </button>
+      
+    </div>
+  
+    <div class="main-menu__item" data-title="Blog">
+      
+        <a href="https://research.google/blog/" class="main-menu__label deepai-text-call-to-action--nav button button--hover_outline cta-small" data-title="Blog" default="">
+          Blog
+        </a>
+      
+
+      
+    </div>
+  
+    <div class="main-menu__item" data-title="About">
+      
+        <button type="button" class="main-menu__label deepai-text-call-to-action--nav button button--hover_outline cta-small" data-title="About" aria-haspopup="true" aria-expanded="false">
+          About
+        </button>
+      
+
+      
+        <button type="button" class="main-menu__submenu-toggle" data-title="About" aria-label="Open submenu for About" aria-expanded="false" aria-haspopup="true">
+          
+<svg xmlns="http://www.w3.org/2000/svg" height="18px" width="18px" viewBox="0 -960 960 960" fill="currentColor" class="" aria-hidden="true" role="presentation">
+  
+    <path d="M480-357.85 253.85-584l32.61-32.61L480-423.08l193.54-193.53L706.15-584 480-357.85Z"></path>
+  
+</svg>
+
+        </button>
+      
+    </div>
+  
+</nav>
+</div>
+  <div class="right-menu">
+    <div class="right-menu__ctas button-group button-group--compact">
+      <div class="button-group__buttons">
+      
+      </div>
+    </div>
+    
+    
+      <div class="header-bar__search glue-header__search js-header-search">
+        <div class="glue-header__search__input">
+          
+
+
+
+
+
+
+
+
+<div class="search-input " data-type="header">
+  <input type="search" class="caption --empty-search js-search-bar js-gt-search-input" placeholder="Search" name="search-input">
+  <button class="search-input__button --search js-gt-search-btn" aria-label="Submit search">
+    
+
+
+
+  
+
+<svg role="presentation" aria-hidden="true" class="glue-icon glue-icon--18px ">
+  <use href="/gr/static/assets/icons/glue-icons.svg#search"></use>
+</svg>
+
+  </button>
+  <button class="search-input__button --clear" aria-label="Clear search">
+    
+
+
+
+  
+
+<svg role="presentation" aria-hidden="true" class="glue-icon glue-icon--18px ">
+  <use href="/gr/static/assets/icons/glue-icons.svg#close"></use>
+</svg>
+
+  </button>
+</div>
+
+        </div>
+        <button type="button" class="glue-header__search__btn js-header-search-btn cta-small" aria-label="Search">
+          
+
+
+
+  
+
+<svg role="presentation" aria-hidden="true" class="glue-icon glue-icon--18px search">
+  <use href="/gr/static/assets/icons/glue-icons.svg#search"></use>
+</svg>
+
+          
+
+
+
+  
+
+<svg role="presentation" aria-hidden="true" class="glue-icon glue-icon--18px close">
+  <use href="/gr/static/assets/icons/glue-icons.svg#close"></use>
+</svg>
+
+          <span class="glue-header__search__label js-header-search-sr-text">Search</span>
+        </button>
+      </div>
+    
+  </div>
+</div>
+
+      </div>
+    </header>
+  </site-nav>
+
+
+      
+    
+  
+
+
+    
+
+    <main id="page-content" tabindex="-1">
+        
+<div class="blog-detail-page ">
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<section class="basic-hero bhoig --theme-light  --large-image" data-gt-id="basic_hero" data-gt-component-name="">
+  <div class="glue-page">
+    <div class="glue-grid">
+      <div class="bhoig__image-wrapper glue-grid__col--span-4 glue-grid__col--span-5-md glue-grid__col--span-4-lg">
+      
+        
+        
+          
+            <div class="bhoig__image-bg" style="">
+              
+                <div class="dynamic-image-wrapper"><picture>
+                  <img src="./googlesearch_files/AgenticRAG_Cover.png" alt="" class="blog-hero-image">
+                </picture><button class="enlarge-btn" data-tooltip="Enlarge image" aria-label="Enlarge image" type="button"><svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="#1f1f1f"> <path d="M240-240v-240h72v168h168v72H240Zm408-240v-168H480v-72h240v240h-72Z"></path> </svg></button></div>
+              
+            </div>
+        
+      
+    </div>
+
+        
+        <div class="bhoig__breadcrumb-wrapper glue-grid__col--span-10 glue-grid__col--span-9-md glue-grid__col--span-10-lg">
+          
+
+
+
+
+<nav class="glue-breadcrumbs" aria-label="Breadcrumbs">
+    
+    <ol class="glue-breadcrumbs__list">
+        
+        
+        
+        
+        <li class="glue-breadcrumbs__item">
+            <a class="glue-breadcrumbs__link attribution" href="https://research.google/">Home</a>
+            
+
+
+
+  
+
+<svg role="presentation" aria-hidden="true" class="glue-icon  ">
+  <use href="/gr/static/assets/icons/glue-icons.svg#chevron-right"></use>
+</svg>
+
+        </li>
+        
+        
+        
+        <li class="glue-breadcrumbs__item">
+            <a class="glue-breadcrumbs__link attribution" href="https://research.google/blog/">Blog</a>
+            
+
+
+
+  
+
+<svg role="presentation" aria-hidden="true" class="glue-icon  ">
+  <use href="/gr/static/assets/icons/glue-icons.svg#chevron-right"></use>
+</svg>
+
+        </li>
+        
+        
+    </ol>
+    
+</nav>
+        </div>
+
+        <h1 class="headline-1 bhoig__headline glue-grid__col--span-8 glue-grid__col--span-7-md glue-grid__col--span-8-lg">Unlocking dependable responses with Gemini Enterprise Agent Platform’s Agentic RAG</h1>
+
+        
+
+          <div class="basic-hero__description bhoig__description glue-grid__col--span-8 glue-grid__col--span-7-md glue-grid__col--span-8-lg">
+            <div class="basic-hero--blog-detail__description"><p>June 5, 2026</p><span class="dot-separator"></span><p>Cyrus Rashtchian, Research Scientist, and Da-Cheng Juan, Engineering Manager, Google Research</p></div>
+          </div>
+
+        
+
+        <div class="bhoig__cta glue-grid__col--span-8 glue-grid__col--span-7-md glue-grid__col--span-8-lg">
+          
+        </div>
+    </div>
+  </div>
+</section>
+
+
+    <div class="glue-page">
+        <div class="glue-grid blog-detail-page__grid">
+            <div class="glue-grid__col glue-grid__col--span-4-sm glue-grid__col--span-12-md  glue-grid__col--span-9-lg">
+                
+                    <section class="blog-summary" data-gt-id="blog_summary" data-gt-component-name="Blog Summary">
+                        
+                        
+
+<div class="blog-summary__update-wrapper">
+    
+</div>
+
+<div class="blog-summary__summary">
+    <p data-block-key="xp7s6">We introduce our new agentic RAG framework. Based on a collaboration between Google Research and Google Cloud, our multi-agent workflow goes beyond standard RAG by breaking down complex enterprise queries and iteratively searching for sufficient context before generating dependable responses.</p>
+</div>
+                        
+                    </section>
+                
+                
+                <div class="quicklinks-wrapper--mobile">
+                    <div class="block-quick_links">
+
+
+<section class="quicklinks">
+    
+        <h2 class="eyebrow">Quick links</h2>
+        <ul class="quicklinks__list">
+            
+            
+            
+                <li class="quicklinks__item">
+                    <a class="not-glue quicklinks__item__link" href="https://docs.cloud.google.com/gemini-enterprise-agent-platform/build/rag-engine/cross-corpus-retrieval">
+                        <span class="icon icon--link"></span>
+                        <span class="quicklinks__item__text">RAG Engine Cross Corpus Retrieval</span>
+                    </a>
+                </li>
+            
+            
+            
+            <li class="quicklinks__item quicklinks__item--share js-quicklinks-share">
+                <button class="quicklinks__share-button js-quicklinks-share__button" aria-expanded="false" aria-controls="js-quicklinks-share__list">
+                    <span class="icon icon--share"></span>
+                    <span class="quicklinks__item__text">Share</span>
+                </button>
+                
+
+
+
+<section class="glue-social glue-social--monochrome quicklinks__share-list js-quicklinks-share__list glue-elevation-level-1 js-gt-share-wrapper">
+  <div class="glue-social__group">
+    <ul class="glue-social__list" role="list">
+
+      <li class="glue-social__item">
+        <a class="glue-social__link" href="https://twitter.com/intent/tweet?text=https%3A//research.google/blog/unlocking-dependable-responses-with-gemini-enterprise-agent-platforms-agentic-rag/" title="Share on Twitter" target="_blank" rel="noopener" data-gt-method="x">
+            <svg role="presentation" aria-hidden="true" class="glue-icon glue-icon--social glue-icon--24px">
+              <use href="/gr/static/assets/icons/twitter-x.svg#twitter-x"></use>
+          </svg>
+        </a>
+      </li>
+      <li class="glue-social__item">
+        <a class="glue-social__link" href="https://www.facebook.com/sharer/sharer.php?u=https%3A//research.google/blog/unlocking-dependable-responses-with-gemini-enterprise-agent-platforms-agentic-rag/" title="Share on Facebook" target="_blank" rel="noopener" data-gt-method="facebook">
+          <svg role="presentation" aria-hidden="true" class="glue-icon glue-icon--social glue-icon--color-facebook glue-icon--24px">
+            <use href="/gr/static/assets/icons/facebook.svg#facebook"></use>
+          </svg>
+        </a>
+      </li>
+      <li class="glue-social__item">
+        <a class="glue-social__link" href="https://www.linkedin.com/shareArticle?url=https%3A//research.google/blog/unlocking-dependable-responses-with-gemini-enterprise-agent-platforms-agentic-rag/&amp;mini=true" title="Share on LinkedIn" target="_blank" rel="noopener" data-gt-method="linkedin">
+          <svg role="presentation" aria-hidden="true" class="glue-icon glue-icon--social glue-icon--color-linkedin glue-icon--24px">
+            <use href="/gr/static/assets/icons/glue-icons.svg#post-linkedin"></use>
+          </svg>
+        </a>
+      </li>
+      <li class="glue-social__item">
+        <a class="glue-social__link" href="mailto:name@example.com?subject=Check%20out%20this%20site&amp;body=Check%20out%20https%3A//research.google/blog/unlocking-dependable-responses-with-gemini-enterprise-agent-platforms-agentic-rag/" title="Send via Email" data-gt-method="email">
+          <svg role="presentation" aria-hidden="true" class="glue-icon glue-icon--social glue-icon--color-sharemail glue-icon--24px">
+            <use href="/gr/static/assets/icons/glue-icons.svg#email"></use>
+          </svg>
+        </a>
+      </li>
+      <li class="glue-social__item">
+        <div class="glue-social__popover glue-popover" data-glue-popover-trigger="click">
+          <div class="glue-social__icon-trigger glue-popover__trigger" aria-label="Get shareable link" title="Get shareable link" id="share-static-popover-trigger" role="button" tabindex="0" aria-expanded="false" aria-controls="share-popover-dialog">
+            <svg role="presentation" aria-hidden="true" class="glue-icon glue-icon--social glue-icon--color-sharelink glue-icon--24px">
+              <use href="/gr/static/assets/icons/glue-icons.svg#link"></use>
+            </svg>
+          </div>
+
+          <div class="glue-social__dialog glue-popover__dialog" id="share-popover-dialog" role="dialog" tabindex="-1" aria-hidden="true">
+            <svg role="presentation" aria-hidden="true" class="glue-icon glue-icon--social glue-icon--color-sharelink glue-icon--24px">
+              <use href="/gr/static/assets/icons/glue-icons.svg#link"></use>
+            </svg>
+            <div class="glue-social__copy glue-copy" glue-copy-success="Copied to clipboard" glue-copy-fail="Press Ctrl+C or ⌘+C to copy">
+              <input class="glue-social__copy-input glue-copy-value" readonly="" type="text" value="https://research.google/blog/unlocking-dependable-responses-with-gemini-enterprise-agent-platforms-agentic-rag/" aria-label="URL" name="glue-social__copy-input">
+              <button class="glue-social__copy-btn glue-copy-button" id="share-copy-btn" data-gt-method="link-copied" aria-live="polite">Copy link</button>
+            </div>
+            <div aria-label="Close" class="glue-social__close-btn glue-popover__close-btn" role="button" tabindex="0">
+              ×
+            </div>
+          </div>
+        </div>
+      </li>
+    </ul>
+  </div>
+</section>
+            </li>
+            
+        </ul>
+    
+</section>
+</div>
+                </div>
+
+                <div class="blog-detail-wrapper js-gt-blog-detail-wrapper" data-gt-publish-date="20260605">
+                    
+                    
+    
+
+
+<section class="component-as-block --no-padding-top --theme-light --dbl-padding">
+    <div class="glue-page">
+        
+  
+<div class="rich-text --theme-light --mode-standalone" data-gt-id="rich_text" data-gt-component-name="">
+    
+
+
+
+
+    <p data-block-key="2a7e3">Current single-step <a href="https://en.wikipedia.org/wiki/Retrieval-augmented_generation" target="_blank" rel="noopener noreferrer">retrieval-augmented generation</a> (RAG) systems weren’t designed for the multi-source, multi-hop queries of modern business workflows. If, for example, the query is, "What are the specs of the server used in Project X?", the system might find documents about Project X, but those documents might only mention a server ID. It won't know to take that ID and perform a second search in another database to find the specs. The result is a partial answer or a "not found" response because the information is spread across different "islands" of data, requiring deeper exploration to find the facts.</p><p data-block-key="5pi3m">Enter “agentic RAG”, which plans, reasons, and iteratively interacts with data sources, enabling the handling of complex queries to increase dependability and accuracy.</p><p data-block-key="1gfs4">Today, we’re excited to introduce Google’s <a href="https://cloud.google.com/blog/products/ai-machine-learning/introducing-gemini-enterprise-agent-platform?e=48754805" target="_blank" rel="noopener noreferrer">Gemini Enterprise Agent Platform</a>-hosted version of <a href="https://docs.cloud.google.com/gemini-enterprise-agent-platform/build/rag-engine/cross-corpus-retrieval" target="_blank" rel="noopener noreferrer">Cross-Corpus Retrieval powered by Agentic RAG</a>. Like <a href="https://huggingface.co/learn/cookbook/multiagent_rag_system" target="_blank" rel="noopener noreferrer">other multi-agent RAG</a> frameworks, ours employs various agents that work together to reliably answer complex queries. Unlike other multi-agent frameworks, ours incorporates <a href="https://research.google/blog/deeper-insights-into-retrieval-augmented-generation-the-role-of-sufficient-context/">sufficient context</a> to confirm if there is enough information for an accurate answer. Compared to standard RAG, our framework increases accuracy on factuality datasets by up to 34%. We also evaluated our system with proprietary, internal datasets and found that we achieve better grounding and improved reasoning accuracy on multiple domain-specific tasks.</p>
+</div>
+
+    </div>
+</section>
+
+                    
+                    
+    
+
+
+<section class="component-as-block --no-padding-top --theme-light --dbl-padding">
+    <div class="glue-page">
+        
+  
+<div class="rich-text --theme-light --mode-standalone" data-gt-id="rich_text" data-gt-component-name="">
+    
+
+
+
+
+    <h2 data-block-key="2a7e3">How multi-agent architectures work: Planning, rewriting, and routing</h2><p data-block-key="4qeiv">It helps to think of multi-agent RAG not as a single search engine but as an organized research department. In a "monolithic" or “<a href="https://bytebridge.medium.com/vanilla-rag-vs-agentic-rag-4d756ddb611f" target="_blank" rel="noopener noreferrer">Vanilla</a>” RAG system, the retrieval component just looks at your question and tries to find matching documents before an LLM generates a response.</p><p data-block-key="86jqr">In a multi-agent framework, the system breaks the job down into specialized roles:</p><ol><li data-block-key="3jd96"><i>The Orchestrator</i> evaluates your complex request and decides, "This isn't a one-step job", and delegates the work to agents.</li><li data-block-key="4sfo5"><i>The Planner Agent</i> maps out the information pathways. If you ask about a project’s budget and its timeline, for example, the Planner Agent decides: <i>"First, we need to check the finance database, then we need to check the project management logs."</i></li><li data-block-key="bleea"><i>The Query Rewriter</i> translates your request into multiple search queries. It turns <i>"What's up with Project X?"</i> into <i>"Status report for Project X Q3"</i> and <i>"Key blockers for Project X team."</i></li><li data-block-key="frh96"><i>The Search Fanout Agent</i> takes those refined queries and sends them to various retrieval sources to collect snippets of information.</li><li data-block-key="4mbf1">Finally, an LLM aggregates all the context to deliver a final response.</li></ol>
+</div>
+
+    </div>
+</section>
+
+                    
+                    
+    
+
+
+<section class="component-as-block --no-padding-top --theme-light --dbl-padding">
+    <div class="glue-page">
+        
+  
+
+
+  
+
+  <div class="
+      dynamic_media
+      glue-grid__col
+      glue-grid__col--span-4-sm
+      glue-grid__col--span-12-md
+      glue-grid__col--span-12-lg
+      --
+      
+        --flex
+        --center
+      
+    " data-gt-id="dynamic_media" data-gt-component-name="">
+
+    
+
+
+
+
+    <div class="
+      glue-grid
+      
+        --remove-gap
+        --full
+      
+    ">
+      
+        <div class="
+          dynamic_media__item
+          glue-grid__col
+          glue-grid__col--span-4-sm
+          
+            glue-grid__col--span-12-md
+          
+          
+            glue-grid__col--span-12-lg
+          
+        ">
+          <div class="">
+            
+
+
+
+  
+    
+      <div class="glue-ambient-video  ">
+        <video class="glue-ambient-video__container" playsinline="" muted="true" loop="true">
+          <source src="https://storage.googleapis.com/gweb-research2023-media/media/AgenticRAG1_Standard.mp4" type="video/mp4">
+        </video>
+
+        <div class="glue-ambient-video__button glue-ambient-video__button--paused" aria-label="Pause" role="button" tabindex="0">
+          <div class="glue-ambient-video__tooltip">
+            <span class="glue-ambient-video__tooltip-play glue-label">play silent looping video</span>
+            <span class="glue-ambient-video__tooltip-pause glue-label">pause silent looping video</span>
+          </div>
+          <div class="glue-ambient-video__icon" tabindex="-1">
+            
+
+
+
+  
+
+<svg role="presentation" aria-hidden="true" class="glue-icon glue-icon--18px glue-ambient-video__icon-play">
+  <use href="/gr/static/assets/icons/glue-icons.svg#play-button"></use>
+</svg>
+
+            
+
+
+
+  
+
+<svg role="presentation" aria-hidden="true" class="glue-icon glue-icon--18px glue-ambient-video__icon-pause">
+  <use href="/gr/static/assets/icons/glue-icons.svg#pause-button"></use>
+</svg>
+
+          </div>
+        </div>
+
+        
+
+<div class="glue-ambient-video__button-2 glue-ambient-video__button--mute-unmute glue-ambient-video__button--hidden" aria-label="Video Mute/Unmute">
+    <div class="glue-ambient-video__tooltip glue-ambient-video__tooltip--mute">
+        <span class="glue-ambient-video__tooltip-unmute glue-label">unmute video</span>
+        <span class="glue-ambient-video__tooltip-mute glue-label">mute video</span>
+    </div>
+    <div class="glue-ambient-video__icon glue-ambient-video__icon-sound">
+        <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 0 24 24" width="18px" fill="#FFF" class="glue-ambient-video__icon-mute">
+            <path d="M0 0h24v24H0z" fill="none"></path>
+            <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"></path>
+        </svg>
+        <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 0 24 24" width="18px" class="glue-ambient-video__icon-unmute" fill="#FFF">
+            <path d="M0 0h24v24H0z" fill="none"></path>
+            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"></path>
+        </svg>
+    </div>
+</div>
+
+      </div>
+    
+  
+
+
+          </div>
+        </div>
+      
+
+      
+        <div class="
+          glue-grid__col
+          glue-grid__col--span-4-sm
+          glue-grid__col--span-12-md
+          caption
+          --center
+        ">
+          <p data-block-key="bfte9"><i>Demonstrating a standard agentic RAG system. While this has multiple agents, it does not include iterative retrieval or specialized cross-corpus support.</i></p>
+        </div>
+      
+    </div>
+  </div>
+
+
+
+    </div>
+</section>
+
+                    
+                    
+    
+
+
+<section class="component-as-block --no-padding-top --theme-light --dbl-padding">
+    <div class="glue-page">
+        
+  
+<div class="rich-text --theme-light --mode-standalone" data-gt-id="rich_text" data-gt-component-name="">
+    
+
+
+
+
+    <h2 data-block-key="2a7e3">What makes our agentic RAG different from others</h2><p data-block-key="6m4dl">The key difference with our new agentic RAG framework is <i>persistence</i>. Compared to other RAG solutions, our framework is effective because it knows when it is missing information and continues searching until the context is complete. This prevents the AI from "guessing" when the first search comes up empty, or from simply saying, “I don’t have enough information.” While this is an appropriate response in some cases, sometimes the information is there and we just need to find it.</p><p data-block-key="emahu">For example, imagine a doctor asking about a patient’s medications, diet, and allergies:</p><p data-block-key="fhs3"><i>"What are the discharge medications and dietary restrictions for John Doe after his knee surgery, and did he have any allergic reactions during his stay? Do not include medications only administered during hospital inpatient or emergency department visits except for heparin IV drip or Tenecteplase."</i></p><p data-block-key="1fjo1">In response, our framework kicks off many specialized agents. We give an overview of our solution in the figure below and then describe it in more detail afterwards.</p>
+</div>
+
+    </div>
+</section>
+
+                    
+                    
+    
+
+
+<section class="component-as-block --no-padding-top --theme-light --dbl-padding">
+    <div class="glue-page">
+        
+  
+
+
+  
+
+  <div class="
+      dynamic_media
+      glue-grid__col
+      glue-grid__col--span-4-sm
+      glue-grid__col--span-12-md
+      glue-grid__col--span-12-lg
+      --
+      
+        --flex
+        --center
+      
+    " data-gt-id="dynamic_media" data-gt-component-name="">
+
+    
+
+
+
+
+    <div class="
+      glue-grid
+      
+        --remove-gap
+        --full
+      
+    ">
+      
+        <div class="
+          dynamic_media__item
+          glue-grid__col
+          glue-grid__col--span-4-sm
+          
+            glue-grid__col--span-12-md
+          
+          
+            glue-grid__col--span-12-lg
+          
+        ">
+          <div class="">
+            
+
+
+
+  
+    
+      <div class="glue-ambient-video  ">
+        <video class="glue-ambient-video__container" playsinline="" muted="true" loop="true">
+          <source src="https://storage.googleapis.com/gweb-research2023-media/media/AgenticRAG2_Multiagent.mp4" type="video/mp4">
+        </video>
+
+        <div class="glue-ambient-video__button glue-ambient-video__button--paused" aria-label="Pause" role="button" tabindex="0">
+          <div class="glue-ambient-video__tooltip">
+            <span class="glue-ambient-video__tooltip-play glue-label">play silent looping video</span>
+            <span class="glue-ambient-video__tooltip-pause glue-label">pause silent looping video</span>
+          </div>
+          <div class="glue-ambient-video__icon" tabindex="-1">
+            
+
+
+
+  
+
+<svg role="presentation" aria-hidden="true" class="glue-icon glue-icon--18px glue-ambient-video__icon-play">
+  <use href="/gr/static/assets/icons/glue-icons.svg#play-button"></use>
+</svg>
+
+            
+
+
+
+  
+
+<svg role="presentation" aria-hidden="true" class="glue-icon glue-icon--18px glue-ambient-video__icon-pause">
+  <use href="/gr/static/assets/icons/glue-icons.svg#pause-button"></use>
+</svg>
+
+          </div>
+        </div>
+
+        
+
+<div class="glue-ambient-video__button-2 glue-ambient-video__button--mute-unmute glue-ambient-video__button--hidden" aria-label="Video Mute/Unmute">
+    <div class="glue-ambient-video__tooltip glue-ambient-video__tooltip--mute">
+        <span class="glue-ambient-video__tooltip-unmute glue-label">unmute video</span>
+        <span class="glue-ambient-video__tooltip-mute glue-label">mute video</span>
+    </div>
+    <div class="glue-ambient-video__icon glue-ambient-video__icon-sound">
+        <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 0 24 24" width="18px" fill="#FFF" class="glue-ambient-video__icon-mute">
+            <path d="M0 0h24v24H0z" fill="none"></path>
+            <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"></path>
+        </svg>
+        <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 0 24 24" width="18px" class="glue-ambient-video__icon-unmute" fill="#FFF">
+            <path d="M0 0h24v24H0z" fill="none"></path>
+            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"></path>
+        </svg>
+    </div>
+</div>
+
+      </div>
+    
+  
+
+
+          </div>
+        </div>
+      
+
+      
+        <div class="
+          glue-grid__col
+          glue-grid__col--span-4-sm
+          glue-grid__col--span-12-md
+          caption
+          --center
+        ">
+          <p data-block-key="bfte9"><i>Illustrating our multi-agent RAG solution, which includes a sufficient context agent, as well as the ability to iteratively retrieve more information before answering the query.</i></p>
+        </div>
+      
+    </div>
+  </div>
+
+
+
+    </div>
+</section>
+
+                    
+                    
+    
+
+
+<section class="component-as-block --no-padding-top --theme-light --dbl-padding">
+    <div class="glue-page">
+        
+  
+<div class="rich-text --theme-light --mode-standalone" data-gt-id="rich_text" data-gt-component-name="">
+    
+
+
+
+
+    <h3 data-block-key="2a7e3">Phase 1: Orchestration</h3><p data-block-key="enbqu">The Root Agent parses the doctor's request and delegates the tasks to sub-agents. The Planner Agent identifies that it needs to check three distinct areas: Pharmacy, Nutrition, and Clinical Notes. The Query Rewriter breaks the long request into simple, searchable questions so the retriever can more accurately find relevant content.</p><h3 data-block-key="68a3a"></h3>
+</div>
+
+    </div>
+</section>
+
+                    
+                    
+    
+
+
+<section class="component-as-block --no-padding-top --theme-light --dbl-padding">
+    <div class="glue-page">
+        
+  
+<div class="rich-text --theme-light --mode-standalone" data-gt-id="rich_text" data-gt-component-name="">
+    
+
+
+
+
+    <h3 data-block-key="o98mx">Phase 2: Search (standard step)</h3><p data-block-key="q9kc">The RAG Agent searches the patient's records for all the query fanouts at once. It finds the medications and the diet information, but it can’t find any mention of allergies in the most obvious files. In a standard or “Vanilla” RAG system, the process might end here with an incomplete answer.</p><h3 data-block-key="6caau"></h3>
+</div>
+
+    </div>
+</section>
+
+                    
+                    
+    
+
+
+<section class="component-as-block --no-padding-top --theme-light --dbl-padding">
+    <div class="glue-page">
+        
+  
+<div class="rich-text --theme-light --mode-standalone" data-gt-id="rich_text" data-gt-component-name="">
+    
+
+
+
+
+    <h3 data-block-key="3fjmk">Phase 3: Sufficient Context Agent (new research innovation)</h3><p data-block-key="6lq8m">Think of the Sufficient Context Agent as a quality-control inspector standing at the end of an assembly line. It examines three specific findings before allowing a response to be generated:</p><h4 data-block-key="8h4o1">1. Retrieved snippets</h4><p data-block-key="16uop">The Sufficient Context Agent evaluates the actual text chunks pulled from the database by the RAG Agent. In the doctor's example, these could be the specific paragraphs found in the "Discharge Summary" and "Nutrition Notes." It reads these to see if the information needed to answer the query is present in those sentences.</p><h4 data-block-key="4f1u0">2. Intermediate draft</h4><p data-block-key="66a10">The system also creates a "rough draft" response. The Sufficient Context Agent then reviews the prompt, draft, and retrieved snippets to evaluate whether the model has everything it needs to provide a comprehensive and grounded answer. If the prompt asks for three things (meds, diet, allergies) but the snippets only contain information about two, the Sufficient Context Agent flags it as “insufficient context.”</p><h4 data-block-key="7ll9d">3. Missing pieces analysis</h4><p data-block-key="2jja7">This is the most critical part. The Sufficient Context Agent identifies exactly what is not there. It doesn't just output that "this is insufficient"; it generates a specific "Reason" and "Feedback" log. For example:</p><p data-block-key="1qi7a">Finding: "We have the medication list and the low-sodium diet instructions."</p><p data-block-key="3vt67">Gap: "We are missing information from the source documents about allergic reactions or adverse events during the stay."</p><p data-block-key="fca4t">The Sufficient Context Agent compares what was found against the original request and asks: <i>"Did we answer the allergy question?”</i> If not, it then issues an "Insufficient Context" signal and provides specific feedback: <i>"You found meds and diet, but you missed allergies. Go back and search specifically for 'rashes' or 'adverse events'."</i> In a multi-source situation, it can also request more information or decide that the source isn’t relevant to the query.</p>
+</div>
+
+    </div>
+</section>
+
+                    
+                    
+    
+
+
+<section class="component-as-block --no-padding-top --theme-light --dbl-padding">
+    <div class="glue-page">
+        
+  
+<div class="rich-text --theme-light --mode-standalone" data-gt-id="rich_text" data-gt-component-name="">
+    
+
+
+
+
+    <h3 data-block-key="3fjmk">Phase 4: Iteration</h3><p data-block-key="2d5dt">Because of the Sufficient Context Agent feedback, the Query Rewriter creates a new search for "rashes." Then, the RAG Agent dives deeper into files it ignored the first time and finds the missing information.</p>
+</div>
+
+    </div>
+</section>
+
+                    
+                    
+    
+
+
+<section class="component-as-block --no-padding-top --theme-light --dbl-padding">
+    <div class="glue-page">
+        
+  
+<div class="rich-text --theme-light --mode-standalone" data-gt-id="rich_text" data-gt-component-name="">
+    
+
+
+
+
+    <h3 data-block-key="3fjmk">Phase 5: Synthesis (final answer)</h3><p data-block-key="fic6f">The Sufficient Context Agent checks the data one last time. Now that it has the meds, diet, and allergy info, it determines we can stop searching. Finally, the Synthesis Agent writes a clean, accurate summary for the doctor.</p>
+</div>
+
+    </div>
+</section>
+
+                    
+                    
+    
+
+
+<section class="component-as-block --no-padding-top --theme-light --dbl-padding">
+    <div class="glue-page">
+        
+  
+<div class="rich-text --theme-light --mode-standalone" data-gt-id="rich_text" data-gt-component-name="">
+    
+
+
+
+
+    <h2 data-block-key="2a7e3">Experiments and results</h2><p data-block-key="ahsvn">We evaluated agentic RAG on <a href="https://huggingface.co/datasets/google/frames-benchmark" target="_blank" rel="noopener noreferrer">FramesQA</a>, which is based on the <a href="https://arxiv.org/abs/2409.12941" target="_blank" rel="noopener noreferrer">FRAMES</a> paper. An example multi-hop question is:</p><p data-block-key="63qrl"><i>“Of the top two most watched television season finales (as of June 2024), which finale ran the longest in length and by how much?”</i></p><p data-block-key="74bp0">The RAG system needs to perform multiple steps to arrive at the correct answer. First, it has to identify that the two most watched finales are from the shows <a href="https://en.wikipedia.org/wiki/M*A*S*H_(TV_series)" target="_blank" rel="noopener noreferrer">M*A*S*H</a> and <a href="https://en.wikipedia.org/wiki/Cheers" target="_blank" rel="noopener noreferrer">Cheers</a>. Then, it has to find their running times, and calculate the length difference. In many RAG settings (Vanilla RAG or agentic RAG without sufficient context), we could end up in a situation where the model says something like:</p><p data-block-key="be8vc"><i>“Despite multiple scans, I found no explicit runtimes for M*A*S*H or Cheers. The documents provide viewership data, but not the duration in minutes or hours.”</i></p><p data-block-key="8ev2c">This does not answer the question.</p><p data-block-key="5thdo">Fortunately, our agentic RAG can solve this by first searching for the TV shows, then using the Query Rewriter and Sufficient Context Agent to have a targeted search for the run time of M*A*S*H or Cheers. Then, Gemini can easily determine which finale ran the longest in length and by how much:<br><br><i>“The M*A*S*H finale ran for 150 minutes, making it the longest of the top two. It was 52 minutes longer than the Cheers finale, which ran for approximately 98 minutes.”</i><br><br>We ran an experiment to test this ability at scale (FramesQA has 824 queries along with a corpus containing 2,676 PDF documents). In the “Vanilla” RAG setting, we use Google’s <a href="https://docs.cloud.google.com/vertex-ai/generative-ai/docs/rag-engine/rag-overview" target="_blank" rel="noopener noreferrer">RAG Engine</a> (which has an advanced retrieval engine, LLM parser, and re-ranker). We compared this with our agentic RAG in two settings. In the single-corpus setting, we retrieve from the FramesQA documents. In the cross-corpus setting, we also include three other distracting datasets, where the Planner Agent must determine where to retrieve from. This cross-corpus setting mimics use cases where companies have databases managed by separate teams. We compute accuracy by using an LLM-as-a-judge to compare the system responses to the ground truth answers in the dataset.</p><p data-block-key="2hi1q">In the cross-corpus setting, our system nearly matches its single-corpus accuracy. Even when the Planner Agent must select the correct corpus out of 4 possibilities, we successfully route the search queries and answer 90.1% of questions correctly. Also, the latency of both single- and cross-corpus versions is about the same (within 3% on average). This demonstrates that our Agentic RAG system can reason over multiple, unrelated data sources, which opens up possibilities for more flexible retrieval scenarios.</p>
+</div>
+
+    </div>
+</section>
+
+                    
+                    
+    
+
+
+<section class="component-as-block --no-padding-top --theme-light --dbl-padding">
+    <div class="glue-page">
+        
+  
+
+
+  
+
+  <div class="
+      dynamic_media
+      glue-grid__col
+      glue-grid__col--span-4-sm
+      glue-grid__col--span-12-md
+      glue-grid__col--span-12-lg
+      --
+      
+        --flex
+        --center
+      
+    " data-gt-id="dynamic_media" data-gt-component-name="">
+
+    
+
+
+
+
+    <div class="
+      glue-grid
+      
+        --remove-gap
+        --medium
+      
+    ">
+      
+        <div class="
+          dynamic_media__item
+          glue-grid__col
+          glue-grid__col--span-4-sm
+          
+            glue-grid__col--span-12-md
+          
+          
+            glue-grid__col--span-12-lg
+          
+        ">
+          <div class="">
+            
+
+
+
+  
+    
+
+
+
+
+
+    <!-- Determine the appropriate width based on image_width -->
+    
+        
+    
+
+
+<!-- For mobile images, use a default width -->
+
+
+<div class="dynamic-image-wrapper"><picture class="media__image media__image">
+    
+    
+        <source media="(min-width: 768px)" srcset="https://storage.googleapis.com/gweb-research2023-media/images/AgenticRAG3_Comparison.width-1250.png" alt="AgenticRAG3_Comparison">
+    
+    <img src="./googlesearch_files/AgenticRAG3_Comparison.width-1250.png" alt="AgenticRAG3_Comparison" loading="lazy">
+    
+</picture><button class="enlarge-btn" data-tooltip="Enlarge image" aria-label="Enlarge image" type="button"><svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="#1f1f1f"> <path d="M240-240v-240h72v168h168v72H240Zm408-240v-168H480v-72h240v240h-72Z"></path> </svg></button></div>
+  
+
+
+          </div>
+        </div>
+      
+
+      
+        <div class="
+          glue-grid__col
+          glue-grid__col--span-4-sm
+          glue-grid__col--span-12-md
+          caption
+          --center
+        ">
+          <p data-block-key="bfte9"><i>Comparison of</i> <b>cross-corpus</b> retrieval <i>versus single-corpus and Vanilla RAG on FramesQA, demonstrating that our agentic solutions achieve high accuracy.</i></p>
+        </div>
+      
+    </div>
+  </div>
+
+
+
+    </div>
+</section>
+
+                    
+                    
+    
+
+
+<section class="component-as-block --no-padding-top --theme-light --dbl-padding">
+    <div class="glue-page">
+        
+  
+<div class="rich-text --theme-light --mode-standalone" data-gt-id="rich_text" data-gt-component-name="">
+    
+
+
+
+
+    <h2 data-block-key="2a7e3">Conclusion</h2><p data-block-key="3ciqa">By combining advanced query planning, routing, and sufficient context, our agentic RAG system ensures that AI-generated responses are auditable, traceable, and grounded. We look forward to seeing how the machine learning community leverages these new agentic capabilities to build the next generation of dependable AI systems. This new feature is now available as <a href="https://docs.cloud.google.com/gemini-enterprise-agent-platform/build/rag-engine/cross-corpus-retrieval" target="_blank" rel="noopener noreferrer">a public preview offering in Gemini Enterprise Agent Platform</a>.</p>
+</div>
+
+    </div>
+</section>
+
+                    
+                    
+    
+
+
+<section class="component-as-block --no-padding-top --theme-light --dbl-padding">
+    <div class="glue-page">
+        
+  
+<div class="rich-text --theme-light --mode-standalone" data-gt-id="rich_text" data-gt-component-name="">
+    
+
+
+
+
+    <h2 data-block-key="2a7e3">Acknowledgments</h2><p data-block-key="7susf"><i>This project is joint work with Bo Li, Zhongjie Mao, Tiger Jin, Yuhong Kan, Mohd Abdullah (Obito), Chun-Sung Ferng, Pooneh Mortazavi, Roger (Peng) Yu, Eran Lewis, and Ivan Kuznetsov. We thank Kimberly Schwede for designing the graphics and Mark Simborg for writing assistance. We also thank our key enterprise partners for critical user feedback, data, and insights.</i></p>
+</div>
+
+    </div>
+</section>
+
+                    
+                </div>
+
+                
+<section class="blog-labels" data-gt-id="blog_labels" data-gt-component-name="Blog Labels">
+    <ul class="blog-labels__list">
+        <span class="caption">Labels:</span> 
+        
+        <li class="caption">
+            <a class="caption" href="https://research.google/blog/label/data-management">Data Management</a>
+            
+            <div class="blog-labels__spacer"></div>
+            
+        </li>
+        
+        <li class="caption">
+            <a class="caption" href="https://research.google/blog/label/machine-intelligence">Machine Intelligence</a>
+            
+            <div class="blog-labels__spacer"></div>
+            
+        </li>
+        
+        <li class="caption">
+            <a class="caption" href="https://research.google/blog/label/natural-language-processing">Natural Language Processing</a>
+            
+            <div class="blog-labels__spacer"></div>
+            
+        </li>
+        
+        <li class="caption">
+            <a class="caption" href="https://research.google/blog/label/product">Product</a>
+            
+        </li>
+        
+    </ul>
+</section>
+
+                
+    
+
+
+<section aria-label="List of footnotes" data-gt-id="footnotes" data-gt-component-name="Footnotes">
+  <ol class="js-footnotes footnotes"></ol>
+</section>
+
+
+            </div>
+            
+                <div class="glue-grid__col glue-grid__col--span-4-sm glue-grid__col--span-12-md glue-grid__col--span-3-lg">
+                    <div class="quicklinks-wrapper--desktop quicklinks-wrapper--sticky">
+                        <div class="block-quick_links">
+
+
+<section class="quicklinks">
+    
+        <h2 class="eyebrow">Quick links</h2>
+        <ul class="quicklinks__list">
+            
+            
+            
+                <li class="quicklinks__item">
+                    <a class="not-glue quicklinks__item__link" href="https://docs.cloud.google.com/gemini-enterprise-agent-platform/build/rag-engine/cross-corpus-retrieval">
+                        <span class="icon icon--link"></span>
+                        <span class="quicklinks__item__text">RAG Engine Cross Corpus Retrieval</span>
+                    </a>
+                </li>
+            
+            
+            
+            <li class="quicklinks__item quicklinks__item--share js-quicklinks-share">
+                <button class="quicklinks__share-button js-quicklinks-share__button" aria-expanded="false" aria-controls="js-quicklinks-share__list">
+                    <span class="icon icon--share"></span>
+                    <span class="quicklinks__item__text">Share</span>
+                </button>
+                
+
+
+
+<section class="glue-social glue-social--monochrome quicklinks__share-list js-quicklinks-share__list glue-elevation-level-1 js-gt-share-wrapper">
+  <div class="glue-social__group">
+    <ul class="glue-social__list" role="list">
+
+      <li class="glue-social__item">
+        <a class="glue-social__link" href="https://twitter.com/intent/tweet?text=https%3A//research.google/blog/unlocking-dependable-responses-with-gemini-enterprise-agent-platforms-agentic-rag/" title="Share on Twitter" target="_blank" rel="noopener" data-gt-method="x">
+            <svg role="presentation" aria-hidden="true" class="glue-icon glue-icon--social glue-icon--24px">
+              <use href="/gr/static/assets/icons/twitter-x.svg#twitter-x"></use>
+          </svg>
+        </a>
+      </li>
+      <li class="glue-social__item">
+        <a class="glue-social__link" href="https://www.facebook.com/sharer/sharer.php?u=https%3A//research.google/blog/unlocking-dependable-responses-with-gemini-enterprise-agent-platforms-agentic-rag/" title="Share on Facebook" target="_blank" rel="noopener" data-gt-method="facebook">
+          <svg role="presentation" aria-hidden="true" class="glue-icon glue-icon--social glue-icon--color-facebook glue-icon--24px">
+            <use href="/gr/static/assets/icons/facebook.svg#facebook"></use>
+          </svg>
+        </a>
+      </li>
+      <li class="glue-social__item">
+        <a class="glue-social__link" href="https://www.linkedin.com/shareArticle?url=https%3A//research.google/blog/unlocking-dependable-responses-with-gemini-enterprise-agent-platforms-agentic-rag/&amp;mini=true" title="Share on LinkedIn" target="_blank" rel="noopener" data-gt-method="linkedin">
+          <svg role="presentation" aria-hidden="true" class="glue-icon glue-icon--social glue-icon--color-linkedin glue-icon--24px">
+            <use href="/gr/static/assets/icons/glue-icons.svg#post-linkedin"></use>
+          </svg>
+        </a>
+      </li>
+      <li class="glue-social__item">
+        <a class="glue-social__link" href="mailto:name@example.com?subject=Check%20out%20this%20site&amp;body=Check%20out%20https%3A//research.google/blog/unlocking-dependable-responses-with-gemini-enterprise-agent-platforms-agentic-rag/" title="Send via Email" data-gt-method="email">
+          <svg role="presentation" aria-hidden="true" class="glue-icon glue-icon--social glue-icon--color-sharemail glue-icon--24px">
+            <use href="/gr/static/assets/icons/glue-icons.svg#email"></use>
+          </svg>
+        </a>
+      </li>
+      <li class="glue-social__item">
+        <div class="glue-social__popover glue-popover" data-glue-popover-trigger="click">
+          <div class="glue-social__icon-trigger glue-popover__trigger" aria-label="Get shareable link" title="Get shareable link" id="share-static-popover-trigger" role="button" tabindex="0" aria-expanded="false" aria-controls="share-popover-dialog">
+            <svg role="presentation" aria-hidden="true" class="glue-icon glue-icon--social glue-icon--color-sharelink glue-icon--24px">
+              <use href="/gr/static/assets/icons/glue-icons.svg#link"></use>
+            </svg>
+          </div>
+
+          <div class="glue-social__dialog glue-popover__dialog" id="share-popover-dialog" role="dialog" tabindex="-1" aria-hidden="true">
+            <svg role="presentation" aria-hidden="true" class="glue-icon glue-icon--social glue-icon--color-sharelink glue-icon--24px">
+              <use href="/gr/static/assets/icons/glue-icons.svg#link"></use>
+            </svg>
+            <div class="glue-social__copy glue-copy" glue-copy-success="Copied to clipboard" glue-copy-fail="Press Ctrl+C or ⌘+C to copy">
+              <input class="glue-social__copy-input glue-copy-value" readonly="" type="text" value="https://research.google/blog/unlocking-dependable-responses-with-gemini-enterprise-agent-platforms-agentic-rag/" aria-label="URL" name="glue-social__copy-input">
+              <button class="glue-social__copy-btn glue-copy-button" id="share-copy-btn" data-gt-method="link-copied" aria-live="polite">Copy link</button>
+            </div>
+            <div aria-label="Close" class="glue-social__close-btn glue-popover__close-btn" role="button" tabindex="0">
+              ×
+            </div>
+          </div>
+        </div>
+      </li>
+    </ul>
+  </div>
+</section>
+            </li>
+            
+        </ul>
+    
+</section>
+</div>
+                    </div>
+                </div>
+            
+        </div>
+    </div>
+    
+    
+
+<section class="related-posts offset-two-up" data-gt-id="related_blog_posts" data-gt-component-name="Related Blog Posts">
+    <div class="glue-page glue-grid">
+        <div class="offset-two-up__left-col glue-grid__col glue-grid__col--span-4-sm glue-grid__col--span-12-md glue-grid__col--span-3-lg">
+            <h2 class="offset-two-up__headline headline-3">Other posts of interest</h2>
+        </div>
+        <div class="glue-grid__col glue-grid__col--span-4-sm glue-grid__col--span-12-md glue-grid__col--span-9-lg">
+            <ul class="card-stack--basic nested-glue-grid-override">
+                
+                <li class="glue-grid__col glue-grid__col--span-4-md glue-grid__col--span-4-sm">
+                    
+
+
+
+
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    <a class="glue-card glue-card--basic not-glue glue-card--blog" href="https://research.google/blog/towards-passive-heart-health-monitoring-via-smartphone-camera/" aria-label="">
+
+        <div class="glue-card__inner">
+            
+    
+
+
+
+<div class="related-posts__image">
+    
+    
+    
+    <img src="./googlesearch_files/rPPG-2-final.png" alt="">
+</div>
+
+
+
+            <div class="glue-card__content --no-media">
+  
+    <p class="glue-card__eyebrow label">June 4, 2026</p>
+  
+
+  
+    <span class="headline-6 js-gt-item-id">
+      Towards passive heart health monitoring via smartphone camera
+    </span>
+  
+
+  
+</div>
+
+
+            
+    <ul class="glue-card__link-list">
+        
+            <li class="glue-card__link-list__item">
+                <span class="not-glue caption">
+                    Health &amp; Bioscience
+                    
+                    <span class="glue-card__link-list__spacer">·</span>
+                    
+                </span>
+            </li>
+        
+            <li class="glue-card__link-list__item">
+                <span class="not-glue caption">
+                    Human-Computer Interaction and Visualization
+                    
+                    <span class="glue-card__link-list__spacer">·</span>
+                    
+                </span>
+            </li>
+        
+            <li class="glue-card__link-list__item">
+                <span class="not-glue caption">
+                    Machine Intelligence
+                    
+                </span>
+            </li>
+        
+    </ul>
+
+
+
+        
+            
+
+        
+        </div>
+
+    </a>
+
+
+
+                </li>
+                
+                <li class="glue-grid__col glue-grid__col--span-4-md glue-grid__col--span-4-sm">
+                    
+
+
+
+
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    <a class="glue-card glue-card--basic not-glue glue-card--blog" href="https://research.google/blog/empirical-research-assistance-era-from-nature-publication-to-catalyzing-computational-discovery/" aria-label="">
+
+        <div class="glue-card__inner">
+            
+    
+
+
+
+<div class="related-posts__image">
+    
+    
+    
+    <img src="./googlesearch_files/ERA_nature_hero_final.webp" alt="">
+</div>
+
+
+
+            <div class="glue-card__content --no-media">
+  
+    <p class="glue-card__eyebrow label">May 19, 2026</p>
+  
+
+  
+    <span class="headline-6 js-gt-item-id">
+      Empirical Research Assistance (ERA): From Nature publication to catalyzing Computational Discovery
+    </span>
+  
+
+  
+</div>
+
+
+            
+    <ul class="glue-card__link-list">
+        
+            <li class="glue-card__link-list__item">
+                <span class="not-glue caption">
+                    General Science
+                    
+                    <span class="glue-card__link-list__spacer">·</span>
+                    
+                </span>
+            </li>
+        
+            <li class="glue-card__link-list__item">
+                <span class="not-glue caption">
+                    Machine Intelligence
+                    
+                    <span class="glue-card__link-list__spacer">·</span>
+                    
+                </span>
+            </li>
+        
+            <li class="glue-card__link-list__item">
+                <span class="not-glue caption">
+                    Natural Language Processing
+                    
+                    <span class="glue-card__link-list__spacer">·</span>
+                    
+                </span>
+            </li>
+        
+            <li class="glue-card__link-list__item">
+                <span class="not-glue caption">
+                    Open Source Models &amp; Datasets
+                    
+                </span>
+            </li>
+        
+    </ul>
+
+
+
+        
+            
+
+        
+        </div>
+
+    </a>
+
+
+
+                </li>
+                
+                <li class="glue-grid__col glue-grid__col--span-4-md glue-grid__col--span-4-sm">
+                    
+
+
+
+
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    <a class="glue-card glue-card--basic not-glue glue-card--blog" href="https://research.google/blog/four-ways-google-research-scientists-have-been-using-empirical-research-assistance/" aria-label="">
+
+        <div class="glue-card__inner">
+            
+    
+
+
+
+<div class="related-posts__image">
+    
+    
+    
+    <img src="./googlesearch_files/ERAapp_Hero.png" alt="">
+</div>
+
+
+
+            <div class="glue-card__content --no-media">
+  
+    <p class="glue-card__eyebrow label">April 29, 2026</p>
+  
+
+  
+    <span class="headline-6 js-gt-item-id">
+      Four ways Google Research scientists have been using Empirical Research Assistance
+    </span>
+  
+
+  
+</div>
+
+
+            
+    <ul class="glue-card__link-list">
+        
+            <li class="glue-card__link-list__item">
+                <span class="not-glue caption">
+                    Data Mining &amp; Modeling
+                    
+                    <span class="glue-card__link-list__spacer">·</span>
+                    
+                </span>
+            </li>
+        
+            <li class="glue-card__link-list__item">
+                <span class="not-glue caption">
+                    General Science
+                    
+                    <span class="glue-card__link-list__spacer">·</span>
+                    
+                </span>
+            </li>
+        
+            <li class="glue-card__link-list__item">
+                <span class="not-glue caption">
+                    Generative AI
+                    
+                    <span class="glue-card__link-list__spacer">·</span>
+                    
+                </span>
+            </li>
+        
+            <li class="glue-card__link-list__item">
+                <span class="not-glue caption">
+                    Machine Intelligence
+                    
+                </span>
+            </li>
+        
+    </ul>
+
+
+
+        
+            
+
+        
+        </div>
+
+    </a>
+
+
+
+                </li>
+                
+            </ul>
+        </div>
+    </div>
+</section>
+
+    
+
+    
+      
+
+
+
+  <div id="imageModal" class="image-modal" tabindex="-1">
+    <span class="image-modal-close">×</span>
+    <span class="image-modal-prev">❮</span>
+    <span class="image-modal-next">❯</span>
+    <div class="image-modal-content">
+    
+      
+        <div class="modal-slide" data-slide-alt="AgenticRAG3_Comparison" data-slide-source="https://storage.googleapis.com/gweb-research2023-media/original_images/AgenticRAG3_Comparison.png">
+          <div class="dynamic-image-wrapper"><img src="./googlesearch_files/AgenticRAG3_Comparison.png" alt="AgenticRAG3_Comparison"><button class="enlarge-btn" data-tooltip="Enlarge image" aria-label="Enlarge image" type="button"><svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="#1f1f1f"> <path d="M240-240v-240h72v168h168v72H240Zm408-240v-168H480v-72h240v240h-72Z"></path> </svg></button></div>
+          
+          
+        </div>
+      
+    
+    </div>
+  </div>
+
+
+    
+</div>
+
+
+    </main>
+
+    
+    
+      
+        
+          
+            
+
+
+  <div class="gweb-footer__border-top"></div>
+  <footer class="gweb-footer" role="contentinfo">
+    
+      <div class="gweb-footer-wrapper-main">
+        
+          <div class="gweb-footer-social_links">
+            
+
+
+  <section class="glue-social">
+    <div class="glue-social__group glue-social--monochrome">
+      <h2 class="glue-social__title glue-social__title--inline caption">
+        Follow us
+      </h2>
+      <nav class="js-gt-follow-us-wrapper" aria-label="Social media links">
+        <ul class="glue-social__list" role="list">
+            
+              
+                  <li class="glue-social__item">
+                    <a class="glue-social__link" href="https://x.com/GoogleResearch" aria-label="x" title="Follow us on x" target="_blank" rel="noopener" data-gtm-event="social" data-gt-method="x">
+                      <svg id="icon-x" role="presentation" aria-hidden="true" class="glue-icon glue-icon--social glue-icon--24px">
+                        <use href="/gr/static/assets/icons/x.svg?v=2#x"></use>
+                      </svg>
+                    </a>
+                  </li>
+              
+                  <li class="glue-social__item">
+                    <a class="glue-social__link" href="https://www.linkedin.com/showcase/googleresearch/" aria-label="linkedin" title="Follow us on linkedin" target="_blank" rel="noopener" data-gtm-event="social" data-gt-method="linkedin">
+                      <svg id="icon-linkedin" role="presentation" aria-hidden="true" class="glue-icon glue-icon--social glue-icon--24px">
+                        <use href="/gr/static/assets/icons/linkedin.svg?v=2#linkedin"></use>
+                      </svg>
+                    </a>
+                  </li>
+              
+                  <li class="glue-social__item">
+                    <a class="glue-social__link" href="https://www.youtube.com/c/GoogleResearch" aria-label="youtube" title="Follow us on youtube" target="_blank" rel="noopener" data-gtm-event="social" data-gt-method="youtube">
+                      <svg id="icon-youtube" role="presentation" aria-hidden="true" class="glue-icon glue-icon--social glue-icon--24px">
+                        <use href="/gr/static/assets/icons/youtube.svg?v=2#youtube"></use>
+                      </svg>
+                    </a>
+                  </li>
+              
+                  <li class="glue-social__item">
+                    <a class="glue-social__link" href="https://github.com/google-research" aria-label="github" title="Follow us on github" target="_blank" rel="noopener" data-gtm-event="social" data-gt-method="github">
+                      <svg id="icon-github" role="presentation" aria-hidden="true" class="glue-icon glue-icon--social glue-icon--24px">
+                        <use href="/gr/static/assets/icons/github.svg?v=2#github"></use>
+                      </svg>
+                    </a>
+                  </li>
+              
+            
+        </ul>
+      </nav>
+    </div>
+  </section>
+
+
+          </div>
+        
+        <div class="gweb-footer-main_links">
+          
+
+
+  <div class="gweb-footer-main-links__wrapper">
+    <div class="gweb-footer-main-links__title-wrapper">
+      
+        <h2 class="headline">Explore our other initiatives</h2>
+      
+    </div>
+    <div class="gweb-footer-main-links__content-wrapper">
+      
+        <div class="gweb-footer-main-links__link-group align-auto">
+          <div class="gweb-footer-main-links__group-heading-wrapper">
+            
+              <h3 class="gweb-footer-main-links__group-title headline-6">Google AI</h3>
+            
+            
+              <div class="gweb-footer-main-links__group-description text-body">
+                <span>Discover how Google AI is committed to enriching knowledge and solving complex challenges</span>
+              </div>
+            
+          </div>
+          <ul class="gweb-footer-main-links__group-links-wrapper" role="list">
+            
+              
+                <li>
+                  
+
+
+
+  
+  
+    <a href="https://ai.google/products/" target="_blank" rel="noopener noreferrer" class="not-glue" data-gtm-event="select_content" data-event-content-type="outbound" data-event-content-name="Products">
+      <div class="link__label">
+        
+          Products
+        
+      </div>
+    </a>
+  
+
+
+                </li>
+              
+            
+              
+                <li>
+                  
+
+
+
+  
+  
+    <a href="https://ai.google/build/" target="_blank" rel="noopener noreferrer" class="not-glue" data-gtm-event="select_content" data-event-content-type="outbound" data-event-content-name="Build">
+      <div class="link__label">
+        
+          Build
+        
+      </div>
+    </a>
+  
+
+
+                </li>
+              
+            
+              
+                <li>
+                  
+
+
+
+  
+  
+    <a href="https://ai.google/research/" target="_blank" rel="noopener noreferrer" class="not-glue" data-gtm-event="select_content" data-event-content-type="outbound" data-event-content-name="Research">
+      <div class="link__label">
+        
+          Research
+        
+      </div>
+    </a>
+  
+
+
+                </li>
+              
+            
+              
+                <li>
+                  
+
+
+
+  
+  
+    <a href="https://ai.google/public-policy-perspectives/" target="_blank" rel="noopener noreferrer" class="not-glue" data-gtm-event="select_content" data-event-content-type="outbound" data-event-content-name="Responsibility">
+      <div class="link__label">
+        
+          Responsibility
+        
+      </div>
+    </a>
+  
+
+
+                </li>
+              
+            
+              
+                <li>
+                  
+
+
+
+  
+  
+    <a href="https://ai.google/societal-impact/" target="_blank" rel="noopener noreferrer" class="not-glue" data-gtm-event="select_content" data-event-content-type="outbound" data-event-content-name="Societal Impact">
+      <div class="link__label">
+        
+          Societal Impact
+        
+      </div>
+    </a>
+  
+
+
+                </li>
+              
+            
+              
+                <li>
+                  
+
+
+
+  
+  
+    <a href="https://ai.google/our-ai-journey/?section=intro" target="_blank" rel="noopener noreferrer" class="not-glue" data-gtm-event="select_content" data-event-content-type="outbound" data-event-content-name="About">
+      <div class="link__label">
+        
+          About
+        
+      </div>
+    </a>
+  
+
+
+                </li>
+              
+            
+          </ul>
+          
+        </div>
+      
+        <div class="gweb-footer-main-links__link-group align-auto">
+          <div class="gweb-footer-main-links__group-heading-wrapper">
+            
+              <h3 class="gweb-footer-main-links__group-title headline-6">Google Cloud</h3>
+            
+            
+              <div class="gweb-footer-main-links__group-description text-body">
+                <span>High-performance infrastructure for cloud computing, data analytics &amp; machine learning</span>
+              </div>
+            
+          </div>
+          <ul class="gweb-footer-main-links__group-links-wrapper" role="list">
+            
+              
+                <li>
+                  
+
+
+
+  
+  
+    <a href="https://cloud.google.com/" target="_blank" rel="noopener noreferrer" class="not-glue" data-gtm-event="select_content" data-event-content-type="outbound" data-event-content-name="Overview">
+      <div class="link__label">
+        
+          Overview
+        
+      </div>
+    </a>
+  
+
+
+                </li>
+              
+            
+              
+                <li>
+                  
+
+
+
+  
+  
+    <a href="https://cloud.google.com/solutions" target="_blank" rel="noopener noreferrer" class="not-glue" data-gtm-event="select_content" data-event-content-type="outbound" data-event-content-name="Solutions">
+      <div class="link__label">
+        
+          Solutions
+        
+      </div>
+    </a>
+  
+
+
+                </li>
+              
+            
+              
+                <li>
+                  
+
+
+
+  
+  
+    <a href="https://cloud.google.com/products" target="_blank" rel="noopener noreferrer" class="not-glue" data-gtm-event="select_content" data-event-content-type="outbound" data-event-content-name="Products">
+      <div class="link__label">
+        
+          Products
+        
+      </div>
+    </a>
+  
+
+
+                </li>
+              
+            
+              
+                <li>
+                  
+
+
+
+  
+  
+    <a href="https://cloud.google.com/pricing" target="_blank" rel="noopener noreferrer" class="not-glue" data-gtm-event="select_content" data-event-content-type="outbound" data-event-content-name="Pricing">
+      <div class="link__label">
+        
+          Pricing
+        
+      </div>
+    </a>
+  
+
+
+                </li>
+              
+            
+              
+                <li>
+                  
+
+
+
+  
+  
+    <a href="https://cloud.google.com/resources" target="_blank" rel="noopener noreferrer" class="not-glue" data-gtm-event="select_content" data-event-content-type="outbound" data-event-content-name="Resources">
+      <div class="link__label">
+        
+          Resources
+        
+      </div>
+    </a>
+  
+
+
+                </li>
+              
+            
+          </ul>
+          
+        </div>
+      
+        <div class="gweb-footer-main-links__link-group align-auto">
+          <div class="gweb-footer-main-links__group-heading-wrapper">
+            
+              <h3 class="gweb-footer-main-links__group-title headline-6">Google DeepMind</h3>
+            
+            
+              <div class="gweb-footer-main-links__group-description text-body">
+                <span>Our mission is to build AI responsibly to benefit humanity</span>
+              </div>
+            
+          </div>
+          <ul class="gweb-footer-main-links__group-links-wrapper" role="list">
+            
+              
+                <li>
+                  
+
+
+
+  
+  
+    <a href="https://deepmind.google/models/" target="_blank" rel="noopener noreferrer" class="not-glue" data-gtm-event="select_content" data-event-content-type="outbound" data-event-content-name="Models">
+      <div class="link__label">
+        
+          Models
+        
+      </div>
+    </a>
+  
+
+
+                </li>
+              
+            
+              
+                <li>
+                  
+
+
+
+  
+  
+    <a href="https://deepmind.google/research/" target="_blank" rel="noopener noreferrer" class="not-glue" data-gtm-event="select_content" data-event-content-type="outbound" data-event-content-name="Research">
+      <div class="link__label">
+        
+          Research
+        
+      </div>
+    </a>
+  
+
+
+                </li>
+              
+            
+              
+                <li>
+                  
+
+
+
+  
+  
+    <a href="https://deepmind.google/science/" target="_blank" rel="noopener noreferrer" class="not-glue" data-gtm-event="select_content" data-event-content-type="outbound" data-event-content-name="Science">
+      <div class="link__label">
+        
+          Science
+        
+      </div>
+    </a>
+  
+
+
+                </li>
+              
+            
+              
+                <li>
+                  
+
+
+
+  
+  
+    <a href="https://deepmind.google/about/" target="_blank" rel="noopener noreferrer" class="not-glue" data-gtm-event="select_content" data-event-content-type="outbound" data-event-content-name="About">
+      <div class="link__label">
+        
+          About
+        
+      </div>
+    </a>
+  
+
+
+                </li>
+              
+            
+          </ul>
+          
+        </div>
+      
+        <div class="gweb-footer-main-links__link-group align-auto">
+          <div class="gweb-footer-main-links__group-heading-wrapper">
+            
+              <h3 class="gweb-footer-main-links__group-title headline-6">Google Labs</h3>
+            
+            
+              <div class="gweb-footer-main-links__group-description text-body">
+                <span>Explore the future of AI responsibly with Google Labs</span>
+              </div>
+            
+          </div>
+          <ul class="gweb-footer-main-links__group-links-wrapper" role="list">
+            
+              
+                <li>
+                  
+
+
+
+  
+  
+    <a href="https://labs.google/#about" target="_blank" rel="noopener noreferrer" class="not-glue" data-gtm-event="select_content" data-event-content-type="outbound" data-event-content-name="About">
+      <div class="link__label">
+        
+          About
+        
+      </div>
+    </a>
+  
+
+
+                </li>
+              
+            
+              
+                <li>
+                  
+
+
+
+  
+  
+    <a href="https://labs.google/#experiments" target="_blank" rel="noopener noreferrer" class="not-glue" data-gtm-event="select_content" data-event-content-type="outbound" data-event-content-name="Experiments">
+      <div class="link__label">
+        
+          Experiments
+        
+      </div>
+    </a>
+  
+
+
+                </li>
+              
+            
+              
+                <li>
+                  
+
+
+
+  
+  
+    <a href="https://labs.google/#stay-connected" target="_blank" rel="noopener noreferrer" class="not-glue" data-gtm-event="select_content" data-event-content-type="outbound" data-event-content-name="Stay connected">
+      <div class="link__label">
+        
+          Stay connected
+        
+      </div>
+    </a>
+  
+
+
+                </li>
+              
+            
+          </ul>
+          
+        </div>
+      
+    </div>
+  </div>
+
+
+        </div>
+      </div>
+    
+    <div class="gweb-footer-wrapper-legal">
+      <div class="gweb-footer-google_links">
+        
+
+
+  <div class="gweb-footer-google-links__wrapper">
+    <div class="gweb-footer-google-links__title-wrapper">
+      <a class="gweb-footer-google-links__brand" target="_blank" title="Google" href="https://www.google.com/?utm_source=research.google&amp;utm_medium=referral" data-gtm-event="nav_select" data-event-nav-type="footer" data-event-nav-name="https://www.google.com/?utm_source=research.google&amp;utm_medium=referral">
+        <svg role="img" aria-hidden="true" focusable="false" width="75" height="25">
+          <use href="/gr/static/assets/icons/glue-icons.svg#google-solid-logo"></use>
+        </svg>
+      </a>
+    </div>
+    <div class="gweb-footer-google-links__content-wrapper">
+      
+        <div class="gweb-footer-google-links__link">
+          <a class="not-glue" href="https://about.google/" aria-label="About Google" data-gtm-event="nav_select" data-event-nav-type="footer" data-event-nav-name="About Google" target="_blank" rel="noopener noreferrer">
+            <span>About Google</span>
+          </a>
+        </div>
+      
+        <div class="gweb-footer-google-links__link">
+          <a class="not-glue" href="https://about.google/intl/en/products/" aria-label="Google Products" data-gtm-event="nav_select" data-event-nav-type="footer" data-event-nav-name="Google Products" target="_blank" rel="noopener noreferrer">
+            <span>Google Products</span>
+          </a>
+        </div>
+      
+        <div class="gweb-footer-google-links__link">
+          <a class="not-glue" href="https://policies.google.com/privacy" aria-label="Privacy" data-gtm-event="nav_select" data-event-nav-type="footer" data-event-nav-name="Privacy" target="_blank" rel="noopener noreferrer">
+            <span>Privacy</span>
+          </a>
+        </div>
+      
+        <div class="gweb-footer-google-links__link">
+          <a class="not-glue" href="https://policies.google.com/terms" aria-label="Terms" data-gtm-event="nav_select" data-event-nav-type="footer" data-event-nav-name="Terms" target="_blank" rel="noopener noreferrer">
+            <span>Terms</span>
+          </a>
+        </div>
+      
+      
+      <div class="gweb-footer-google-links__link">
+        <button type="button" aria-hidden="true" class="not-glue glue-cookie-notification-bar-control">
+          Cookies management controls
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+      </div>
+    </div>
+  </footer>
+
+
+          
+        
+      
+    
+
+    <div id="dynamicImageModal" class="image-modal" tabindex="-1">
+  <span class="image-modal-close">×</span>
+  <div class="image-modal-content">
+    <div class="dynamic-modal-image">
+      <img width="800" height="540">
+    </div>
+  </div>
+</div>
+
+
+    
+    <script>
+        var scriptUrl = "https://www.gstatic.com/glue/v27_1/material-components-web.min.js";
+        var scriptElement = document.createElement('script');
+        scriptElement.async = false;
+        scriptElement.src = scriptUrl;
+        document.body.appendChild(scriptElement);
+    </script><script src="./googlesearch_files/material-components-web.min.js"></script>
+    <script>
+        var scriptUrl = "https://www.youtube.com/player_api";
+        var scriptElement = document.createElement('script');
+        scriptElement.async = false;
+        scriptElement.src = scriptUrl;
+        document.body.appendChild(scriptElement);
+    </script><script src="./googlesearch_files/player_api"></script>
+    <script>
+        var scriptUrl = "/gr/static/js/googleresearch.js?id=358517e9db355efdb9d5eb3bd1a8aab6";
+        var scriptElement = document.createElement('script');
+        scriptElement.async = false;
+        scriptElement.src = scriptUrl;
+        document.body.appendChild(scriptElement);
+    </script><script src="./googlesearch_files/googleresearch.js"></script>
+    <script>
+        var scriptUrl = "https://support.google.com/inapp/api.js";
+        var scriptElement = document.createElement('script');
+        scriptElement.async = false;
+        scriptElement.src = scriptUrl;
+        document.body.appendChild(scriptElement);
+    </script><script src="./googlesearch_files/api.js"></script>
+
+    
+    
+    
+
+    <script>
+        var scripts = [
+            "https://www.gstatic.com/glue/cookienotificationbar/cookienotificationbar.min.js"
+        ];
+
+        scripts.forEach(function(scriptUrl) {
+            var scriptElement = document.createElement('script');
+            scriptElement.async = false;
+            scriptElement.src = scriptUrl;
+            scriptElement.setAttribute("data-glue-cookie-notification-bar-category", "2B");
+            document.body.appendChild(scriptElement);
+        });
+    </script><script src="./googlesearch_files/cookienotificationbar.min.js" data-glue-cookie-notification-bar-category="2B"></script>
+
+
+
+
+</body></html>
