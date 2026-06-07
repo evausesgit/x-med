@@ -12,3 +12,4 @@ data/
 *.xml
 *.xml.gz
 *.log
+.claude/

@@ -1,15 +1,8 @@
 [
-  { "id": 1,  "theme": "gyneco",   "query": "saignements vaginaux après la ménopause" },
-  { "id": 2,  "theme": "gyneco",   "query": "prise en charge du diabète gestationnel" },
-  { "id": 3,  "theme": "gyneco",   "query": "dépistage du cancer du col de l'utérus par frottis" },
-  { "id": 4,  "theme": "gyneco",   "query": "traitement de l'endométriose et douleurs pelviennes chroniques" },
-  { "id": 5,  "theme": "gyneco",   "query": "hypertension artérielle et pré-éclampsie pendant la grossesse" },
-  { "id": 6,  "theme": "gyneco",   "query": "syndrome des ovaires polykystiques et infertilité" },
-  { "id": 7,  "theme": "gyneco",   "query": "menace d'accouchement prématuré et tocolyse" },
-  { "id": 8,  "theme": "ophtalmo", "query": "perte de vision soudaine et décollement de rétine" },
-  { "id": 9,  "theme": "ophtalmo", "query": "traitement du glaucome à angle ouvert" },
-  { "id": 10, "theme": "ophtalmo", "query": "chirurgie de la cataracte chez la personne âgée" },
-  { "id": 11, "theme": "ophtalmo", "query": "rétinopathie diabétique et dépistage du fond d'œil" },
-  { "id": 12, "theme": "ophtalmo", "query": "dégénérescence maculaire liée à l'âge" },
-  { "id": 13, "theme": "ophtalmo", "query": "œil rouge et douloureux : uvéite ou conjonctivite" }
+  { "id": 1, "theme": "ophtalmo", "query": "accident vasculaire cérébral ischémique par vasospasme ou embolie graisseuse après lipofilling facial" },
+  { "id": 2, "theme": "gyneco",   "query": "effets du relugolix sur la prise en charge de l'endométriose" },
+  { "id": 3, "theme": "gyneco",   "query": "impact des anti-adhérentiels dans la diminution du risque de synéchie en hystéroscopie" },
+  { "id": 4, "theme": "gyneco",   "query": "alcoolisation des endométrioses versus kystectomie" },
+  { "id": 5, "theme": "gyneco",   "query": "isthmocèle et risque de rupture utérine" },
+  { "id": 6, "theme": "gyneco",   "query": "impact de la radiofréquence des fibromes sur la fertilité" }
 ]

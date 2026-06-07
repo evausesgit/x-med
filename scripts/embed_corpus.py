@@ -67,7 +67,12 @@ def _doc_text(title: str | None, abstract: str | None) -> str:
 
 
 def embed_model(
-    model_name: str, limit: int, batch: int, make_index: bool, mesh: list[str] | None = None
+    model_name: str,
+    limit: int,
+    batch: int,
+    make_index: bool,
+    mesh: list[str] | None = None,
+    require_abstract: bool = False,
 ) -> None:
     model = get_model(model_name)
     conn = psycopg.connect(_dsn())
@@ -75,6 +80,10 @@ def embed_model(
 
     # Filtre thématique optionnel : articles dont les tags MeSH recoupent la liste.
     mesh_clause = "AND a.mesh_terms && %(mesh)s::text[]" if mesh else ""
+    # N'embedder que les articles avec abstract (un embedding de titre seul est peu fiable).
+    abstract_clause = (
+        "AND a.abstract IS NOT NULL AND length(a.abstract) > 0" if require_abstract else ""
+    )
     params = {"limit": limit, "mesh": mesh}
 
     # Articles pas encore embeddés pour ce modèle, plus récents d'abord
@@ -86,6 +95,7 @@ def embed_model(
             LEFT JOIN {model.table} e ON e.pmid = a.pmid
             WHERE e.pmid IS NULL
             {mesh_clause}
+            {abstract_clause}
             ORDER BY a.pub_year DESC NULLS LAST, a.pmid DESC
             LIMIT %(limit)s
             """,
@@ -142,6 +152,10 @@ def main() -> None:
         "--mesh-any", nargs="*", default=[],
         help="tags MeSH supplémentaires à inclure (en plus de --theme)",
     )
+    ap.add_argument(
+        "--require-abstract", action="store_true",
+        help="n'embedder que les articles avec abstract (titre seul exclu)",
+    )
     args = ap.parse_args()
 
     # Union des descripteurs MeSH des thèmes choisis + ceux passés à la main.
@@ -155,7 +169,7 @@ def main() -> None:
 
     models = list(REGISTRY) if args.model == "all" else [args.model]
     for name in models:
-        embed_model(name, args.limit, args.batch, args.index, mesh)
+        embed_model(name, args.limit, args.batch, args.index, mesh, args.require_abstract)
 
 
 if __name__ == "__main__":
