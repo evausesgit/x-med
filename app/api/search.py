@@ -13,6 +13,7 @@ from app.config import settings
 from app.db import get_session
 from app.models import Article, MeshDescriptor
 from app.services.embeddings import REGISTRY, get_model
+from app.services.explainability import explain_article
 
 router = APIRouter()
 
@@ -29,6 +30,13 @@ def _embed_query(model_name: str, query: str) -> str:
     return _vec_literal(model.encode_query([query])[0])
 
 
+class ArticleExplanation(BaseModel):
+    concepts: list[str]
+    population: str | None
+    intervention: str | None
+    study_type: str | None
+
+
 class ArticleResult(BaseModel):
     pmid: int
     title: str
@@ -40,6 +48,7 @@ class ArticleResult(BaseModel):
     doi: str | None
     score: float | None = None
     pubmed_url: str
+    explanation: ArticleExplanation
 
 
 class SearchResponse(BaseModel):
@@ -47,10 +56,19 @@ class SearchResponse(BaseModel):
     results: list[ArticleResult]
 
 
-def _to_result(row: Article, score: float | None = None) -> ArticleResult:
+def _to_result(
+    row: Article, score: float | None = None, query: str | None = None
+) -> ArticleResult:
     snippet = None
     if row.abstract:
         snippet = row.abstract[:300] + ("…" if len(row.abstract) > 300 else "")
+    explanation = explain_article(
+        title=row.title,
+        abstract=row.abstract,
+        mesh_terms=row.mesh_terms,
+        publication_types=row.publication_types,
+        query=query,
+    )
     return ArticleResult(
         pmid=row.pmid,
         title=row.title,
@@ -62,6 +80,12 @@ def _to_result(row: Article, score: float | None = None) -> ArticleResult:
         doi=row.doi,
         score=score,
         pubmed_url=f"https://pubmed.ncbi.nlm.nih.gov/{row.pmid}/",
+        explanation=ArticleExplanation(
+            concepts=explanation.concepts,
+            population=explanation.population,
+            intervention=explanation.intervention,
+            study_type=explanation.study_type,
+        ),
     )
 
 
@@ -104,7 +128,7 @@ def search_mesh(
     stmt = stmt.limit(limit).offset(offset)
 
     rows = session.scalars(stmt).all()
-    return SearchResponse(total=total, results=[_to_result(r) for r in rows])
+    return SearchResponse(total=total, results=[_to_result(r, query=q) for r in rows])
 
 
 @router.get("/search", response_model=SearchResponse)
@@ -125,7 +149,9 @@ def search_fulltext(
     rank = func.ts_rank(Article.fts, tsquery)
     stmt = select(Article, rank).where(cond).order_by(rank.desc()).limit(limit).offset(offset)
     rows = session.execute(stmt).all()
-    return SearchResponse(total=total, results=[_to_result(a, float(s)) for a, s in rows])
+    return SearchResponse(
+        total=total, results=[_to_result(a, float(s), query=q) for a, s in rows]
+    )
 
 
 @router.get("/mesh/autocomplete")
@@ -236,7 +262,11 @@ def search_semantic(req: SemanticRequest, session: Session = Depends(get_session
     ).all()
 
     arts = _fetch_articles(session, [pmid for pmid, _ in rows])
-    results = [_to_result(arts[pmid], float(sim)) for pmid, sim in rows if pmid in arts]
+    results = [
+        _to_result(arts[pmid], float(sim), query=req.query)
+        for pmid, sim in rows
+        if pmid in arts
+    ]
     return SearchResponse(total=len(results), results=results)
 
 
@@ -289,5 +319,7 @@ def search_hybrid(
     ordered = sorted(scores, key=lambda p: scores[p], reverse=True)[:limit]
 
     arts = _fetch_articles(session, ordered)
-    results = [_to_result(arts[p], round(scores[p], 5)) for p in ordered if p in arts]
+    results = [
+        _to_result(arts[p], round(scores[p], 5), query=q) for p in ordered if p in arts
+    ]
     return SearchResponse(total=len(results), results=results)

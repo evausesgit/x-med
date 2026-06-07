@@ -13,6 +13,16 @@ export interface ArticleResult {
   doi: string | null;
   score: number | null;
   pubmed_url: string;
+  // Optionnel pendant les déploiements où le frontend et l'API ne basculent
+  // pas exactement au même instant.
+  explanation?: ArticleExplanation;
+}
+
+export interface ArticleExplanation {
+  concepts: string[];
+  population: string | null;
+  intervention: string | null;
+  study_type: string | null;
 }
 
 export interface SearchResponse {
