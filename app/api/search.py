@@ -199,6 +199,57 @@ def list_models(session: Session = Depends(get_session)) -> list[dict]:
     return out
 
 
+@router.get("/embeddings/progress")
+def embeddings_progress(model: str = "bge_m3", session: Session = Depends(get_session)) -> dict:
+    """Avancement de la vectorisation, pour la page /embeddings.
+
+    Trois angles : couverture *globale* (tous les articles), *périmètre prévu*
+    (articles avec abstract — seuls candidats à l'embedding, cf. --require-abstract)
+    et détail *par année*. Le nom de table vient de REGISTRY (jamais de l'entrée
+    utilisateur), donc l'interpolation est sûre.
+    """
+    if model not in REGISTRY:
+        raise HTTPException(400, f"Modèle d'embedding inconnu : {model}")
+    table = REGISTRY[model].table
+    has_abstract = "a.abstract IS NOT NULL AND length(a.abstract) > 0"
+
+    total_articles = session.scalar(sql_text("SELECT count(*) FROM articles")) or 0
+    embedded_total = session.scalar(sql_text(f"SELECT count(*) FROM {table}")) or 0
+    planned_total = session.scalar(
+        sql_text(f"SELECT count(*) FROM articles a WHERE {has_abstract}")
+    ) or 0
+    planned_done = session.scalar(
+        sql_text(
+            f"SELECT count(*) FROM {table} e JOIN articles a ON a.pmid = e.pmid "
+            f"WHERE {has_abstract}"
+        )
+    ) or 0
+
+    rows = session.execute(
+        sql_text(
+            f"""
+            SELECT a.pub_year,
+                   count(*) FILTER (WHERE {has_abstract}) AS total,
+                   count(e.pmid) FILTER (WHERE {has_abstract}) AS embedded
+            FROM articles a
+            LEFT JOIN {table} e ON e.pmid = a.pmid
+            WHERE a.pub_year IS NOT NULL
+            GROUP BY a.pub_year
+            HAVING count(*) FILTER (WHERE {has_abstract}) > 0
+            ORDER BY a.pub_year DESC
+            """
+        )
+    ).all()
+    by_year = [{"year": r[0], "total": int(r[1]), "embedded": int(r[2])} for r in rows]
+
+    return {
+        "model": model,
+        "global": {"embedded": int(embedded_total), "total": int(total_articles)},
+        "planned": {"embedded": int(planned_done), "total": int(planned_total)},
+        "by_year": by_year,
+    }
+
+
 def _fetch_articles(session: Session, pmids: list[int]) -> dict[int, Article]:
     if not pmids:
         return {}

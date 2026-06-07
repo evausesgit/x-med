@@ -672,6 +672,74 @@ button:disabled {
   background: var(--accent-hover);
 }
 
+/* --- Page Embeddings (avancement de la vectorisation) --- */
+.emb-row {
+  margin-bottom: 18px;
+}
+.emb-row:last-child {
+  margin-bottom: 0;
+}
+.emb-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+.emb-label {
+  font-weight: 650;
+}
+.emb-pct {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--accent);
+}
+.emb-bar {
+  display: block;
+  height: 12px;
+  overflow: hidden;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+.emb-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+.emb-fill.done {
+  background: #3f8f5f;
+}
+.emb-counts {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+/* Détail par année : libellé compact à gauche, barre fine à droite */
+.emb-year {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) 116px;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.emb-year-label {
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.emb-year .emb-bar {
+  height: 9px;
+}
+.emb-year-counts {
+  text-align: right;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
 /* --- Page Digest (aperçu) --- */
 .preview-banner {
   margin-bottom: 22px;

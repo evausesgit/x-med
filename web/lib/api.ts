@@ -79,6 +79,37 @@ export async function listModels(): Promise<EmbeddingModelInfo[]> {
   }
 }
 
+// Avancement de la vectorisation du corpus (page /embeddings).
+export interface EmbeddingCoverage {
+  embedded: number;
+  total: number;
+}
+export interface EmbeddingYearRow {
+  year: number;
+  total: number;
+  embedded: number;
+}
+export interface EmbeddingProgress {
+  model: string;
+  global: EmbeddingCoverage;
+  planned: EmbeddingCoverage;
+  by_year: EmbeddingYearRow[];
+}
+
+export async function getEmbeddingProgress(
+  model = "bge_m3",
+): Promise<EmbeddingProgress | null> {
+  try {
+    const res = await fetch(
+      `${API_BASE}/embeddings/progress?model=${encodeURIComponent(model)}`,
+    );
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
 export async function searchHybrid(
   q: string,
   model: string,
