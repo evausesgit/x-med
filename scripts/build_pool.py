@@ -63,12 +63,21 @@ def _fulltext_topk(session, query: str, k: int) -> list[int]:
 
 
 def _semantic_topk(session, model_name: str, query: str, k: int) -> list[int]:
-    """Top-K sémantique (plus proches voisins pgvector) pour un modèle."""
+    """Top-K sémantique (plus proches voisins pgvector) pour un modèle,
+    restreint au corpus d'évaluation (emb_bge_m3) comme les autres méthodes :
+    un candidat hors corpus ne pourrait jamais être retrouvé par le benchmark
+    et fausserait le recall (en plus de gaspiller du temps d'annotation)."""
     model = get_model(model_name)
     qv = _vec_literal(model.encode_query([query])[0])
     rows = session.execute(
         sql_text(
-            f"SELECT pmid FROM {model.table} ORDER BY v <=> (:qv)::vector LIMIT :k"
+            f"""
+            SELECT t.pmid
+            FROM {model.table} t
+            JOIN emb_bge_m3 e ON e.pmid = t.pmid
+            ORDER BY t.v <=> (:qv)::vector
+            LIMIT :k
+            """
         ),
         {"qv": qv, "k": k},
     ).all()
@@ -127,7 +136,12 @@ def do_pool(k: int) -> None:
                         "grade": "",  # à remplir : 0 / 1 / 2
                     }
                 )
-            print(f"  requête {qid} : {len(pmids)} candidats", flush=True)
+            by_method: dict[str, int] = {}
+            for methods in found.values():
+                for m in methods:
+                    by_method[m] = by_method.get(m, 0) + 1
+            detail = ", ".join(f"{m}:{n}" for m, n in sorted(by_method.items()))
+            print(f"  requête {qid} : {len(pmids)} candidats ({detail})", flush=True)
 
     # Écrit aussi le pool en base (table eval_pool) pour la page d'annotation in-site.
     with SessionLocal() as s:
