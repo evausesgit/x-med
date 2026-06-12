@@ -4,5 +4,9 @@
   { "id": 3, "theme": "gyneco",   "query": "impact des anti-adhérentiels dans la diminution du risque de synéchie en hystéroscopie" },
   { "id": 4, "theme": "gyneco",   "query": "alcoolisation des endométrioses versus kystectomie" },
   { "id": 5, "theme": "gyneco",   "query": "isthmocèle et risque de rupture utérine" },
-  { "id": 6, "theme": "gyneco",   "query": "impact de la radiofréquence des fibromes sur la fertilité" }
+  { "id": 6, "theme": "gyneco",   "query": "impact de la radiofréquence des fibromes sur la fertilité" },
+  { "id": 7, "theme": "ophtalmo", "query": "intérêt du vismodegib en traitement néoadjuvant du carcinome basocellulaire" },
+  { "id": 8, "theme": "ophtalmo", "query": "intérêt du tocilizumab versus corticothérapie dans l'orbitopathie dysthyroïdienne" },
+  { "id": 9, "theme": "ophtalmo", "query": "incidence du syndrome d'hyper IgG4 dans les syndromes d'inflammation orbitaire" },
+  { "id": 10, "theme": "ophtalmo", "query": "impact du tabac sur la fréquence et la gravité des orbitopathies dysthyroïdiennes" }
 ]

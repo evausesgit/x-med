@@ -8,6 +8,10 @@ puis notation 0/1/2 par les médecins → calage des seuils sémantiques.
 
 1. Je voudrais une rétrospective de toutes les études et cas publiés d'accident vasculaire cérébral ischémique par vasospasme ou embolie graisseuse sur lipofilling facial.
    - test live (bge-m3) : top 0.567 — « Severe Ophthalmologic Complications Following Plastic and Cosmetic Procedures » (2025), pile sujet ; reste = bruit. Sujet très niche.
+2. Intérêt du vismodegib en traitement néoadjuvant du carcinome basocellulaire.
+3. Intérêt du tocilizumab versus corticothérapie dans l'orbitopathie dysthyroïdienne.
+4. Incidence du syndrome d'hyper IgG4 dans les syndromes d'inflammation orbitaire.
+5. Impact du tabac sur la fréquence et la gravité des orbitopathies dysthyroïdiennes.
 
 ## Gynécologie-obstétrique
 

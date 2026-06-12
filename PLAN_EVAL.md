@@ -55,9 +55,13 @@ vectorisé*, et le recall n'est pas faussé. Filtre = `mesh_terms && <liste cur�
    [{ "id": 1, "theme": "gyneco", "query": "saignements après la ménopause" }, ...]
    (objectif 30–50 requêtes, réparties sur les 2 spécialités, types variés)
 
-3. POOLING des candidats à juger  ->  bench/pool_fr.csv
+3. POOLING des candidats à juger  ->  table eval_pool + bench/pool_fr.csv
    uv run python -m scripts.build_pool
-   (union des top-K de : plein-texte, bge_m3, medcpt — évite le biais d'un seul système)
+   (union des top-K de : plein-texte, bge_m3, medcpt — évite le biais d'un seul
+   système ; toutes les méthodes sont restreintes au corpus vectorisé emb_bge_m3)
+   Si un embedding de masse est en cours, scripts/refresh_eval_pool.sh attend sa
+   fin puis enchaîne automatiquement le pooling :
+   nohup bash scripts/refresh_eval_pool.sh > ~/data/refresh_pool.log 2>&1 &
 
 4. ANNOTATION par les médecins : remplir la colonne `grade` (0/1/2) de pool_fr.csv
 
