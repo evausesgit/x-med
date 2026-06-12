@@ -29,15 +29,18 @@ from pathlib import Path
 from sqlalchemy import text as sql_text
 
 from app.db import SessionLocal
-from app.services.embeddings import REGISTRY, get_model
+from app.services.embeddings import get_model
 
 BENCH = Path(__file__).parent.parent / "bench"
 QUERIES = BENCH / "queries_fr.json"
 POOL_CSV = BENCH / "pool_fr.csv"
 GOLD = BENCH / "gold_fr.json"
 
-# Méthodes sémantiques poolées (les modèles présents dans le registre).
-SEM_MODELS = list(REGISTRY)
+# Méthodes sémantiques poolées. On se restreint aux modèles qui couvrent tout
+# le corpus d'évaluation (emb_bge_m3). medcpt est exclu : il n'embarque que
+# ~15 k articles (≈ 5 % du corpus), ses plus proches voisins sont donc tirés
+# d'une tranche non représentative et polluent le pool (notices vides, etc.).
+SEM_MODELS = ["bge_m3"]
 
 
 def _vec_literal(vec) -> str:

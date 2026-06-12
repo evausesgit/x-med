@@ -12,12 +12,16 @@ import argparse
 
 from bench.datasets import load_gold_fr, load_nfcorpus
 from bench.runner import run_db_corpus, run_db_fulltext, run_db_hybrid, run_selfcontained
-from app.services.embeddings import REGISTRY
+
+# Modèles évalués par défaut : seuls ceux qui couvrent tout le corpus d'éval.
+# medcpt est exclu (≈ 5 % du corpus seulement) — passer --models medcpt pour
+# l'inclure ponctuellement sur NFCorpus (corpus autoportant).
+EVAL_MODELS = ["bge_m3"]
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--models", nargs="*", default=list(REGISTRY))
+    ap.add_argument("--models", nargs="*", default=EVAL_MODELS)
     ap.add_argument("--max-docs", type=int, default=None, help="limite NFCorpus")
     ap.add_argument("--skip-nfcorpus", action="store_true")
     args = ap.parse_args()
