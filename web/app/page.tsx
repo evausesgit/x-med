@@ -194,6 +194,13 @@ export default function Home() {
     window.history.replaceState(null, "", `?${sp.toString()}`);
   }
 
+  // Changer de mode met l'URL à jour immédiatement (lien partageable même sans
+  // avoir encore lancé la recherche).
+  function selectMode(m: Mode) {
+    setMode(m);
+    syncUrl(m, q);
+  }
+
   // Au chargement : si l'URL porte un mode/une requête (lien partagé), on les
   // applique et on relance la recherche automatiquement.
   const autorun = useRef(false);
@@ -297,21 +304,21 @@ export default function Home() {
           <button
             type="button"
             className={mode === "semantic" ? "on" : ""}
-            onClick={() => setMode("semantic")}
+            onClick={() => selectMode("semantic")}
           >
             Par sens (sémantique)
           </button>
           <button
             type="button"
             className={mode === "keyword" ? "on" : ""}
-            onClick={() => setMode("keyword")}
+            onClick={() => selectMode("keyword")}
           >
             Mots-clés / MeSH
           </button>
           <button
             type="button"
             className={mode === "pubmed" ? "on" : ""}
-            onClick={() => setMode("pubmed")}
+            onClick={() => selectMode("pubmed")}
           >
             PubMed + codex
           </button>
