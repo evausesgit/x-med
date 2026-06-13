@@ -696,6 +696,7 @@ export default function Home() {
                     {r.journal || "Journal inconnu"}
                     {r.pub_year ? ` · ${r.pub_year}` : ""}
                   </div>
+                  {r.score != null && <MatchBar score={r.score} />}
                   {r.abstract_snippet && <p className="abstract">{r.abstract_snippet}</p>}
                 </article>
               ))}
