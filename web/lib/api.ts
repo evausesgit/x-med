@@ -66,6 +66,58 @@ export async function searchPubmed(
   return res.json();
 }
 
+export interface PubmedLog {
+  phase: string;
+  msg: string;
+  pubmed_query?: string;
+  mesh_terms?: string[];
+}
+
+// Version streaming (SSE) : émet le déroulé en direct via onLog, puis onResult.
+// Retourne l'EventSource pour pouvoir fermer/annuler.
+export function searchPubmedStream(
+  query: string,
+  k: number,
+  model: string | undefined,
+  handlers: {
+    onLog: (log: PubmedLog) => void;
+    onResult: (res: PubmedSearchResponse) => void;
+    onError: (msg?: string) => void;
+  },
+): EventSource {
+  const sp = new URLSearchParams({ query, k: String(k) });
+  if (model) sp.set("model", model);
+  const es = new EventSource(`${API_BASE}/search/pubmed/stream?${sp.toString()}`);
+  es.addEventListener("log", (e) => {
+    try {
+      handlers.onLog(JSON.parse((e as MessageEvent).data));
+    } catch {
+      /* ignore une ligne malformée */
+    }
+  });
+  es.addEventListener("result", (e) => {
+    try {
+      handlers.onResult(JSON.parse((e as MessageEvent).data));
+    } finally {
+      es.close();
+    }
+  });
+  es.addEventListener("error", (e) => {
+    const data = (e as MessageEvent).data;
+    if (data) {
+      try {
+        handlers.onError(JSON.parse(data).msg);
+      } catch {
+        handlers.onError();
+      }
+    } else {
+      handlers.onError();
+    }
+    es.close();
+  });
+  return es;
+}
+
 export interface SearchParams {
   q?: string;
   mesh?: string[];

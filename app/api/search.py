@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import json
+import time
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import func, select, text as sql_text
 from sqlalchemy.orm import Session
@@ -494,4 +497,125 @@ def search_pubmed(req: PubmedRequest, session: Session = Depends(get_session)):
         total_hits=total,
         results=results,
         related=related,
+    )
+
+
+@router.get("/search/pubmed/stream")
+def search_pubmed_stream(
+    session: Session = Depends(get_session),
+    query: str = Query(..., min_length=1),
+    k: int = Query(default=12, ge=1, le=50),
+    recent_days: int | None = Query(default=None),
+    model: str = Query(default=DEFAULT_MODEL),
+):
+    """Identique à /search/pubmed mais en streaming SSE : émet le déroulé en
+    direct (lancement codex, requête construite, esearch, enrichissement) puis
+    un événement `result` avec le payload final (même forme que PubmedSearchResponse)."""
+    from app.services import pubmed_eutils as eut
+    from app.services.query_builder import QueryBuildError, build_pubmed_query
+
+    def sse(event: str, data: dict) -> str:
+        return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+    def gen():
+        t0 = time.monotonic()
+        el = lambda: round(time.monotonic() - t0, 1)  # noqa: E731
+
+        yield sse("log", {"phase": "codex", "msg": "🚀 Lancement de codex pour construire la requête PubMed…"})
+        builder = "codex"
+        mesh: list[str] = []
+        pubmed_query: str | None = None
+        try:
+            pq = build_pubmed_query(query)
+            pubmed_query = pq["pubmed_query"]
+            mesh = pq.get("mesh_terms", [])
+            term = pubmed_query
+            yield sse("log", {
+                "phase": "codex_done",
+                "msg": f"🧠 Requête PubMed construite en {el()}s",
+                "pubmed_query": pubmed_query,
+                "mesh_terms": mesh,
+            })
+        except QueryBuildError as e:
+            builder = "fallback"
+            term = query
+            yield sse("log", {"phase": "fallback",
+                              "msg": f"⚠️ codex indisponible ({e}). Repli sur la question brute."})
+
+        yield sse("log", {"phase": "esearch", "msg": "🔎 Interrogation de PubMed (esearch)…"})
+        try:
+            total, pmids = eut.esearch(term, retmax=k, reldate=recent_days)
+        except Exception as e:
+            yield sse("error", {"msg": f"PubMed indisponible : {e}"})
+            return
+        yield sse("log", {"phase": "esearch_done", "msg": f"📚 {total} résultats — {len(pmids)} récupérés"})
+
+        meta = eut.esummary(pmids) if pmids else {}
+        arts = _fetch_articles(session, pmids)
+        fr: dict[int, str] = {}
+        if pmids:
+            for pmid, abstract_fr in session.execute(
+                sql_text("SELECT pmid, abstract_fr FROM article_fr WHERE pmid = ANY(:ids)"),
+                {"ids": pmids},
+            ).all():
+                fr[pmid] = abstract_fr
+        n_in_db = sum(1 for p in pmids if p in arts)
+        yield sse("log", {"phase": "enrich",
+                          "msg": f"🗄️ Enrichissement base : {n_in_db}/{len(pmids)} déjà chez nous, {len(fr)} traduits"})
+
+        results = [
+            PubmedHitOut(
+                pmid=pmid,
+                title=(a.title if (a := arts.get(pmid)) else (m.title if (m := meta.get(pmid)) else str(pmid))),
+                journal=(arts[pmid].journal if pmid in arts else (meta[pmid].journal if pmid in meta else None)),
+                pub_year=(arts[pmid].pub_year if pmid in arts else (meta[pmid].pub_year if pmid in meta else None)),
+                doi=(arts[pmid].doi if pmid in arts else (meta[pmid].doi if pmid in meta else None)),
+                pubmed_url=f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
+                in_db=pmid in arts,
+                evidence_level=(arts[pmid].evidence_level if pmid in arts else None),
+                abstract_fr=fr.get(pmid),
+            ).model_dump()
+            for pmid in pmids
+        ]
+
+        yield sse("log", {"phase": "related", "msg": "🧬 Recherche de voisins sémantiques dans notre base…"})
+        related: list[dict] = []
+        try:
+            qv = _embed_query(model, query)
+            table = get_model(model).table
+            rows = session.execute(
+                sql_text(
+                    f"""
+                    SELECT e.pmid, 1 - (e.v <=> (:qv)::vector) AS sim
+                    FROM {table} e
+                    WHERE e.pmid <> ALL(:seen)
+                    ORDER BY e.v <=> (:qv)::vector
+                    LIMIT :k
+                    """
+                ),
+                {"qv": qv, "seen": pmids or [0], "k": k},
+            ).all()
+            rarts = _fetch_articles(session, [p for p, _ in rows])
+            related = [
+                _to_result(rarts[p], float(s), query=query).model_dump()
+                for p, s in rows if p in rarts
+            ]
+        except Exception:
+            related = []
+
+        yield sse("log", {"phase": "done", "msg": f"✅ Terminé en {el()}s"})
+        yield sse("result", {
+            "query": query,
+            "pubmed_query": pubmed_query,
+            "mesh_terms": mesh,
+            "query_builder": builder,
+            "total_hits": total,
+            "results": results,
+            "related": related,
+        })
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"},
     )

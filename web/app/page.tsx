@@ -6,9 +6,10 @@ import {
   EmbeddingModelInfo,
   listModels,
   meshAutocomplete,
+  PubmedLog,
   PubmedSearchResponse,
   searchMesh,
-  searchPubmed,
+  searchPubmedStream,
   searchSemantic,
   SearchResponse,
 } from "@/lib/api";
@@ -156,9 +157,14 @@ export default function Home() {
 
   const [data, setData] = useState<SearchResponse | null>(null);
   const [pubmed, setPubmed] = useState<PubmedSearchResponse | null>(null);
+  const [logs, setLogs] = useState<PubmedLog[]>([]);
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const esRef = useRef<EventSource | null>(null);
+
+  // Ferme le flux SSE en cours si le composant est démonté.
+  useEffect(() => () => esRef.current?.close(), []);
 
   // modèles d'embedding disponibles (pour le mode sémantique)
   useEffect(() => {
@@ -233,12 +239,24 @@ export default function Home() {
           setLoading(false);
           return;
         }
-        const res = await searchPubmed(q.trim(), 12, model || undefined);
-        setPubmed(res);
+        // Streaming SSE : on affiche le déroulé en direct, le résultat arrive à la fin.
         setData(null);
+        setPubmed(null);
+        setLogs([]);
         setOffset(0);
-        setLoading(false);
-        return;
+        esRef.current?.close();
+        esRef.current = searchPubmedStream(q.trim(), 12, model || undefined, {
+          onLog: (log) => setLogs((prev) => [...prev, log]),
+          onResult: (res) => {
+            setPubmed(res);
+            setLoading(false);
+          },
+          onError: (msg) => {
+            setError(msg || "La recherche PubMed a échoué.");
+            setLoading(false);
+          },
+        });
+        return; // `loading` reste vrai jusqu'à onResult/onError
       }
       let res: SearchResponse;
       if (mode === "semantic") {
@@ -481,6 +499,23 @@ export default function Home() {
       </div>
 
       {error && <p className="error">⚠ {error}</p>}
+
+      {mode === "pubmed" && logs.length > 0 && (
+        <div className="search-log">
+          <div className="search-log-head">
+            Déroulé de la recherche{loading ? " — en cours…" : ""}
+          </div>
+          {logs.map((l, i) => (
+            <div key={i} className="search-log-line">
+              {l.msg}
+            </div>
+          ))}
+          {(() => {
+            const ql = logs.find((l) => l.pubmed_query);
+            return ql ? <pre className="search-log-query">{ql.pubmed_query}</pre> : null;
+          })()}
+        </div>
+      )}
 
       {data && (
         <>
