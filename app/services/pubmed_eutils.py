@@ -40,11 +40,19 @@ class PubmedHit:
 
 
 def esearch(term: str, retmax: int = 20, sort: str = "relevance",
-            reldate: int | None = None) -> tuple[int, list[int]]:
-    """Recherche PubMed. `reldate` (jours) restreint aux publications récentes."""
+            reldate: int | None = None, mindate: str | None = None,
+            maxdate: str | None = None) -> tuple[int, list[int]]:
+    """Recherche PubMed. Filtre de date par fenêtre (`mindate`/`maxdate`, format
+    YYYY-MM-DD ou YYYY) prioritaire ; sinon `reldate` (jours depuis aujourd'hui)."""
     params = {**_common_params(), "db": "pubmed", "term": term,
               "retmax": str(retmax), "retmode": "json", "sort": sort}
-    if reldate:
+    if mindate or maxdate:
+        params["datetype"] = "pdat"
+        if mindate:
+            params["mindate"] = mindate.replace("-", "/")
+        if maxdate:
+            params["maxdate"] = maxdate.replace("-", "/")
+    elif reldate:
         params["reldate"] = str(reldate)
         params["datetype"] = "pdat"
     with httpx.Client(timeout=_TIMEOUT) as c:

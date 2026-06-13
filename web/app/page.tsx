@@ -149,6 +149,12 @@ export default function Home() {
   const [yearTo, setYearTo] = useState("");
   const [evidenceMax, setEvidenceMax] = useState("");
 
+  // Fenêtre de dates du mode PubMed. Défaut 2025-01-01 → aujourd'hui : aligne la
+  // recherche PubMed sur la période couverte par notre base (2025-2026), pour que
+  // les deux soient comparables.
+  const [dateFrom, setDateFrom] = useState("2025-01-01");
+  const [dateTo, setDateTo] = useState(() => new Date().toISOString().slice(0, 10));
+
   const [meshInput, setMeshInput] = useState("");
   const [suggestions, setSuggestions] = useState<string[]>([]);
 
@@ -197,6 +203,10 @@ export default function Home() {
     const sp = new URLSearchParams();
     sp.set("mode", m);
     if (query.trim()) sp.set("q", query.trim());
+    if (m === "pubmed") {
+      if (dateFrom) sp.set("from", dateFrom);
+      if (dateTo) sp.set("to", dateTo);
+    }
     window.history.replaceState(null, "", `?${sp.toString()}`);
   }
 
@@ -215,6 +225,10 @@ export default function Home() {
     const m = sp.get("mode");
     const query = sp.get("q");
     if (m === "pubmed" || m === "semantic" || m === "keyword") setMode(m);
+    const from = sp.get("from");
+    const to = sp.get("to");
+    if (from) setDateFrom(from);
+    if (to) setDateTo(to);
     if (query) {
       setQ(query);
       autorun.current = true;
@@ -245,7 +259,13 @@ export default function Home() {
         setLogs([]);
         setOffset(0);
         esRef.current?.close();
-        esRef.current = searchPubmedStream(q.trim(), 12, model || undefined, {
+        esRef.current = searchPubmedStream(
+          q.trim(),
+          12,
+          model || undefined,
+          dateFrom || undefined,
+          dateTo || undefined,
+          {
           onLog: (log) => setLogs((prev) => [...prev, log]),
           onResult: (res) => {
             setPubmed(res);
@@ -387,13 +407,37 @@ export default function Home() {
           </div>
         )}
 
-        {/* Mode PubMed : note de fonctionnement */}
+        {/* Mode PubMed : note de fonctionnement + fenêtre de dates */}
         {mode === "pubmed" && (
-          <p className="notice" style={{ marginTop: 10 }}>
-            Ce mode interroge PubMed <b>en direct</b> : l’IA traduit votre question
-            en requête PubMed experte, récupère les articles récents, puis cherche
-            des compléments dans notre base. Comptez ~1&nbsp;minute par recherche.
-          </p>
+          <>
+            <p className="notice" style={{ marginTop: 10 }}>
+              Ce mode interroge PubMed <b>en direct</b> : l’IA traduit votre question
+              en requête PubMed experte, récupère les articles de la période choisie,
+              puis cherche des compléments dans notre base. Comptez ~1&nbsp;minute par
+              recherche.
+            </p>
+            <div className="filters">
+              <div className="field">
+                <label>Publié depuis</label>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                />
+              </div>
+              <div className="field">
+                <label>jusqu’au</label>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                />
+              </div>
+              <p className="meta" style={{ alignSelf: "center", margin: 0 }}>
+                Par défaut 2025 → aujourd’hui, pour rester comparable à notre base.
+              </p>
+            </div>
+          </>
         )}
 
         {/* Mode mots-clés : chips MeSH + filtres */}

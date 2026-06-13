@@ -386,6 +386,8 @@ class PubmedRequest(BaseModel):
     query: str
     k: int = 12
     recent_days: int | None = None
+    date_from: str | None = None  # YYYY-MM-DD ou YYYY (fenêtre de publication)
+    date_to: str | None = None
     model: str = DEFAULT_MODEL
 
 
@@ -431,7 +433,10 @@ def search_pubmed(req: PubmedRequest, session: Session = Depends(get_session)):
         term = req.query
 
     try:
-        total, pmids = eut.esearch(term, retmax=req.k, reldate=req.recent_days)
+        total, pmids = eut.esearch(
+            term, retmax=req.k, reldate=req.recent_days,
+            mindate=req.date_from, maxdate=req.date_to,
+        )
     except Exception as e:
         raise HTTPException(502, f"PubMed indisponible : {e}")
 
@@ -506,6 +511,8 @@ def search_pubmed_stream(
     query: str = Query(..., min_length=1),
     k: int = Query(default=12, ge=1, le=50),
     recent_days: int | None = Query(default=None),
+    date_from: str | None = Query(default=None),
+    date_to: str | None = Query(default=None),
     model: str = Query(default=DEFAULT_MODEL),
 ):
     """Identique à /search/pubmed mais en streaming SSE : émet le déroulé en
@@ -542,9 +549,12 @@ def search_pubmed_stream(
             yield sse("log", {"phase": "fallback",
                               "msg": f"⚠️ codex indisponible ({e}). Repli sur la question brute."})
 
-        yield sse("log", {"phase": "esearch", "msg": "🔎 Interrogation de PubMed (esearch)…"})
+        window = f" ({date_from or '…'} → {date_to or 'aujourd’hui'})" if (date_from or date_to) else ""
+        yield sse("log", {"phase": "esearch", "msg": f"🔎 Interrogation de PubMed (esearch){window}…"})
         try:
-            total, pmids = eut.esearch(term, retmax=k, reldate=recent_days)
+            total, pmids = eut.esearch(
+                term, retmax=k, reldate=recent_days, mindate=date_from, maxdate=date_to,
+            )
         except Exception as e:
             yield sse("error", {"msg": f"PubMed indisponible : {e}"})
             return

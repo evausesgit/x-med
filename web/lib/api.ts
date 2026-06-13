@@ -79,6 +79,8 @@ export function searchPubmedStream(
   query: string,
   k: number,
   model: string | undefined,
+  dateFrom: string | undefined,
+  dateTo: string | undefined,
   handlers: {
     onLog: (log: PubmedLog) => void;
     onResult: (res: PubmedSearchResponse) => void;
@@ -87,6 +89,8 @@ export function searchPubmedStream(
 ): EventSource {
   const sp = new URLSearchParams({ query, k: String(k) });
   if (model) sp.set("model", model);
+  if (dateFrom) sp.set("date_from", dateFrom);
+  if (dateTo) sp.set("date_to", dateTo);
   const es = new EventSource(`${API_BASE}/search/pubmed/stream?${sp.toString()}`);
   es.addEventListener("log", (e) => {
     try {
