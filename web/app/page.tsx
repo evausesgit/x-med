@@ -6,7 +6,9 @@ import {
   EmbeddingModelInfo,
   listModels,
   meshAutocomplete,
+  PubmedSearchResponse,
   searchMesh,
+  searchPubmed,
   searchSemantic,
   SearchResponse,
 } from "@/lib/api";
@@ -114,7 +116,7 @@ function Explanation({ article }: { article: ArticleResult }) {
   );
 }
 
-type Mode = "keyword" | "semantic";
+type Mode = "keyword" | "semantic" | "pubmed";
 
 export default function Home() {
   const [mode, setMode] = useState<Mode>("semantic");
@@ -132,6 +134,7 @@ export default function Home() {
   const [model, setModel] = useState("");
 
   const [data, setData] = useState<SearchResponse | null>(null);
+  const [pubmed, setPubmed] = useState<PubmedSearchResponse | null>(null);
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -166,6 +169,18 @@ export default function Home() {
     setLoading(true);
     setError(null);
     try {
+      if (mode === "pubmed") {
+        if (!q.trim()) {
+          setLoading(false);
+          return;
+        }
+        const res = await searchPubmed(q.trim(), 12, model || undefined);
+        setPubmed(res);
+        setData(null);
+        setOffset(0);
+        setLoading(false);
+        return;
+      }
       let res: SearchResponse;
       if (mode === "semantic") {
         if (!q.trim()) {
@@ -186,10 +201,12 @@ export default function Home() {
         });
       }
       setData(res);
+      setPubmed(null);
       setOffset(newOffset);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur inconnue");
       setData(null);
+      setPubmed(null);
     } finally {
       setLoading(false);
     }
@@ -239,6 +256,13 @@ export default function Home() {
           >
             Mots-clés / MeSH
           </button>
+          <button
+            type="button"
+            className={mode === "pubmed" ? "on" : ""}
+            onClick={() => setMode("pubmed")}
+          >
+            PubMed + base
+          </button>
         </div>
 
         <form
@@ -253,7 +277,9 @@ export default function Home() {
             placeholder={
               mode === "semantic"
                 ? "Ex. : crise cardiaque chez le patient diabétique âgé…"
-                : "Mots-clés (anglais) : myocardial infarction, diabetes…"
+                : mode === "pubmed"
+                  ? "Question clinique en français — interrogée en direct sur PubMed…"
+                  : "Mots-clés (anglais) : myocardial infarction, diabetes…"
             }
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -282,6 +308,15 @@ export default function Home() {
               </p>
             )}
           </div>
+        )}
+
+        {/* Mode PubMed : note de fonctionnement */}
+        {mode === "pubmed" && (
+          <p className="notice" style={{ marginTop: 10 }}>
+            Ce mode interroge PubMed <b>en direct</b> : l’IA traduit votre question
+            en requête PubMed experte, récupère les articles récents, puis cherche
+            des compléments dans notre base. Comptez ~1&nbsp;minute par recherche.
+          </p>
         )}
 
         {/* Mode mots-clés : chips MeSH + filtres */}
@@ -453,6 +488,74 @@ export default function Home() {
                 Suivant →
               </button>
             </div>
+          )}
+        </>
+      )}
+
+      {pubmed && (
+        <>
+          <p className="meta">
+            {pubmed.total_hits.toLocaleString("fr-FR")} résultat(s) sur PubMed ·
+            requête construite par{" "}
+            {pubmed.query_builder === "codex" ? "l’IA (codex)" : "repli (texte brut)"}
+          </p>
+          {pubmed.pubmed_query && (
+            <details className="explanation">
+              <summary>Requête PubMed générée</summary>
+              <p className="abstract" style={{ fontFamily: "monospace", fontSize: 13 }}>
+                {pubmed.pubmed_query}
+              </p>
+            </details>
+          )}
+
+          <h2 style={{ marginTop: 18 }}>Articles récents sur PubMed</h2>
+          {pubmed.results.length === 0 && (
+            <p className="notice">Aucun article PubMed pour cette requête.</p>
+          )}
+          {pubmed.results.map((r, i) => (
+            <article className="result" key={`pm-${r.pmid}`}>
+              <h3>
+                <span className="rank">#{i + 1}</span>
+                <a href={r.pubmed_url} target="_blank" rel="noreferrer">
+                  {r.title}
+                </a>
+              </h3>
+              <div className="journal">
+                <Badge level={r.evidence_level} />
+                {r.journal || "Journal inconnu"}
+                {r.pub_year ? ` · ${r.pub_year}` : ""}
+                {r.in_db ? (
+                  <span className="tag" style={{ marginLeft: 8 }}>déjà dans notre base</span>
+                ) : (
+                  <span className="tag" style={{ marginLeft: 8, opacity: 0.7 }}>
+                    nouveau (hors base)
+                  </span>
+                )}
+              </div>
+              {r.abstract_fr && <p className="abstract">{r.abstract_fr}</p>}
+            </article>
+          ))}
+
+          {pubmed.related.length > 0 && (
+            <>
+              <h2 style={{ marginTop: 24 }}>Plus dans notre base (voisins sémantiques)</h2>
+              {pubmed.related.map((r: ArticleResult, i: number) => (
+                <article className="result" key={`rel-${r.pmid}`}>
+                  <h3>
+                    <span className="rank">#{i + 1}</span>
+                    <a href={r.pubmed_url} target="_blank" rel="noreferrer">
+                      {r.title}
+                    </a>
+                  </h3>
+                  <div className="journal">
+                    <Badge level={r.evidence_level} />
+                    {r.journal || "Journal inconnu"}
+                    {r.pub_year ? ` · ${r.pub_year}` : ""}
+                  </div>
+                  {r.abstract_snippet && <p className="abstract">{r.abstract_snippet}</p>}
+                </article>
+              ))}
+            </>
           )}
         </>
       )}

@@ -374,3 +374,124 @@ def search_hybrid(
         _to_result(arts[p], round(scores[p], 5), query=q) for p in ordered if p in arts
     ]
     return SearchResponse(total=len(results), results=results)
+
+
+# --- Mode « PubMed d'abord » : recherche live PubMed, puis enrichissement base ---
+
+
+class PubmedRequest(BaseModel):
+    query: str
+    k: int = 12
+    recent_days: int | None = None
+    model: str = DEFAULT_MODEL
+
+
+class PubmedHitOut(BaseModel):
+    pmid: int
+    title: str
+    journal: str | None
+    pub_year: int | None
+    doi: str | None
+    pubmed_url: str
+    in_db: bool  # article déjà présent dans notre base ?
+    evidence_level: int | None = None
+    abstract_fr: str | None = None  # traduction FR si on l'a
+
+
+class PubmedSearchResponse(BaseModel):
+    query: str
+    pubmed_query: str | None  # requête PubMed construite (None si fallback)
+    mesh_terms: list[str]
+    query_builder: Literal["codex", "fallback"]
+    total_hits: int
+    results: list[PubmedHitOut]
+    related: list[ArticleResult]  # « plus comme ceux-ci » dans notre base
+
+
+@router.post("/search/pubmed", response_model=PubmedSearchResponse)
+def search_pubmed(req: PubmedRequest, session: Session = Depends(get_session)):
+    """Interroge PubMed en direct (requête construite par codex), puis enrichit
+    avec notre base : articles que nous avons déjà + voisins sémantiques."""
+    from app.services import pubmed_eutils as eut
+    from app.services.query_builder import QueryBuildError, build_pubmed_query
+
+    builder: Literal["codex", "fallback"] = "codex"
+    mesh: list[str] = []
+    pubmed_query: str | None = None
+    try:
+        pq = build_pubmed_query(req.query)
+        pubmed_query = pq["pubmed_query"]
+        mesh = pq.get("mesh_terms", [])
+        term = pubmed_query
+    except QueryBuildError:
+        builder = "fallback"
+        term = req.query
+
+    try:
+        total, pmids = eut.esearch(term, retmax=req.k, reldate=req.recent_days)
+    except Exception as e:
+        raise HTTPException(502, f"PubMed indisponible : {e}")
+
+    meta = eut.esummary(pmids) if pmids else {}
+    arts = _fetch_articles(session, pmids)
+    fr: dict[int, str] = {}
+    if pmids:
+        for pmid, abstract_fr in session.execute(
+            sql_text("SELECT pmid, abstract_fr FROM article_fr WHERE pmid = ANY(:ids)"),
+            {"ids": pmids},
+        ).all():
+            fr[pmid] = abstract_fr
+
+    results: list[PubmedHitOut] = []
+    for pmid in pmids:
+        a = arts.get(pmid)
+        m = meta.get(pmid)
+        results.append(
+            PubmedHitOut(
+                pmid=pmid,
+                title=(a.title if a else (m.title if m else str(pmid))),
+                journal=(a.journal if a else (m.journal if m else None)),
+                pub_year=(a.pub_year if a else (m.pub_year if m else None)),
+                doi=(a.doi if a else (m.doi if m else None)),
+                pubmed_url=f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
+                in_db=a is not None,
+                evidence_level=(a.evidence_level if a else None),
+                abstract_fr=fr.get(pmid),
+            )
+        )
+
+    # « plus comme ceux-ci » : voisins sémantiques dans notre base (sur la question
+    # d'origine — bge-m3 est multilingue), en excluant ce que PubMed a déjà remonté.
+    related: list[ArticleResult] = []
+    try:
+        qv = _embed_query(req.model, req.query)
+        table = get_model(req.model).table
+        seen = pmids or [0]
+        rows = session.execute(
+            sql_text(
+                f"""
+                SELECT e.pmid, 1 - (e.v <=> (:qv)::vector) AS sim
+                FROM {table} e
+                WHERE e.pmid <> ALL(:seen)
+                ORDER BY e.v <=> (:qv)::vector
+                LIMIT :k
+                """
+            ),
+            {"qv": qv, "seen": seen, "k": req.k},
+        ).all()
+        rarts = _fetch_articles(session, [p for p, _ in rows])
+        related = [
+            _to_result(rarts[p], float(s), query=req.query) for p, s in rows if p in rarts
+        ]
+    except Exception:
+        related = []
+
+    return PubmedSearchResponse(
+        query=req.query,
+        pubmed_query=pubmed_query,
+        mesh_terms=mesh,
+        query_builder=builder,
+        total_hits=total,
+        results=results,
+        related=related,
+    )

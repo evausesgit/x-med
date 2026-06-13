@@ -30,6 +30,42 @@ export interface SearchResponse {
   results: ArticleResult[];
 }
 
+export interface PubmedHit {
+  pmid: number;
+  title: string;
+  journal: string | null;
+  pub_year: number | null;
+  doi: string | null;
+  pubmed_url: string;
+  in_db: boolean;
+  evidence_level: number | null;
+  abstract_fr: string | null;
+}
+
+export interface PubmedSearchResponse {
+  query: string;
+  pubmed_query: string | null;
+  mesh_terms: string[];
+  query_builder: "codex" | "fallback";
+  total_hits: number;
+  results: PubmedHit[];
+  related: ArticleResult[];
+}
+
+export async function searchPubmed(
+  query: string,
+  k = 12,
+  model?: string,
+): Promise<PubmedSearchResponse> {
+  const res = await fetch(`${API_BASE}/search/pubmed`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query, k, ...(model ? { model } : {}) }),
+  });
+  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  return res.json();
+}
+
 export interface SearchParams {
   q?: string;
   mesh?: string[];

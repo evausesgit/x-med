@@ -18,6 +18,14 @@ class Settings(BaseSettings):
 
     openai_api_key: str | None = None
 
+    # Mode « PubMed d'abord » : recherche live E-utilities + construction de la
+    # requête PubMed via le CLI codex (pas de clé API). Voir app/services/.
+    ncbi_api_key: str | None = None
+    ncbi_tool: str = "x-med"
+    ncbi_email: str | None = None
+    codex_bin: str = "codex"
+    codex_model: str | None = None
+
     @property
     def embedding_model_list(self) -> list[str]:
         return [m.strip() for m in self.embedding_models.split(",") if m.strip()]
