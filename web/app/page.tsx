@@ -165,9 +165,40 @@ export default function Home() {
     }, 180);
   }, [meshInput]);
 
+  // Synchronise le mode + la requête dans l'URL → lien partageable et reproductible.
+  function syncUrl(m: Mode, query: string) {
+    const sp = new URLSearchParams();
+    sp.set("mode", m);
+    if (query.trim()) sp.set("q", query.trim());
+    window.history.replaceState(null, "", `?${sp.toString()}`);
+  }
+
+  // Au chargement : si l'URL porte un mode/une requête (lien partagé), on les
+  // applique et on relance la recherche automatiquement.
+  const autorun = useRef(false);
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const m = sp.get("mode");
+    const query = sp.get("q");
+    if (m === "pubmed" || m === "semantic" || m === "keyword") setMode(m);
+    if (query) {
+      setQ(query);
+      autorun.current = true;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!autorun.current) return;
+    if (mode === "semantic" && !model) return; // attendre le chargement du modèle
+    autorun.current = false;
+    runSearch(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, model, q]);
+
   async function runSearch(newOffset = 0) {
     setLoading(true);
     setError(null);
+    syncUrl(mode, q);
     try {
       if (mode === "pubmed") {
         if (!q.trim()) {
@@ -261,7 +292,7 @@ export default function Home() {
             className={mode === "pubmed" ? "on" : ""}
             onClick={() => setMode("pubmed")}
           >
-            PubMed + base
+            PubMed + codex
           </button>
         </div>
 
