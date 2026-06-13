@@ -118,6 +118,27 @@ function Explanation({ article }: { article: ArticleResult }) {
 
 type Mode = "keyword" | "semantic" | "pubmed";
 
+function CopyLinkButton() {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      className="copy-link"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(window.location.href);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1600);
+        } catch {
+          /* clipboard indisponible (http non sécurisé) : l'URL reste copiable à la main */
+        }
+      }}
+    >
+      {copied ? "✓ Lien copié" : "🔗 Copier le lien"}
+    </button>
+  );
+}
+
 export default function Home() {
   const [mode, setMode] = useState<Mode>("semantic");
   const [q, setQ] = useState("");
@@ -456,11 +477,14 @@ export default function Home() {
 
       {data && (
         <>
-          <p className="meta">
-            {data.total.toLocaleString("fr-FR")} résultat(s)
-            {mode === "keyword" && data.total > 0 &&
-              ` · affichage ${offset + 1}–${Math.min(offset + PAGE, data.total)}`}
-          </p>
+          <div className="meta-row">
+            <p className="meta" style={{ margin: 0 }}>
+              {data.total.toLocaleString("fr-FR")} résultat(s)
+              {mode === "keyword" && data.total > 0 &&
+                ` · affichage ${offset + 1}–${Math.min(offset + PAGE, data.total)}`}
+            </p>
+            <CopyLinkButton />
+          </div>
 
           {weakSemantic && (
             <p className="notice">
@@ -525,11 +549,14 @@ export default function Home() {
 
       {pubmed && (
         <>
-          <p className="meta">
-            {pubmed.total_hits.toLocaleString("fr-FR")} résultat(s) sur PubMed ·
-            requête construite par{" "}
-            {pubmed.query_builder === "codex" ? "l’IA (codex)" : "repli (texte brut)"}
-          </p>
+          <div className="meta-row">
+            <p className="meta" style={{ margin: 0 }}>
+              {pubmed.total_hits.toLocaleString("fr-FR")} résultat(s) sur PubMed ·
+              requête construite par{" "}
+              {pubmed.query_builder === "codex" ? "l’IA (codex)" : "repli (texte brut)"}
+            </p>
+            <CopyLinkButton />
+          </div>
           {pubmed.pubmed_query && (
             <details className="explanation">
               <summary>Requête PubMed générée</summary>

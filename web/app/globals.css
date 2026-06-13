@@ -309,6 +309,27 @@ button:disabled {
   font-size: 15px;
 }
 
+.meta-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 14px 0;
+}
+.copy-link {
+  border: 1px solid #d6e2dc;
+  background: #f8faf8;
+  color: #2f5d4e;
+  border-radius: 7px;
+  padding: 5px 11px;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.copy-link:hover {
+  background: #eef4f0;
+}
+
 .abstract-original {
   max-width: 830px;
   margin: 4px 0 2px;
