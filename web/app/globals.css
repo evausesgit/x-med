@@ -309,6 +309,28 @@ button:disabled {
   font-size: 15px;
 }
 
+.abstract-original {
+  max-width: 830px;
+  margin: 4px 0 2px;
+}
+.abstract-original > summary {
+  cursor: pointer;
+  color: #5a6b62;
+  font-size: 13px;
+  font-weight: 600;
+  user-select: none;
+}
+.abstract-original .abstract {
+  color: #6a655e;
+}
+.abstract-en-title {
+  max-width: 830px;
+  margin: 8px 0 2px;
+  font-weight: 600;
+  color: #4a453e;
+  font-size: 14px;
+}
+
 .explanation {
   margin: 12px 0;
   padding: 11px 13px;

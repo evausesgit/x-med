@@ -31,6 +31,8 @@ class Candidate(BaseModel):
     journal: str | None
     pub_year: int | None
     abstract: str | None
+    title_fr: str | None
+    abstract_fr: str | None
     pubmed_url: str
     found_by: str | None
     grade: int | None
@@ -87,11 +89,12 @@ def eval_pool(query_id: int, session: Session = Depends(get_session)):
         sql_text(
             """
             SELECT p.pmid, ar.title, ar.journal, ar.pub_year, ar.abstract,
-                   p.found_by, a.grade
+                   p.found_by, a.grade, fr.title_fr, fr.abstract_fr
             FROM eval_pool p
             JOIN articles ar ON ar.pmid = p.pmid
             LEFT JOIN eval_annotations a
               ON a.query_id = p.query_id AND a.pmid = p.pmid
+            LEFT JOIN article_fr fr ON fr.pmid = p.pmid
             WHERE p.query_id = :q
             ORDER BY a.grade IS NULL DESC, p.pmid
             """
@@ -102,7 +105,7 @@ def eval_pool(query_id: int, session: Session = Depends(get_session)):
         Candidate(
             pmid=r[0], title=r[1], journal=r[2], pub_year=r[3], abstract=r[4],
             pubmed_url=f"https://pubmed.ncbi.nlm.nih.gov/{r[0]}/",
-            found_by=r[5], grade=r[6],
+            found_by=r[5], grade=r[6], title_fr=r[7], abstract_fr=r[8],
         )
         for r in rows
     ]

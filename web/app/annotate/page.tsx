@@ -183,7 +183,7 @@ export default function AnnotatePage() {
               </div>
               <h3 style={{ gridTemplateColumns: "1fr" }}>
                 <a href={c.pubmed_url} target="_blank" rel="noreferrer">
-                  {c.title}
+                  {c.title_fr || c.title}
                 </a>
               </h3>
               <div className="journal">
@@ -191,7 +191,18 @@ export default function AnnotatePage() {
                 {c.pub_year ? ` · ${c.pub_year}` : ""}
                 {c.found_by ? ` · trouvé par : ${c.found_by}` : ""}
               </div>
-              {c.abstract && <p className="abstract">{c.abstract}</p>}
+              {c.abstract_fr ? (
+                <>
+                  <p className="abstract">{c.abstract_fr}</p>
+                  <details className="abstract-original">
+                    <summary>Voir l'original (anglais)</summary>
+                    {c.title_fr && <p className="abstract-en-title">{c.title}</p>}
+                    {c.abstract && <p className="abstract">{c.abstract}</p>}
+                  </details>
+                </>
+              ) : (
+                c.abstract && <p className="abstract">{c.abstract}</p>
+              )}
             </article>
           ))}
         </section>

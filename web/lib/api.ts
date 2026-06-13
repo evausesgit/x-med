@@ -170,6 +170,8 @@ export interface EvalCandidate {
   journal: string | null;
   pub_year: number | null;
   abstract: string | null;
+  title_fr: string | null;
+  abstract_fr: string | null;
   pubmed_url: string;
   found_by: string | null;
   grade: number | null;
