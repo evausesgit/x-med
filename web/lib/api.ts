@@ -50,6 +50,25 @@ export interface PubmedSearchResponse {
   total_hits: number;
   results: PubmedHit[];
   related: ArticleResult[];
+  ranked: RankedPubmedHit[];
+  local_abstracts: number;
+  codex_batches: number;
+  relevant_total: number;
+}
+
+export interface RankedPubmedHit {
+  pmid: number;
+  title: string;
+  journal: string | null;
+  pub_year: number | null;
+  evidence_level: number | null;
+  doi: string | null;
+  pubmed_url: string;
+  in_db: boolean;
+  sources: ("pubmed" | "local")[];
+  score: number;
+  justification: string;
+  abstract_snippet: string | null;
 }
 
 export async function searchPubmed(
@@ -78,7 +97,6 @@ export interface PubmedLog {
 export function searchPubmedStream(
   query: string,
   k: number,
-  model: string | undefined,
   dateFrom: string | undefined,
   dateTo: string | undefined,
   handlers: {
@@ -88,7 +106,6 @@ export function searchPubmedStream(
   },
 ): EventSource {
   const sp = new URLSearchParams({ query, k: String(k) });
-  if (model) sp.set("model", model);
   if (dateFrom) sp.set("date_from", dateFrom);
   if (dateTo) sp.set("date_to", dateTo);
   const es = new EventSource(`${API_BASE}/search/pubmed/stream?${sp.toString()}`);

@@ -4,16 +4,20 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Callable, Iterator
+from datetime import date
+from queue import Empty, Queue
+from threading import Thread
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-from sqlalchemy import func, select, text as sql_text
+from pydantic import BaseModel, Field
+from sqlalchemy import and_, func, or_, select, text as sql_text
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.db import get_session
+from app.db import SessionLocal, get_session
 from app.models import Article, MeshDescriptor
 from app.services.embeddings import REGISTRY, get_model
 from app.services.explainability import explain_article
@@ -388,7 +392,6 @@ class PubmedRequest(BaseModel):
     recent_days: int | None = None
     date_from: str | None = None  # YYYY-MM-DD ou YYYY (fenêtre de publication)
     date_to: str | None = None
-    model: str = DEFAULT_MODEL
 
 
 class PubmedHitOut(BaseModel):
@@ -403,6 +406,21 @@ class PubmedHitOut(BaseModel):
     abstract_fr: str | None = None  # traduction FR si on l'a
 
 
+class RankedPubmedHit(BaseModel):
+    pmid: int
+    title: str
+    journal: str | None
+    pub_year: int | None
+    evidence_level: int | None
+    doi: str | None
+    pubmed_url: str
+    in_db: bool
+    sources: list[Literal["pubmed", "local"]]
+    score: float
+    justification: str
+    abstract_snippet: str | None
+
+
 class PubmedSearchResponse(BaseModel):
     query: str
     pubmed_query: str | None  # requête PubMed construite (None si fallback)
@@ -410,38 +428,144 @@ class PubmedSearchResponse(BaseModel):
     query_builder: Literal["codex", "fallback"]
     total_hits: int
     results: list[PubmedHitOut]
-    related: list[ArticleResult]  # « plus comme ceux-ci » dans notre base
+    related: list[ArticleResult] = Field(
+        default_factory=list
+    )  # compatibilite avec l'ancien contrat
+    ranked: list[RankedPubmedHit]
+    local_abstracts: int
+    codex_batches: int
+    relevant_total: int
 
 
-@router.post("/search/pubmed", response_model=PubmedSearchResponse)
-def search_pubmed(req: PubmedRequest, session: Session = Depends(get_session)):
-    """Interroge PubMed en direct (requête construite par codex), puis enrichit
-    avec notre base : articles que nous avons déjà + voisins sémantiques."""
+ProgressCallback = Callable[[str, str, dict], None]
+
+
+def _parse_search_date(value: str | None, *, end: bool = False) -> date | None:
+    if not value:
+        return None
+    if len(value) == 4 and value.isdigit():
+        return date(int(value), 12 if end else 1, 31 if end else 1)
+    return date.fromisoformat(value)
+
+
+def _local_conditions(date_from: str | None, date_to: str | None) -> list:
+    conditions = [
+        Article.abstract.is_not(None),
+        func.length(Article.abstract) > 0,
+    ]
+    start = _parse_search_date(date_from)
+    end = _parse_search_date(date_to, end=True)
+    if start:
+        conditions.append(Article.pub_year >= start.year)
+        conditions.append(
+            or_(
+                Article.pub_date >= start,
+                Article.pub_date.is_(None),
+            )
+        )
+    if end:
+        conditions.append(Article.pub_year <= end.year)
+        conditions.append(
+            or_(
+                Article.pub_date <= end,
+                Article.pub_date.is_(None),
+            )
+        )
+    return conditions
+
+
+def _iter_local_abstracts(
+    session: Session,
+    date_from: str | None,
+    date_to: str | None,
+    *,
+    page_size: int = 1000,
+) -> Iterator[tuple[int, str, str]]:
+    """Parcourt le corpus par pages sans garder un curseur DB pendant les appels Codex."""
+    conditions = _local_conditions(date_from, date_to)
+    last_pmid = 0
+    while True:
+        rows = session.execute(
+            select(Article.pmid, Article.title, Article.abstract)
+            .where(and_(*conditions), Article.pmid > last_pmid)
+            .order_by(Article.pmid)
+            .limit(page_size)
+        ).all()
+        if not rows:
+            return
+        for pmid, title, abstract in rows:
+            yield pmid, title, abstract
+        last_pmid = rows[-1][0]
+
+
+def _fetch_articles_chunked(session: Session, pmids: set[int]) -> dict[int, Article]:
+    out: dict[int, Article] = {}
+    ids = sorted(pmids)
+    for start in range(0, len(ids), 1000):
+        out.update(_fetch_articles(session, ids[start : start + 1000]))
+    return out
+
+
+def _run_pubmed_codex_search(
+    req: PubmedRequest,
+    session: Session,
+    progress: ProgressCallback | None = None,
+) -> PubmedSearchResponse:
     from app.services import pubmed_eutils as eut
+    from app.services.codex_abstracts import (
+        AbstractCandidate,
+        assess_batch,
+        iter_batches,
+    )
     from app.services.query_builder import QueryBuildError, build_pubmed_query
+
+    def emit(phase: str, msg: str, **data) -> None:
+        if progress:
+            progress(phase, msg, data)
 
     builder: Literal["codex", "fallback"] = "codex"
     mesh: list[str] = []
     pubmed_query: str | None = None
+    emit("codex", "Lancement de GPT-5.4 pour construire la requete PubMed...")
     try:
         pq = build_pubmed_query(req.query)
         pubmed_query = pq["pubmed_query"]
         mesh = pq.get("mesh_terms", [])
         term = pubmed_query
-    except QueryBuildError:
+        emit(
+            "codex_done",
+            "Requete PubMed construite",
+            pubmed_query=pubmed_query,
+            mesh_terms=mesh,
+        )
+    except QueryBuildError as exc:
         builder = "fallback"
         term = req.query
+        emit("fallback", f"GPT-5.4 indisponible ({exc}). Repli sur la question brute.")
 
-    try:
-        total, pmids = eut.esearch(
-            term, retmax=req.k, reldate=req.recent_days,
-            mindate=req.date_from, maxdate=req.date_to,
-        )
-    except Exception as e:
-        raise HTTPException(502, f"PubMed indisponible : {e}")
+    emit("esearch", "Interrogation de PubMed...")
+    total, pmids = eut.esearch(
+        term,
+        retmax=req.k,
+        reldate=req.recent_days,
+        mindate=req.date_from,
+        maxdate=req.date_to,
+    )
+    emit("esearch_done", f"{total} resultats PubMed, {len(pmids)} recuperes")
 
     meta = eut.esummary(pmids) if pmids else {}
-    arts = _fetch_articles(session, pmids)
+    pubmed_articles = _fetch_articles(session, pmids)
+    missing_abstract_pmids = [
+        pmid
+        for pmid in pmids
+        if pmid not in pubmed_articles or not pubmed_articles[pmid].abstract
+    ]
+    remote_abstracts = eut.efetch_abstracts(missing_abstract_pmids)
+    emit(
+        "efetch_done",
+        f"{len(remote_abstracts)} abstracts PubMed recuperes hors base",
+    )
+
     fr: dict[int, str] = {}
     if pmids:
         for pmid, abstract_fr in session.execute(
@@ -450,50 +574,175 @@ def search_pubmed(req: PubmedRequest, session: Session = Depends(get_session)):
         ).all():
             fr[pmid] = abstract_fr
 
-    results: list[PubmedHitOut] = []
+    results = [
+        PubmedHitOut(
+            pmid=pmid,
+            title=(
+                pubmed_articles[pmid].title
+                if pmid in pubmed_articles
+                else (meta[pmid].title if pmid in meta else str(pmid))
+            ),
+            journal=(
+                pubmed_articles[pmid].journal
+                if pmid in pubmed_articles
+                else (meta[pmid].journal if pmid in meta else None)
+            ),
+            pub_year=(
+                pubmed_articles[pmid].pub_year
+                if pmid in pubmed_articles
+                else (meta[pmid].pub_year if pmid in meta else None)
+            ),
+            doi=(
+                pubmed_articles[pmid].doi
+                if pmid in pubmed_articles
+                else (meta[pmid].doi if pmid in meta else None)
+            ),
+            pubmed_url=f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
+            in_db=pmid in pubmed_articles,
+            evidence_level=(
+                pubmed_articles[pmid].evidence_level
+                if pmid in pubmed_articles
+                else None
+            ),
+            abstract_fr=fr.get(pmid),
+        )
+        for pmid in pmids
+    ]
+
+    local_total = session.scalar(
+        select(func.count()).select_from(Article).where(
+            and_(*_local_conditions(req.date_from, req.date_to))
+        )
+    ) or 0
+    emit(
+        "local_start",
+        f"Analyse exhaustive de {local_total} abstracts locaux par lots GPT-5.4...",
+        local_abstracts=int(local_total),
+    )
+
+    pubmed_set = set(pmids)
+    assessments = {}
+    relevant_local: set[int] = set()
+    batch_count = 0
+
+    local_candidates = (
+        AbstractCandidate(pmid, title, abstract)
+        for pmid, title, abstract in _iter_local_abstracts(
+            session, req.date_from, req.date_to
+        )
+    )
+    for batch_count, batch in enumerate(iter_batches(local_candidates), start=1):
+        emit(
+            "local_batch",
+            f"Lot {batch_count}: analyse de {len(batch)} abstracts...",
+            batch=batch_count,
+            batch_size=len(batch),
+        )
+        for assessment in assess_batch(req.query, batch):
+            if assessment.relevant:
+                relevant_local.add(assessment.pmid)
+                assessments[assessment.pmid] = assessment
+            elif assessment.pmid in pubmed_set:
+                assessments[assessment.pmid] = assessment
+        emit(
+            "local_batch_done",
+            f"Lot {batch_count} termine, {len(relevant_local)} articles locaux retenus",
+            batch=batch_count,
+            relevant_local=len(relevant_local),
+        )
+
+    # Les articles de A absents du corpus local doivent eux aussi etre lus par Codex.
+    unassessed_a: list[AbstractCandidate] = []
     for pmid in pmids:
-        a = arts.get(pmid)
-        m = meta.get(pmid)
-        results.append(
-            PubmedHitOut(
+        if pmid in assessments:
+            continue
+        local_article = pubmed_articles.get(pmid)
+        abstract = (
+            local_article.abstract
+            if local_article and local_article.abstract
+            else remote_abstracts.get(pmid)
+        )
+        if abstract:
+            title = (
+                local_article.title
+                if local_article
+                else (meta[pmid].title if pmid in meta else str(pmid))
+            )
+            unassessed_a.append(AbstractCandidate(pmid, title, abstract))
+
+    for batch in iter_batches(unassessed_a):
+        batch_count += 1
+        emit(
+            "pubmed_batch",
+            f"Lot {batch_count}: evaluation de {len(batch)} abstracts de A...",
+            batch=batch_count,
+            batch_size=len(batch),
+        )
+        for assessment in assess_batch(req.query, batch):
+            assessments[assessment.pmid] = assessment
+
+    relevant_a = {
+        pmid
+        for pmid in pmids
+        if pmid in assessments and assessments[pmid].relevant
+    }
+    merged = relevant_local | relevant_a
+    local_meta = _fetch_articles_chunked(session, merged)
+
+    ranked: list[RankedPubmedHit] = []
+    for pmid in merged:
+        article = local_meta.get(pmid)
+        remote = meta.get(pmid)
+        assessment = assessments[pmid]
+        abstract = (
+            article.abstract
+            if article and article.abstract
+            else remote_abstracts.get(pmid)
+        )
+        sources: list[Literal["pubmed", "local"]] = []
+        if pmid in pubmed_set:
+            sources.append("pubmed")
+        if pmid in relevant_local:
+            sources.append("local")
+        ranked.append(
+            RankedPubmedHit(
                 pmid=pmid,
-                title=(a.title if a else (m.title if m else str(pmid))),
-                journal=(a.journal if a else (m.journal if m else None)),
-                pub_year=(a.pub_year if a else (m.pub_year if m else None)),
-                doi=(a.doi if a else (m.doi if m else None)),
+                title=(
+                    article.title
+                    if article
+                    else (remote.title if remote else str(pmid))
+                ),
+                journal=article.journal if article else (remote.journal if remote else None),
+                pub_year=article.pub_year if article else (remote.pub_year if remote else None),
+                evidence_level=article.evidence_level if article else None,
+                doi=article.doi if article else (remote.doi if remote else None),
                 pubmed_url=f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
-                in_db=a is not None,
-                evidence_level=(a.evidence_level if a else None),
-                abstract_fr=fr.get(pmid),
+                in_db=article is not None,
+                sources=sources,
+                score=assessment.score,
+                justification=assessment.justification,
+                abstract_snippet=(
+                    abstract[:500] + ("..." if len(abstract) > 500 else "")
+                    if abstract
+                    else None
+                ),
             )
         )
 
-    # « plus comme ceux-ci » : voisins sémantiques dans notre base (sur la question
-    # d'origine — bge-m3 est multilingue), en excluant ce que PubMed a déjà remonté.
-    related: list[ArticleResult] = []
-    try:
-        qv = _embed_query(req.model, req.query)
-        table = get_model(req.model).table
-        seen = pmids or [0]
-        rows = session.execute(
-            sql_text(
-                f"""
-                SELECT e.pmid, 1 - (e.v <=> (:qv)::vector) AS sim
-                FROM {table} e
-                WHERE e.pmid <> ALL(:seen)
-                ORDER BY e.v <=> (:qv)::vector
-                LIMIT :k
-                """
-            ),
-            {"qv": qv, "seen": seen, "k": req.k},
-        ).all()
-        rarts = _fetch_articles(session, [p for p, _ in rows])
-        related = [
-            _to_result(rarts[p], float(s), query=req.query) for p, s in rows if p in rarts
-        ]
-    except Exception:
-        related = []
-
+    ranked.sort(
+        key=lambda item: (
+            -item.score,
+            item.evidence_level if item.evidence_level is not None else 99,
+            -(item.pub_year or 0),
+            -item.pmid,
+        )
+    )
+    emit(
+        "done",
+        f"Termine: {len(merged)} articles coherents apres fusion A + B",
+        relevant_total=len(merged),
+        codex_batches=batch_count,
+    )
     return PubmedSearchResponse(
         query=req.query,
         pubmed_query=pubmed_query,
@@ -501,131 +750,95 @@ def search_pubmed(req: PubmedRequest, session: Session = Depends(get_session)):
         query_builder=builder,
         total_hits=total,
         results=results,
-        related=related,
+        related=[],
+        ranked=ranked[: req.k],
+        local_abstracts=int(local_total),
+        codex_batches=batch_count,
+        relevant_total=len(merged),
     )
+
+
+@router.post("/search/pubmed", response_model=PubmedSearchResponse)
+def search_pubmed(req: PubmedRequest, session: Session = Depends(get_session)):
+    """Execute la recherche PubMed + lecture exhaustive des abstracts locaux."""
+    try:
+        return _run_pubmed_codex_search(req, session)
+    except Exception as e:
+        raise HTTPException(502, f"Recherche PubMed/Codex indisponible : {e}")
 
 
 @router.get("/search/pubmed/stream")
 def search_pubmed_stream(
-    session: Session = Depends(get_session),
     query: str = Query(..., min_length=1),
     k: int = Query(default=12, ge=1, le=50),
     recent_days: int | None = Query(default=None),
     date_from: str | None = Query(default=None),
     date_to: str | None = Query(default=None),
-    model: str = Query(default=DEFAULT_MODEL),
 ):
-    """Identique à /search/pubmed mais en streaming SSE : émet le déroulé en
-    direct (lancement codex, requête construite, esearch, enrichissement) puis
-    un événement `result` avec le payload final (même forme que PubmedSearchResponse)."""
-    from app.services import pubmed_eutils as eut
-    from app.services.query_builder import QueryBuildError, build_pubmed_query
+    """Recherche complete en SSE, avec progression de chaque lot d'abstracts."""
 
     def sse(event: str, data: dict) -> str:
         return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
     def gen():
         t0 = time.monotonic()
-        el = lambda: round(time.monotonic() - t0, 1)  # noqa: E731
+        events: Queue[tuple[str, dict] | None] = Queue()
 
-        yield sse("log", {"phase": "codex", "msg": "🚀 Lancement de codex pour construire la requête PubMed…"})
-        builder = "codex"
-        mesh: list[str] = []
-        pubmed_query: str | None = None
-        try:
-            pq = build_pubmed_query(query)
-            pubmed_query = pq["pubmed_query"]
-            mesh = pq.get("mesh_terms", [])
-            term = pubmed_query
-            yield sse("log", {
-                "phase": "codex_done",
-                "msg": f"🧠 Requête PubMed construite en {el()}s",
-                "pubmed_query": pubmed_query,
-                "mesh_terms": mesh,
-            })
-        except QueryBuildError as e:
-            builder = "fallback"
-            term = query
-            yield sse("log", {"phase": "fallback",
-                              "msg": f"⚠️ codex indisponible ({e}). Repli sur la question brute."})
-
-        window = f" ({date_from or '…'} → {date_to or 'aujourd’hui'})" if (date_from or date_to) else ""
-        yield sse("log", {"phase": "esearch", "msg": f"🔎 Interrogation de PubMed (esearch){window}…"})
-        try:
-            total, pmids = eut.esearch(
-                term, retmax=k, reldate=recent_days, mindate=date_from, maxdate=date_to,
+        def progress(phase: str, msg: str, data: dict) -> None:
+            events.put(
+                (
+                    "log",
+                    {
+                        "phase": phase,
+                        "msg": f"{msg} ({round(time.monotonic() - t0, 1)}s)",
+                        **data,
+                    },
+                )
             )
-        except Exception as e:
-            yield sse("error", {"msg": f"PubMed indisponible : {e}"})
-            return
-        yield sse("log", {"phase": "esearch_done", "msg": f"📚 {total} résultats — {len(pmids)} récupérés"})
 
-        meta = eut.esummary(pmids) if pmids else {}
-        arts = _fetch_articles(session, pmids)
-        fr: dict[int, str] = {}
-        if pmids:
-            for pmid, abstract_fr in session.execute(
-                sql_text("SELECT pmid, abstract_fr FROM article_fr WHERE pmid = ANY(:ids)"),
-                {"ids": pmids},
-            ).all():
-                fr[pmid] = abstract_fr
-        n_in_db = sum(1 for p in pmids if p in arts)
-        yield sse("log", {"phase": "enrich",
-                          "msg": f"🗄️ Enrichissement base : {n_in_db}/{len(pmids)} déjà chez nous, {len(fr)} traduits"})
+        def produce() -> None:
+            try:
+                with SessionLocal() as worker_session:
+                    result = _run_pubmed_codex_search(
+                        PubmedRequest(
+                            query=query,
+                            k=k,
+                            recent_days=recent_days,
+                            date_from=date_from,
+                            date_to=date_to,
+                        ),
+                        worker_session,
+                        progress,
+                    )
+                events.put(("result", result.model_dump()))
+            except Exception as exc:
+                events.put(
+                    (
+                        "error",
+                        {"msg": f"Recherche PubMed/Codex indisponible : {exc}"},
+                    )
+                )
+            finally:
+                events.put(None)
 
-        results = [
-            PubmedHitOut(
-                pmid=pmid,
-                title=(a.title if (a := arts.get(pmid)) else (m.title if (m := meta.get(pmid)) else str(pmid))),
-                journal=(arts[pmid].journal if pmid in arts else (meta[pmid].journal if pmid in meta else None)),
-                pub_year=(arts[pmid].pub_year if pmid in arts else (meta[pmid].pub_year if pmid in meta else None)),
-                doi=(arts[pmid].doi if pmid in arts else (meta[pmid].doi if pmid in meta else None)),
-                pubmed_url=f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
-                in_db=pmid in arts,
-                evidence_level=(arts[pmid].evidence_level if pmid in arts else None),
-                abstract_fr=fr.get(pmid),
-            ).model_dump()
-            for pmid in pmids
-        ]
-
-        yield sse("log", {"phase": "related", "msg": "🧬 Recherche de voisins sémantiques dans notre base…"})
-        related: list[dict] = []
-        try:
-            qv = _embed_query(model, query)
-            table = get_model(model).table
-            rows = session.execute(
-                sql_text(
-                    f"""
-                    SELECT e.pmid, 1 - (e.v <=> (:qv)::vector) AS sim
-                    FROM {table} e
-                    WHERE e.pmid <> ALL(:seen)
-                    ORDER BY e.v <=> (:qv)::vector
-                    LIMIT :k
-                    """
-                ),
-                {"qv": qv, "seen": pmids or [0], "k": k},
-            ).all()
-            rarts = _fetch_articles(session, [p for p, _ in rows])
-            related = [
-                _to_result(rarts[p], float(s), query=query).model_dump()
-                for p, s in rows if p in rarts
-            ]
-        except Exception:
-            related = []
-
-        yield sse("log", {"phase": "done", "msg": f"✅ Terminé en {el()}s"})
-        yield sse("result", {
-            "query": query,
-            "pubmed_query": pubmed_query,
-            "mesh_terms": mesh,
-            "query_builder": builder,
-            "total_hits": total,
-            "results": results,
-            "related": related,
-        })
+        Thread(target=produce, daemon=True).start()
+        while True:
+            try:
+                event = events.get(timeout=15)
+            except Empty:
+                yield ": keep-alive\n\n"
+                continue
+            if event is None:
+                return
+            event_name, payload = event
+            yield sse(event_name, payload)
 
     return StreamingResponse(
         gen(),
         media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"},
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
     )
