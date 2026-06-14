@@ -13,3 +13,4 @@ data/
 *.xml.gz
 *.log
 .claude/
+bench/pubmed_ab_*.json
