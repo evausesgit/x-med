@@ -953,9 +953,21 @@ def search_pubmed_deep(req: DeepSearchRequest, session: Session = Depends(get_se
     candidate_pmids = list(dict.fromkeys([*a_pmids, *local_pmids]))  # dédup, ordre stable
     db = _fetch_articles(session, candidate_pmids)
 
-    missing = [p for p in a_set if p not in db]  # articles de A pas dans la base
-    meta = eut.esummary(missing) if missing else {}
-    ext_abstracts = eut.efetch_abstracts(missing) if missing else {}
+    # Enrichissement des articles de A absents de la base : best-effort. Un hoquet
+    # NCBI (rate-limit, XML, réseau) ne doit pas faire échouer toute la recherche —
+    # on dégrade (titre/abstract manquants) plutôt que de renvoyer un 500.
+    missing = [p for p in a_set if p not in db]
+    meta = {}
+    ext_abstracts = {}
+    if missing:
+        try:
+            meta = eut.esummary(missing)
+        except Exception:
+            meta = {}
+        try:
+            ext_abstracts = eut.efetch_abstracts(missing)
+        except Exception:
+            ext_abstracts = {}
 
     def _title(p: int) -> str:
         return (db[p].title if p in db else (meta[p].title if p in meta else str(p)))
