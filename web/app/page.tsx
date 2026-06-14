@@ -10,7 +10,7 @@ import {
   PubmedLog,
   PubmedSearchResponse,
   searchMesh,
-  searchPubmedDeep,
+  searchPubmedDeepStream,
   searchPubmedStream,
   searchSemantic,
   SearchResponse,
@@ -344,16 +344,26 @@ export default function Home() {
         setLogs([]);
         setOffset(0);
         esRef.current?.close();
-        // Méthode v2 : appel unique (non streaming), filtre local puis jugement codex.
+        // Méthode v2 : streaming SSE (déroulé en direct) — comme v1, pour ne pas
+        // se faire couper par le proxy sur les requêtes longues.
         if (pubmedVariant === "v2") {
-          const res = await searchPubmedDeep(
+          esRef.current = searchPubmedDeepStream(
             q.trim(),
             dateFrom || undefined,
             dateTo || undefined,
             12,
+            {
+              onLog: (log) => setLogs((prev) => [...prev, log]),
+              onResult: (res) => {
+                setDeep(res);
+                setLoading(false);
+              },
+              onError: (msg) => {
+                setError(msg || "La recherche v2 a échoué.");
+                setLoading(false);
+              },
+            },
           );
-          setDeep(res);
-          setLoading(false);
           return;
         }
         // Méthode v1 : streaming SSE, on affiche le déroulé en direct.

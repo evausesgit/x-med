@@ -186,6 +186,54 @@ export async function searchPubmedDeep(
   return res.json();
 }
 
+// Version streaming (SSE) de la v2 : émet le déroulé via onLog puis onResult.
+// Indispensable pour les requêtes longues (codex ~1 min) : les keep-alives du
+// serveur empêchent le proxy de couper à ~30 s (ce qui donnait « Erreur API 500 »).
+export function searchPubmedDeepStream(
+  query: string,
+  dateFrom: string | undefined,
+  dateTo: string | undefined,
+  k: number,
+  handlers: {
+    onLog: (log: PubmedLog) => void;
+    onResult: (res: DeepSearchResponse) => void;
+    onError: (msg?: string) => void;
+  },
+): EventSource {
+  const sp = new URLSearchParams({ query, k_pubmed: String(k) });
+  if (dateFrom) sp.set("date_from", dateFrom);
+  if (dateTo) sp.set("date_to", dateTo);
+  const es = new EventSource(`${API_BASE}/search/pubmed/deep/stream?${sp.toString()}`);
+  es.addEventListener("log", (e) => {
+    try {
+      handlers.onLog(JSON.parse((e as MessageEvent).data));
+    } catch {
+      /* ignore une ligne malformée */
+    }
+  });
+  es.addEventListener("result", (e) => {
+    try {
+      handlers.onResult(JSON.parse((e as MessageEvent).data));
+    } finally {
+      es.close();
+    }
+  });
+  es.addEventListener("error", (e) => {
+    const data = (e as MessageEvent).data;
+    if (data) {
+      try {
+        handlers.onError(JSON.parse(data).msg);
+      } catch {
+        handlers.onError();
+      }
+    } else {
+      handlers.onError();
+    }
+    es.close();
+  });
+  return es;
+}
+
 export interface SearchParams {
   q?: string;
   mesh?: string[];

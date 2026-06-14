@@ -897,28 +897,38 @@ def _year(d: str | None) -> int | None:
         return None
 
 
-@router.post("/search/pubmed/deep", response_model=DeepSearchResponse)
-def search_pubmed_deep(req: DeepSearchRequest, session: Session = Depends(get_session)):
-    """Recherche v2 : PubMed (A) + base locale filtrée (B), jugée par codex."""
+def _run_deep_search(
+    req: DeepSearchRequest, session: Session, progress: ProgressCallback | None = None
+) -> DeepSearchResponse:
+    """Cœur de la recherche v2 — réutilisé par l'endpoint POST et le stream SSE."""
     from app.services import pubmed_eutils as eut
     from app.services.codex_judge import JudgeError, judge_articles
     from app.services.query_builder import QueryBuildError, build_pubmed_query
+
+    def emit(phase: str, msg: str, **data) -> None:
+        if progress:
+            progress(phase, msg, data)
 
     # --- Étape 1 : requête structurée + PubMed → A ---
     builder: Literal["codex", "fallback"] = "codex"
     pubmed_query: str | None = None
     mesh: list[str] = []
     keywords: list[str] = []
+    emit("codex", "🚀 Construction de la requête PubMed (GPT-5.4)…")
     try:
         pq = build_pubmed_query(req.query)
         pubmed_query = pq["pubmed_query"]
         mesh = pq.get("mesh_terms", [])
         keywords = pq.get("keywords_en", [])
         term = pubmed_query
+        emit("codex_done", "🧠 Requête PubMed construite",
+             pubmed_query=pubmed_query, mesh_terms=mesh)
     except QueryBuildError:
         builder = "fallback"
         term = req.query
+        emit("fallback", "⚠️ codex indisponible — repli sur la question brute.")
 
+    emit("esearch", "🔎 Interrogation de PubMed (esearch)…")
     try:
         _, a_pmids = eut.esearch(
             term, retmax=req.k_pubmed,
@@ -926,6 +936,7 @@ def search_pubmed_deep(req: DeepSearchRequest, session: Session = Depends(get_se
         )
     except Exception as e:
         raise HTTPException(502, f"PubMed indisponible : {e}")
+    emit("esearch_done", f"📚 {len(a_pmids)} articles PubMed récupérés")
 
     # --- Étape 2 : même requête sur la base locale (FTS + MeSH) → B ---
     ts = " OR ".join(keywords) if keywords else req.query
@@ -947,6 +958,7 @@ def search_pubmed_deep(req: DeepSearchRequest, session: Session = Depends(get_se
             .limit(req.max_local)
         ).all()
     )
+    emit("filter", f"🧮 {len(local_pmids)} candidats locaux (filtre lexical + MeSH)")
 
     # --- Rassembler les candidats (A ∪ B) + récupérer titres/abstracts ---
     a_set, local_set = set(a_pmids), set(local_pmids)
@@ -977,6 +989,7 @@ def search_pubmed_deep(req: DeepSearchRequest, session: Session = Depends(get_se
 
     # Candidats jugeables = ceux qui ont un abstract (codex doit lire le texte)
     judgeable = [p for p in candidate_pmids if (_abstract(p) or "").strip()][: req.judge_cap]
+    emit("judge", f"🧬 GPT-5.4 lit et juge {len(judgeable)} abstracts…")
 
     # --- Étape 3 : codex lit & juge ---
     judge_mode: Literal["codex", "skipped"] = "codex"
@@ -1019,6 +1032,7 @@ def search_pubmed_deep(req: DeepSearchRequest, session: Session = Depends(get_se
         h.evidence_level if h.evidence_level is not None else 99,
         -(h.pub_year or 0),
     ))
+    emit("done", f"✅ {len(hits)} articles retenus")
 
     return DeepSearchResponse(
         query=req.query,
@@ -1035,4 +1049,71 @@ def search_pubmed_deep(req: DeepSearchRequest, session: Session = Depends(get_se
             "kept": len(hits),
         },
         results=hits,
+    )
+
+
+@router.post("/search/pubmed/deep", response_model=DeepSearchResponse)
+def search_pubmed_deep(req: DeepSearchRequest, session: Session = Depends(get_session)):
+    """Recherche v2 : PubMed (A) + base locale filtrée (B), jugée par codex."""
+    return _run_deep_search(req, session)
+
+
+@router.get("/search/pubmed/deep/stream")
+def search_pubmed_deep_stream(
+    query: str = Query(..., min_length=1),
+    date_from: str | None = Query(default=None),
+    date_to: str | None = Query(default=None),
+    k_pubmed: int = Query(default=20, ge=1, le=50),
+    max_local: int = Query(default=50, ge=1, le=200),
+):
+    """Identique à /search/pubmed/deep mais en SSE : émet le déroulé en direct
+    (les keep-alives empêchent le proxy de couper les requêtes longues) puis un
+    événement `result` avec le payload final (forme DeepSearchResponse)."""
+
+    def sse(event: str, data: dict) -> str:
+        return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+    def gen():
+        t0 = time.monotonic()
+        events: Queue[tuple[str, dict] | None] = Queue()
+
+        def progress(phase: str, msg: str, data: dict) -> None:
+            events.put(("log", {"phase": phase,
+                                "msg": f"{msg} ({round(time.monotonic() - t0, 1)}s)",
+                                **data}))
+
+        def produce() -> None:
+            try:
+                with SessionLocal() as worker_session:
+                    result = _run_deep_search(
+                        DeepSearchRequest(
+                            query=query, date_from=date_from, date_to=date_to,
+                            k_pubmed=k_pubmed, max_local=max_local,
+                        ),
+                        worker_session,
+                        progress,
+                    )
+                events.put(("result", result.model_dump()))
+            except Exception as exc:
+                events.put(("error", {"msg": f"Recherche v2 indisponible : {exc}"}))
+            finally:
+                events.put(None)
+
+        Thread(target=produce, daemon=True).start()
+        while True:
+            try:
+                event = events.get(timeout=15)
+            except Empty:
+                yield ": keep-alive\n\n"
+                continue
+            if event is None:
+                return
+            event_name, payload = event
+            yield sse(event_name, payload)
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no",
+                 "Connection": "keep-alive"},
     )
