@@ -413,14 +413,17 @@ export default function Home() {
       setPubmed(null);
       setDeep(null);
       setOffset(newOffset);
+      setLoading(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur inconnue");
       setData(null);
       setPubmed(null);
       setDeep(null);
-    } finally {
       setLoading(false);
     }
+    // NB : pas de `finally { setLoading(false) }` — les branches PubMed (SSE)
+    // sortent en `return` avec `loading` encore vrai ; ce sont leurs handlers
+    // onResult/onError qui le repassent à false. Un finally couperait la roue.
   }
 
   function addMesh(term: string) {
