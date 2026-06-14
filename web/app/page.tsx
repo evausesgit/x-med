@@ -151,7 +151,8 @@ function Explanation({ article }: { article: ArticleResult }) {
   );
 }
 
-type Mode = "keyword" | "semantic" | "pubmed";
+// Deux onglets PubMed distincts : v2 (filtre + jugement) et v1 (lots d'abstracts).
+type Mode = "pubmed_v2" | "pubmed_v1" | "semantic" | "keyword";
 
 function CopyLinkButton() {
   const [copied, setCopied] = useState(false);
@@ -217,7 +218,8 @@ function SearchLoader({ variant }: { variant: "v1" | "v2" | "other" }) {
 }
 
 export default function Home() {
-  const [mode, setMode] = useState<Mode>("semantic");
+  // v2 (filtre + jugement) est la recherche par défaut à l'arrivée sur le site.
+  const [mode, setMode] = useState<Mode>("pubmed_v2");
   const [q, setQ] = useState("");
   const [mesh, setMesh] = useState<string[]>([]);
   const [meshMode, setMeshMode] = useState<"and" | "or">("or");
@@ -237,10 +239,11 @@ export default function Home() {
   const [models, setModels] = useState<EmbeddingModelInfo[]>([]);
   const [model, setModel] = useState("");
 
-  // Mode PubMed : deux méthodes au choix (sous-onglets).
-  //  v1 = codex lit tous les abstracts locaux de la fenêtre par lots (streaming).
-  //  v2 = filtre lexical+MeSH local borné, puis un seul appel codex de jugement.
-  const [pubmedVariant, setPubmedVariant] = useState<"v1" | "v2">("v1");
+  // La méthode PubMed découle directement de l'onglet choisi.
+  //  pubmed_v2 = filtre lexical+MeSH local borné, puis un appel codex de jugement.
+  //  pubmed_v1 = codex lit tous les abstracts locaux de la fenêtre par lots.
+  const isPubmed = mode === "pubmed_v1" || mode === "pubmed_v2";
+  const pubmedVariant: "v1" | "v2" = mode === "pubmed_v1" ? "v1" : "v2";
 
   const [data, setData] = useState<SearchResponse | null>(null);
   const [pubmed, setPubmed] = useState<PubmedSearchResponse | null>(null);
@@ -285,8 +288,7 @@ export default function Home() {
     const sp = new URLSearchParams();
     sp.set("mode", m);
     if (query.trim()) sp.set("q", query.trim());
-    if (m === "pubmed") {
-      sp.set("variant", pubmedVariant);
+    if (m === "pubmed_v1" || m === "pubmed_v2") {
       if (dateFrom) sp.set("from", dateFrom);
       if (dateTo) sp.set("to", dateTo);
     }
@@ -307,9 +309,12 @@ export default function Home() {
     const sp = new URLSearchParams(window.location.search);
     const m = sp.get("mode");
     const query = sp.get("q");
-    if (m === "pubmed" || m === "semantic" || m === "keyword") setMode(m);
-    const variant = sp.get("variant");
-    if (variant === "v1" || variant === "v2") setPubmedVariant(variant);
+    if (m === "pubmed_v1" || m === "pubmed_v2" || m === "semantic" || m === "keyword") {
+      setMode(m);
+    } else if (m === "pubmed") {
+      // rétro-compat des anciens liens : ?mode=pubmed(&variant=v1)
+      setMode(sp.get("variant") === "v1" ? "pubmed_v1" : "pubmed_v2");
+    }
     const from = sp.get("from");
     const to = sp.get("to");
     if (from) setDateFrom(from);
@@ -333,7 +338,7 @@ export default function Home() {
     setError(null);
     syncUrl(mode, q);
     try {
-      if (mode === "pubmed") {
+      if (isPubmed) {
         if (!q.trim()) {
           setLoading(false);
           return;
@@ -450,6 +455,20 @@ export default function Home() {
         <div className="toggle" style={{ marginBottom: 14 }}>
           <button
             type="button"
+            className={mode === "pubmed_v2" ? "on" : ""}
+            onClick={() => selectMode("pubmed_v2")}
+          >
+            PubMed + codex / filtre + jugement
+          </button>
+          <button
+            type="button"
+            className={mode === "pubmed_v1" ? "on" : ""}
+            onClick={() => selectMode("pubmed_v1")}
+          >
+            PubMed + codex / lots abstracts
+          </button>
+          <button
+            type="button"
             className={mode === "semantic" ? "on" : ""}
             onClick={() => selectMode("semantic")}
           >
@@ -461,13 +480,6 @@ export default function Home() {
             onClick={() => selectMode("keyword")}
           >
             Mots-clés / MeSH
-          </button>
-          <button
-            type="button"
-            className={mode === "pubmed" ? "on" : ""}
-            onClick={() => selectMode("pubmed")}
-          >
-            PubMed + codex
           </button>
         </div>
 
@@ -483,7 +495,7 @@ export default function Home() {
             placeholder={
               mode === "semantic"
                 ? "Ex. : crise cardiaque chez le patient diabétique âgé…"
-                : mode === "pubmed"
+                : isPubmed
                   ? "Question clinique en français — interrogée en direct sur PubMed…"
                   : "Mots-clés (anglais) : myocardial infarction, diabetes…"
             }
@@ -516,25 +528,9 @@ export default function Home() {
           </div>
         )}
 
-        {/* Mode PubMed : choix de la méthode (v1/v2) + note + fenêtre de dates */}
-        {mode === "pubmed" && (
+        {/* Mode PubMed (v1 ou v2) : note de fonctionnement + fenêtre de dates */}
+        {isPubmed && (
           <>
-            <div className="toggle" style={{ marginBottom: 10 }}>
-              <button
-                type="button"
-                className={pubmedVariant === "v1" ? "on" : ""}
-                onClick={() => setPubmedVariant("v1")}
-              >
-                codex v1 · lots d’abstracts
-              </button>
-              <button
-                type="button"
-                className={pubmedVariant === "v2" ? "on" : ""}
-                onClick={() => setPubmedVariant("v2")}
-              >
-                codex v2 · filtre + jugement
-              </button>
-            </div>
             <p className="notice" style={{ marginTop: 4 }}>
               {pubmedVariant === "v1" ? (
                 <>
@@ -681,10 +677,10 @@ export default function Home() {
       {error && <p className="error">⚠ {error}</p>}
 
       {loading && (
-        <SearchLoader variant={mode === "pubmed" ? pubmedVariant : "other"} />
+        <SearchLoader variant={isPubmed ? pubmedVariant : "other"} />
       )}
 
-      {mode === "pubmed" && logs.length > 0 && (
+      {isPubmed && logs.length > 0 && (
         <div className="search-log">
           <div className="search-log-head">
             Déroulé de la recherche{loading ? " — en cours…" : ""}
