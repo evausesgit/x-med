@@ -139,6 +139,53 @@ export function searchPubmedStream(
   return es;
 }
 
+// --- Méthode v2 « PubMed + codex » : filtre lexical+MeSH → codex juge (deep) ---
+export interface DeepHit {
+  pmid: number;
+  title: string;
+  journal: string | null;
+  pub_year: number | null;
+  doi: string | null;
+  pubmed_url: string;
+  in_db: boolean;
+  source: "pubmed" | "local" | "both";
+  evidence_level: number | null;
+  score: number | null; // 0–3
+  reason: string | null;
+}
+
+export interface DeepSearchResponse {
+  query: string;
+  pubmed_query: string | null;
+  mesh_terms: string[];
+  keywords_en: string[];
+  query_builder: "codex" | "fallback";
+  judge: "codex" | "skipped";
+  counts: Record<string, number>;
+  results: DeepHit[];
+}
+
+// Non streaming : filtre lexical local borné, puis un seul appel codex de jugement.
+export async function searchPubmedDeep(
+  query: string,
+  dateFrom: string | undefined,
+  dateTo: string | undefined,
+  k = 12,
+): Promise<DeepSearchResponse> {
+  const res = await fetch(`${API_BASE}/search/pubmed/deep`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      query,
+      ...(dateFrom ? { date_from: dateFrom } : {}),
+      ...(dateTo ? { date_to: dateTo } : {}),
+      k_pubmed: k,
+    }),
+  });
+  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  return res.json();
+}
+
 export interface SearchParams {
   q?: string;
   mesh?: string[];

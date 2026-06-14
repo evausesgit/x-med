@@ -3,12 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ArticleResult,
+  DeepSearchResponse,
   EmbeddingModelInfo,
   listModels,
   meshAutocomplete,
   PubmedLog,
   PubmedSearchResponse,
   searchMesh,
+  searchPubmedDeep,
   searchPubmedStream,
   searchSemantic,
   SearchResponse,
@@ -79,6 +81,22 @@ function CodexScoreBar({ score }: { score: number }) {
         <div className="match-fill" style={{ width: `${pct}%` }} />
       </div>
       <span className="match-pct">{pct}%</span>
+    </div>
+  );
+}
+
+// Barre de score pour la méthode v2 (deep) : score entier 0–3 attribué par codex.
+function DeepScoreBar({ score }: { score: number }) {
+  const pct = Math.round((score / 3) * 100);
+  const tier = score >= 3 ? "high" : score >= 2 ? "mid" : "low";
+  const label = score >= 3 ? "Très pertinent" : score >= 2 ? "Pertinent" : "Partiel";
+  return (
+    <div className="match" title={`Score codex : ${score} / 3 (grille 0–3).`}>
+      <span className={`match-label ml-${tier}`}>{label}</span>
+      <div className="match-bar">
+        <div className="match-fill" style={{ width: `${pct}%` }} />
+      </div>
+      <span className="match-pct">{score}/3</span>
     </div>
   );
 }
@@ -177,8 +195,14 @@ export default function Home() {
   const [models, setModels] = useState<EmbeddingModelInfo[]>([]);
   const [model, setModel] = useState("");
 
+  // Mode PubMed : deux méthodes au choix (sous-onglets).
+  //  v1 = codex lit tous les abstracts locaux de la fenêtre par lots (streaming).
+  //  v2 = filtre lexical+MeSH local borné, puis un seul appel codex de jugement.
+  const [pubmedVariant, setPubmedVariant] = useState<"v1" | "v2">("v1");
+
   const [data, setData] = useState<SearchResponse | null>(null);
   const [pubmed, setPubmed] = useState<PubmedSearchResponse | null>(null);
+  const [deep, setDeep] = useState<DeepSearchResponse | null>(null);
   const [logs, setLogs] = useState<PubmedLog[]>([]);
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -220,6 +244,7 @@ export default function Home() {
     sp.set("mode", m);
     if (query.trim()) sp.set("q", query.trim());
     if (m === "pubmed") {
+      sp.set("variant", pubmedVariant);
       if (dateFrom) sp.set("from", dateFrom);
       if (dateTo) sp.set("to", dateTo);
     }
@@ -241,6 +266,8 @@ export default function Home() {
     const m = sp.get("mode");
     const query = sp.get("q");
     if (m === "pubmed" || m === "semantic" || m === "keyword") setMode(m);
+    const variant = sp.get("variant");
+    if (variant === "v1" || variant === "v2") setPubmedVariant(variant);
     const from = sp.get("from");
     const to = sp.get("to");
     if (from) setDateFrom(from);
@@ -269,12 +296,25 @@ export default function Home() {
           setLoading(false);
           return;
         }
-        // Streaming SSE : on affiche le déroulé en direct, le résultat arrive à la fin.
         setData(null);
         setPubmed(null);
+        setDeep(null);
         setLogs([]);
         setOffset(0);
         esRef.current?.close();
+        // Méthode v2 : appel unique (non streaming), filtre local puis jugement codex.
+        if (pubmedVariant === "v2") {
+          const res = await searchPubmedDeep(
+            q.trim(),
+            dateFrom || undefined,
+            dateTo || undefined,
+            12,
+          );
+          setDeep(res);
+          setLoading(false);
+          return;
+        }
+        // Méthode v1 : streaming SSE, on affiche le déroulé en direct.
         esRef.current = searchPubmedStream(
           q.trim(),
           12,
@@ -314,11 +354,13 @@ export default function Home() {
       }
       setData(res);
       setPubmed(null);
+      setDeep(null);
       setOffset(newOffset);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur inconnue");
       setData(null);
       setPubmed(null);
+      setDeep(null);
     } finally {
       setLoading(false);
     }
@@ -422,14 +464,41 @@ export default function Home() {
           </div>
         )}
 
-        {/* Mode PubMed : note de fonctionnement + fenêtre de dates */}
+        {/* Mode PubMed : choix de la méthode (v1/v2) + note + fenêtre de dates */}
         {mode === "pubmed" && (
           <>
-            <p className="notice" style={{ marginTop: 10 }}>
-              Ce mode interroge PubMed <b>en direct</b> : l’IA traduit votre question
-              en requête experte, puis GPT-5.4 lit <b>tous les abstracts locaux</b> de
-              la période choisie par lots. Une période large peut nécessiter plusieurs
-              appels et durer plusieurs minutes.
+            <div className="toggle" style={{ marginBottom: 10 }}>
+              <button
+                type="button"
+                className={pubmedVariant === "v1" ? "on" : ""}
+                onClick={() => setPubmedVariant("v1")}
+              >
+                codex v1 · lots d’abstracts
+              </button>
+              <button
+                type="button"
+                className={pubmedVariant === "v2" ? "on" : ""}
+                onClick={() => setPubmedVariant("v2")}
+              >
+                codex v2 · filtre + jugement
+              </button>
+            </div>
+            <p className="notice" style={{ marginTop: 4 }}>
+              {pubmedVariant === "v1" ? (
+                <>
+                  <b>v1</b> — l’IA traduit votre question en requête experte, puis
+                  GPT-5.4 lit <b>tous les abstracts locaux</b> de la période par lots.
+                  Une période large peut nécessiter plusieurs appels et durer plusieurs
+                  minutes.
+                </>
+              ) : (
+                <>
+                  <b>v2</b> — l’IA construit une requête experte, on <b>pré-filtre</b>{" "}
+                  la base en local (mots-clés + MeSH), puis GPT-5.4 <b>lit et juge</b>{" "}
+                  uniquement ces candidats. Plus rapide et insensible à la largeur de la
+                  période.
+                </>
+              )}
             </p>
             <div className="filters">
               <div className="field">
@@ -723,6 +792,71 @@ export default function Home() {
                 </article>
             ))}
           </details>
+        </>
+      )}
+
+      {deep && (
+        <>
+          <div className="meta-row">
+            <p className="meta" style={{ margin: 0 }}>
+              {deep.counts.pubmed ?? 0} PubMed · {deep.counts.local ?? 0} locaux ·{" "}
+              {deep.counts.merged ?? 0} fusionnés · {deep.counts.judged ?? 0} jugés par
+              codex · {deep.counts.kept ?? 0} retenus
+            </p>
+            <CopyLinkButton />
+          </div>
+          {deep.pubmed_query && (
+            <details className="explanation">
+              <summary>Requête PubMed générée + mots-clés</summary>
+              <p className="abstract" style={{ fontFamily: "monospace", fontSize: 13 }}>
+                {deep.pubmed_query}
+              </p>
+              {deep.keywords_en.length > 0 && (
+                <div className="tags">
+                  {deep.keywords_en.slice(0, 12).map((t) => (
+                    <span className="tag" key={t}>
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </details>
+          )}
+
+          <h2 style={{ marginTop: 18 }}>Classement final A + B (v2)</h2>
+          <p className="meta">
+            Pré-filtre lexical + MeSH, puis jugement codex (grille 0–3). Tri par
+            pertinence, niveau de preuve, puis récence.
+            {deep.judge === "skipped" &&
+              " ⚠ codex indisponible : tri lexical de repli."}
+          </p>
+          {deep.results.length === 0 && (
+            <p className="notice">Aucun article jugé pertinent pour cette recherche.</p>
+          )}
+          {deep.results.map((r, i) => (
+            <article className="result" key={`deep-${r.pmid}`}>
+              <h3>
+                <span className="rank">#{i + 1}</span>
+                <a href={r.pubmed_url} target="_blank" rel="noreferrer">
+                  {r.title}
+                </a>
+              </h3>
+              <div className="journal">
+                <Badge level={r.evidence_level} />
+                {r.journal || "Journal inconnu"}
+                {r.pub_year ? ` · ${r.pub_year}` : ""}
+                <span className="tag" style={{ marginLeft: 8 }}>
+                  {r.source === "both"
+                    ? "A · PubMed + B · local"
+                    : r.source === "pubmed"
+                      ? "A · PubMed"
+                      : "B · local"}
+                </span>
+              </div>
+              {r.score != null && <DeepScoreBar score={r.score} />}
+              {r.reason && <p className="explanation-note">{r.reason}</p>}
+            </article>
+          ))}
         </>
       )}
     </main>
