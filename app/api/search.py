@@ -629,3 +629,185 @@ def search_pubmed_stream(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"},
     )
+
+
+# --- Méthode v2 « PubMed + codex » : filtre lexical/MeSH → codex lit & juge ---
+# Voir PLAN_RECHERCHE_PUBMED_CODEX.md. Étapes :
+#   1. GPT-5.4 → requête structurée (keywords_en + mesh_terms) → PubMed = A
+#   2. même requête sur la base locale (FTS + MeSH) → candidats bornés → B
+#   3. fusion A+B, dédup PMID, codex lit les abstracts et score (0-3),
+#      tri pertinence → qualité (evidence_level) → récence = C
+# Les embeddings ne sont PAS sur le chemin critique (pré-tri pgvector peu cohérent).
+
+
+class DeepSearchRequest(BaseModel):
+    query: str  # PRM : phrase recherchée du médecin
+    date_from: str | None = None  # st (YYYY-MM-DD ou YYYY)
+    date_to: str | None = None  # ed
+    k_pubmed: int = 20  # taille de A (esearch)
+    max_local: int = 50  # candidats locaux (filtre FTS+MeSH)
+    judge_cap: int = 80  # plafond d'articles soumis à codex (1 appel)
+    min_score: int = 2  # seuil de conservation (0-3)
+
+
+class DeepHit(BaseModel):
+    pmid: int
+    title: str
+    journal: str | None
+    pub_year: int | None
+    doi: str | None
+    pubmed_url: str
+    in_db: bool
+    source: Literal["pubmed", "local", "both"]
+    evidence_level: int | None = None
+    score: int | None = None  # 0-3 (None si non jugé)
+    reason: str | None = None
+
+
+class DeepSearchResponse(BaseModel):
+    query: str
+    pubmed_query: str | None
+    mesh_terms: list[str]
+    keywords_en: list[str]
+    query_builder: Literal["codex", "fallback"]
+    judge: Literal["codex", "skipped"]
+    counts: dict[str, int]  # pubmed / local / merged / judged / kept
+    results: list[DeepHit]  # = C, classé
+
+
+def _year(d: str | None) -> int | None:
+    if not d:
+        return None
+    try:
+        return int(str(d)[:4])
+    except ValueError:
+        return None
+
+
+@router.post("/search/pubmed/deep", response_model=DeepSearchResponse)
+def search_pubmed_deep(req: DeepSearchRequest, session: Session = Depends(get_session)):
+    """Recherche v2 : PubMed (A) + base locale filtrée (B), jugée par codex."""
+    from app.services import pubmed_eutils as eut
+    from app.services.codex_judge import JudgeError, judge_articles
+    from app.services.query_builder import QueryBuildError, build_pubmed_query
+
+    # --- Étape 1 : requête structurée + PubMed → A ---
+    builder: Literal["codex", "fallback"] = "codex"
+    pubmed_query: str | None = None
+    mesh: list[str] = []
+    keywords: list[str] = []
+    try:
+        pq = build_pubmed_query(req.query)
+        pubmed_query = pq["pubmed_query"]
+        mesh = pq.get("mesh_terms", [])
+        keywords = pq.get("keywords_en", [])
+        term = pubmed_query
+    except QueryBuildError:
+        builder = "fallback"
+        term = req.query
+
+    try:
+        _, a_pmids = eut.esearch(
+            term, retmax=req.k_pubmed,
+            mindate=req.date_from, maxdate=req.date_to,
+        )
+    except Exception as e:
+        raise HTTPException(502, f"PubMed indisponible : {e}")
+
+    # --- Étape 2 : même requête sur la base locale (FTS + MeSH) → B ---
+    ts = " OR ".join(keywords) if keywords else req.query
+    tsq = func.websearch_to_tsquery("english", ts)
+    cond = Article.fts.op("@@")(tsq)
+    if mesh:
+        cond = cond | Article.mesh_terms.overlap(mesh)
+    conditions = [cond]
+    yf, yt = _year(req.date_from), _year(req.date_to)
+    if yf is not None:
+        conditions.append(Article.pub_year >= yf)
+    if yt is not None:
+        conditions.append(Article.pub_year <= yt)
+    local_pmids = list(
+        session.scalars(
+            select(Article.pmid)
+            .where(*conditions)
+            .order_by(func.ts_rank(Article.fts, tsq).desc())
+            .limit(req.max_local)
+        ).all()
+    )
+
+    # --- Rassembler les candidats (A ∪ B) + récupérer titres/abstracts ---
+    a_set, local_set = set(a_pmids), set(local_pmids)
+    candidate_pmids = list(dict.fromkeys([*a_pmids, *local_pmids]))  # dédup, ordre stable
+    db = _fetch_articles(session, candidate_pmids)
+
+    missing = [p for p in a_set if p not in db]  # articles de A pas dans la base
+    meta = eut.esummary(missing) if missing else {}
+    ext_abstracts = eut.efetch_abstracts(missing) if missing else {}
+
+    def _title(p: int) -> str:
+        return (db[p].title if p in db else (meta[p].title if p in meta else str(p)))
+
+    def _abstract(p: int) -> str | None:
+        return db[p].abstract if p in db else ext_abstracts.get(p)
+
+    # Candidats jugeables = ceux qui ont un abstract (codex doit lire le texte)
+    judgeable = [p for p in candidate_pmids if (_abstract(p) or "").strip()][: req.judge_cap]
+
+    # --- Étape 3 : codex lit & juge ---
+    judge_mode: Literal["codex", "skipped"] = "codex"
+    scores: dict[int, object] = {}
+    try:
+        scores = judge_articles(
+            req.query,
+            [{"pmid": p, "title": _title(p), "abstract": _abstract(p)} for p in judgeable],
+        )
+    except JudgeError:
+        judge_mode = "skipped"  # repli : pas de score, tri lexical + récence
+
+    # --- Assemblage + classement = C ---
+    hits: list[DeepHit] = []
+    for p in candidate_pmids:
+        j = scores.get(p)
+        score = j.score if j else None
+        if judge_mode == "codex" and (score is None or score < req.min_score):
+            continue  # rejeté par codex (ou non jugeable) quand le jugement a tourné
+        a = db.get(p)
+        m = meta.get(p)
+        source = "both" if (p in a_set and p in local_set) else ("pubmed" if p in a_set else "local")
+        hits.append(DeepHit(
+            pmid=p,
+            title=_title(p),
+            journal=(a.journal if a else (m.journal if m else None)),
+            pub_year=(a.pub_year if a else (m.pub_year if m else None)),
+            doi=(a.doi if a else (m.doi if m else None)),
+            pubmed_url=f"https://pubmed.ncbi.nlm.nih.gov/{p}/",
+            in_db=a is not None,
+            source=source,
+            evidence_level=(a.evidence_level if a else None),
+            score=score,
+            reason=(j.reason if j else None),
+        ))
+
+    # tri : pertinence (score desc) → qualité (evidence_level asc) → récence (année desc)
+    hits.sort(key=lambda h: (
+        -(h.score if h.score is not None else -1),
+        h.evidence_level if h.evidence_level is not None else 99,
+        -(h.pub_year or 0),
+    ))
+
+    return DeepSearchResponse(
+        query=req.query,
+        pubmed_query=pubmed_query,
+        mesh_terms=mesh,
+        keywords_en=keywords,
+        query_builder=builder,
+        judge=judge_mode,
+        counts={
+            "pubmed": len(a_set),
+            "local": len(local_set),
+            "merged": len(candidate_pmids),
+            "judged": len(scores),
+            "kept": len(hits),
+        },
+        results=hits,
+    )
