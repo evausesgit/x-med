@@ -152,6 +152,7 @@ export interface DeepHit {
   evidence_level: number | null;
   score: number | null; // 0–3
   reason: string | null;
+  abstract_fr: string | null; // traduction FR (cache ou streamée)
 }
 
 export interface DeepSearchResponse {
@@ -198,6 +199,10 @@ export function searchPubmedDeepStream(
     onLog: (log: PubmedLog) => void;
     onResult: (res: DeepSearchResponse) => void;
     onError: (msg?: string) => void;
+    // Traductions FR arrivant après les résultats (au fur et à mesure).
+    onTranslations?: (
+      fr: Record<string, { title_fr: string; abstract_fr: string }>,
+    ) => void;
   },
 ): EventSource {
   const sp = new URLSearchParams({ query, k_pubmed: String(k) });
@@ -209,6 +214,13 @@ export function searchPubmedDeepStream(
       handlers.onLog(JSON.parse((e as MessageEvent).data));
     } catch {
       /* ignore une ligne malformée */
+    }
+  });
+  es.addEventListener("translations", (e) => {
+    try {
+      handlers.onTranslations?.(JSON.parse((e as MessageEvent).data));
+    } catch {
+      /* ignore */
     }
   });
   es.addEventListener("result", (e) => {

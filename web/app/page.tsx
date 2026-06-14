@@ -367,6 +367,20 @@ export default function Home() {
                 setError(msg || "La recherche v2 a échoué.");
                 setLoading(false);
               },
+              // Traductions FR qui arrivent après les résultats : on les fusionne.
+              onTranslations: (fr) =>
+                setDeep((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        results: prev.results.map((r) =>
+                          fr[String(r.pmid)]
+                            ? { ...r, abstract_fr: fr[String(r.pmid)].abstract_fr }
+                            : r,
+                        ),
+                      }
+                    : prev,
+                ),
             },
           );
           return;
@@ -910,6 +924,12 @@ export default function Home() {
               </div>
               {r.score != null && <DeepScoreBar score={r.score} />}
               {r.reason && <p className="explanation-note">{r.reason}</p>}
+              {r.abstract_fr && (
+                <details className="explanation" open>
+                  <summary>📄 Résumé traduit (FR)</summary>
+                  <p className="abstract">{r.abstract_fr}</p>
+                </details>
+              )}
             </article>
           ))}
         </>

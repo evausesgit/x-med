@@ -875,6 +875,7 @@ class DeepHit(BaseModel):
     evidence_level: int | None = None
     score: int | None = None  # 0-3 (None si non jugé)
     reason: str | None = None
+    abstract_fr: str | None = None  # traduction FR (cache article_fr), si dispo
 
 
 class DeepSearchResponse(BaseModel):
@@ -1032,6 +1033,17 @@ def _run_deep_search(
         h.evidence_level if h.evidence_level is not None else 99,
         -(h.pub_year or 0),
     ))
+
+    # Traductions FR déjà en cache (instantané) — le reste est traduit en
+    # streaming (voir l'endpoint stream), ce qui enrichit le cache au fil des
+    # recherches.
+    from app.services.translate import get_cached
+    cached_fr = get_cached(session, [h.pmid for h in hits])
+    for h in hits:
+        tr = cached_fr.get(h.pmid)
+        if tr:
+            h.abstract_fr = tr.abstract_fr
+
     emit("done", f"✅ {len(hits)} articles retenus")
 
     return DeepSearchResponse(
@@ -1056,6 +1068,52 @@ def _run_deep_search(
 def search_pubmed_deep(req: DeepSearchRequest, session: Session = Depends(get_session)):
     """Recherche v2 : PubMed (A) + base locale filtrée (B), jugée par codex."""
     return _run_deep_search(req, session)
+
+
+def _translate_kept(
+    result: DeepSearchResponse, session: Session, progress, cap: int = 15
+) -> dict[str, dict]:
+    """Traduit en FR les résultats retenus pas encore traduits (cache article_fr).
+
+    Retourne {pmid(str): {title_fr, abstract_fr}} pour l'événement SSE `translations`.
+    Borné à `cap` pour maîtriser le coût ; le cache se remplit au fil des recherches.
+    """
+    from app.services import pubmed_eutils as eut
+    from app.services.translate import TranslateError, translate_abstracts
+
+    need = [h for h in result.results if not h.abstract_fr][:cap]
+    if not need:
+        return {}
+    progress("translate", f"🌐 Traduction FR de {len(need)} abstracts…", {})
+
+    pmids = [h.pmid for h in need]
+    items: dict[int, dict] = {}
+    for a in session.scalars(select(Article).where(Article.pmid.in_(pmids))).all():
+        if a.abstract:
+            items[a.pmid] = {"pmid": a.pmid, "title": a.title, "abstract": a.abstract}
+    missing = [h for h in need if h.pmid not in items]
+    if missing:
+        try:
+            ext = eut.efetch_abstracts([h.pmid for h in missing])
+            for h in missing:
+                ab = ext.get(h.pmid)
+                if ab:
+                    items[h.pmid] = {"pmid": h.pmid, "title": h.title, "abstract": ab}
+        except Exception:
+            pass
+    if not items:
+        return {}
+
+    try:
+        fr = translate_abstracts(list(items.values()), session)
+    except TranslateError as e:
+        progress("translate_skip", f"⚠️ Traduction indisponible ({e})", {})
+        return {}
+    progress("translate_done", f"🌐 {len(fr)} traductions ajoutées au cache", {})
+    return {
+        str(p): {"title_fr": t.title_fr, "abstract_fr": t.abstract_fr}
+        for p, t in fr.items()
+    }
 
 
 @router.get("/search/pubmed/deep/stream")
@@ -1093,7 +1151,12 @@ def search_pubmed_deep_stream(
                         worker_session,
                         progress,
                     )
-                events.put(("result", result.model_dump()))
+                    # On envoie les résultats tout de suite (traductions en cache
+                    # déjà incluses), puis on traduit le reste en arrière-plan.
+                    events.put(("result", result.model_dump()))
+                    fr = _translate_kept(result, worker_session, progress)
+                    if fr:
+                        events.put(("translations", fr))
             except Exception as exc:
                 events.put(("error", {"msg": f"Recherche v2 indisponible : {exc}"}))
             finally:
