@@ -1082,3 +1082,57 @@ button:disabled {
     gap: 2px;
   }
 }
+
+/* --- Indicateur de recherche : roue qui tourne + concepts MeSH animés --- */
+.search-loader {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 16px 0;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+.spinner {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--accent-soft);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.search-loader-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.search-loader-title {
+  font-weight: 700;
+  color: var(--text);
+  font-size: 14px;
+}
+.search-loader-mesh {
+  font-size: 13px;
+  color: var(--accent);
+  letter-spacing: 0.01em;
+  animation: meshfade 0.45s ease;
+}
+@keyframes meshfade {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

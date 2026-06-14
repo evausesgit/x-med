@@ -174,6 +174,48 @@ function CopyLinkButton() {
   );
 }
 
+// Concepts MeSH défilants pendant l'attente (illustratif : rend le temps de
+// recherche — parfois long quand codex lit les abstracts — plus vivant).
+const MESH_SAMPLES = [
+  "Heart Failure",
+  "Diabetes Mellitus, Type 2",
+  "Myocardial Infarction",
+  "Sodium-Glucose Transporter 2 Inhibitors",
+  "Hypertension",
+  "Stroke",
+  "Anticoagulants",
+  "Randomized Controlled Trial",
+  "Atrial Fibrillation",
+  "Chronic Kidney Disease",
+  "Glucagon-Like Peptide 1",
+  "Cardiovascular Diseases",
+];
+
+function SearchLoader({ variant }: { variant: "v1" | "v2" | "other" }) {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setI((n) => (n + 1) % MESH_SAMPLES.length), 1300);
+    return () => clearInterval(t);
+  }, []);
+  const title =
+    variant === "v1"
+      ? "GPT-5.4 lit les abstracts par lots…"
+      : variant === "v2"
+        ? "Pré-filtre local puis jugement par codex…"
+        : "Recherche en cours…";
+  return (
+    <div className="search-loader" role="status" aria-live="polite">
+      <div className="spinner" aria-hidden="true" />
+      <div className="search-loader-text">
+        <span className="search-loader-title">{title}</span>
+        <span className="search-loader-mesh" key={i}>
+          🔖 {MESH_SAMPLES[i]}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const [mode, setMode] = useState<Mode>("semantic");
   const [q, setQ] = useState("");
@@ -627,6 +669,10 @@ export default function Home() {
       </div>
 
       {error && <p className="error">⚠ {error}</p>}
+
+      {loading && (
+        <SearchLoader variant={mode === "pubmed" ? pubmedVariant : "other"} />
+      )}
 
       {mode === "pubmed" && logs.length > 0 && (
         <div className="search-log">
