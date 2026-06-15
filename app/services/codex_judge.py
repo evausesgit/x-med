@@ -17,13 +17,9 @@ Grille de score (entier) :
 
 from __future__ import annotations
 
-import json
-import subprocess
-import tempfile
 from dataclasses import dataclass
-from pathlib import Path
 
-from app.config import settings
+from app.services.codex_cli import CodexCliError, CodexUsage, run_codex
 
 # On borne le lot pour qu'il tienne dans un seul appel codex (argv + contexte).
 MAX_ABSTRACT_CHARS = 1200
@@ -88,46 +84,22 @@ def _render_articles(articles: list[dict]) -> str:
     return "\n".join(blocks)
 
 
-def judge_articles(prm: str, articles: list[dict], timeout: int = 300) -> dict[int, Judgement]:
+def judge_articles(
+    prm: str, articles: list[dict], timeout: int = 300
+) -> tuple[dict[int, Judgement], CodexUsage]:
     """Score chaque article (par PMID) de 0 à 3 vis-à-vis de `PRM`.
 
-    `articles` : liste de dicts {pmid, title, abstract}. Retourne {pmid: Judgement}.
-    Lève `JudgeError` si codex est indisponible / illisible.
+    `articles` : liste de dicts {pmid, title, abstract}. Retourne ({pmid: Judgement},
+    usage). Lève `JudgeError` si codex est indisponible / illisible.
     """
     if not articles:
-        return {}
+        return {}, CodexUsage()
 
     prompt = _PROMPT_HEAD.format(prm=prm) + _render_articles(articles)
-
-    with tempfile.TemporaryDirectory() as td:
-        schema_path = Path(td) / "schema.json"
-        out_path = Path(td) / "out.json"
-        schema_path.write_text(json.dumps(_SCHEMA))
-        cmd = [
-            settings.codex_bin, "exec", "--skip-git-repo-check", "--ephemeral",
-            "-s", "read-only", "--color", "never",
-            "--output-schema", str(schema_path), "-o", str(out_path),
-        ]
-        if settings.codex_model:
-            cmd += ["-m", settings.codex_model]
-        cmd.append(prompt)
-        try:
-            # stdin fermé : sinon `codex exec` se bloque en attente d'entrée.
-            subprocess.run(
-                cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                stderr=subprocess.PIPE, timeout=timeout, check=True,
-            )
-        except FileNotFoundError as e:
-            raise JudgeError(f"codex introuvable ({settings.codex_bin})") from e
-        except subprocess.TimeoutExpired as e:
-            raise JudgeError(f"codex timeout ({timeout}s)") from e
-        except subprocess.CalledProcessError as e:
-            tail = (e.stderr or b"").decode(errors="replace")[-300:]
-            raise JudgeError(f"codex a échoué : {tail}") from e
-        try:
-            data = json.loads(out_path.read_text())
-        except Exception as e:  # fichier vide / JSON cassé
-            raise JudgeError(f"sortie codex illisible : {e}") from e
+    try:
+        data, usage = run_codex(prompt, _SCHEMA, timeout)
+    except CodexCliError as e:
+        raise JudgeError(str(e)) from e
 
     out: dict[int, Judgement] = {}
     for j in data.get("judgements", []):
@@ -137,4 +109,4 @@ def judge_articles(prm: str, articles: list[dict], timeout: int = 300) -> dict[i
         except (KeyError, TypeError, ValueError):
             continue
         out[pmid] = Judgement(score=score, reason=str(j.get("reason", "")).strip())
-    return out
+    return out, usage

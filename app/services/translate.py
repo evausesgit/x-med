@@ -11,16 +11,12 @@ pour une sortie JSON structurée, repli `TranslateError` si codex indisponible.
 
 from __future__ import annotations
 
-import json
-import subprocess
-import tempfile
 from dataclasses import dataclass
-from pathlib import Path
 
 from sqlalchemy import text as sql_text
 from sqlalchemy.orm import Session
 
-from app.config import settings
+from app.services.codex_cli import CodexCliError, CodexUsage, run_codex
 
 # On borne pour qu'un lot tienne dans un seul appel codex (argv + contexte).
 MAX_ABSTRACT_CHARS = 2000
@@ -113,42 +109,18 @@ def _render(items: list[dict]) -> str:
 
 def translate_abstracts(
     items: list[dict], session: Session | None = None, timeout: int = 600
-) -> dict[int, Translation]:
+) -> tuple[dict[int, Translation], CodexUsage]:
     """Traduit (et met en cache si `session`) une liste d'articles {pmid, title,
-    abstract}. Retourne {pmid: Translation}. Lève `TranslateError` si codex échoue."""
+    abstract}. Retourne ({pmid: Translation}, usage). Lève `TranslateError`."""
     items = [a for a in items if (a.get("abstract") or "").strip()]
     if not items:
-        return {}
+        return {}, CodexUsage()
 
     prompt = _PROMPT_HEAD + _render(items)
-    with tempfile.TemporaryDirectory() as td:
-        schema_path = Path(td) / "schema.json"
-        out_path = Path(td) / "out.json"
-        schema_path.write_text(json.dumps(_SCHEMA))
-        cmd = [
-            settings.codex_bin, "exec", "--skip-git-repo-check", "--ephemeral",
-            "-s", "read-only", "--color", "never",
-            "--output-schema", str(schema_path), "-o", str(out_path),
-        ]
-        if settings.codex_model:
-            cmd += ["-m", settings.codex_model]
-        cmd.append(prompt)
-        try:
-            subprocess.run(
-                cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                stderr=subprocess.PIPE, timeout=timeout, check=True,
-            )
-        except FileNotFoundError as e:
-            raise TranslateError(f"codex introuvable ({settings.codex_bin})") from e
-        except subprocess.TimeoutExpired as e:
-            raise TranslateError(f"codex timeout ({timeout}s)") from e
-        except subprocess.CalledProcessError as e:
-            tail = (e.stderr or b"").decode(errors="replace")[-300:]
-            raise TranslateError(f"codex a échoué : {tail}") from e
-        try:
-            data = json.loads(out_path.read_text())
-        except Exception as e:
-            raise TranslateError(f"sortie codex illisible : {e}") from e
+    try:
+        data, usage = run_codex(prompt, _SCHEMA, timeout)
+    except CodexCliError as e:
+        raise TranslateError(str(e)) from e
 
     out: dict[int, Translation] = {}
     for t in data.get("translations", []):
@@ -165,4 +137,4 @@ def translate_abstracts(
 
     if session is not None and out:
         _upsert(session, out)
-    return out
+    return out, usage

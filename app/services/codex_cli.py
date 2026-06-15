@@ -1,0 +1,107 @@
+"""Exécution centralisée de `codex exec`, avec capture de l'usage de tokens.
+
+Les 3 appels codex du mode « PubMed + codex » (construction de requête, jugement,
+traduction) passent par `run_codex()`. On lance `codex exec --json` (événements
+JSONL sur stdout, dont `turn.completed` qui porte l'usage) en plus de
+`--output-schema`/`-o` (résultat structuré écrit dans un fichier). On renvoie
+`(data, CodexUsage)`.
+
+Chaque service traduit `CodexCliError` en son erreur métier
+(QueryBuildError / JudgeError / TranslateError) ; `query_builder.is_usage_limit`
+reste utilisable sur le message (il embarque la fin du stderr).
+"""
+
+from __future__ import annotations
+
+import json
+import subprocess
+import tempfile
+from dataclasses import dataclass
+from pathlib import Path
+
+from app.config import settings
+
+
+@dataclass
+class CodexUsage:
+    input_tokens: int = 0
+    cached_input_tokens: int = 0
+    output_tokens: int = 0
+    reasoning_output_tokens: int = 0
+
+    @property
+    def total_tokens(self) -> int:
+        return self.input_tokens + self.output_tokens
+
+    def as_dict(self) -> dict:
+        return {
+            "input_tokens": self.input_tokens,
+            "cached_input_tokens": self.cached_input_tokens,
+            "output_tokens": self.output_tokens,
+            "reasoning_output_tokens": self.reasoning_output_tokens,
+            "total_tokens": self.total_tokens,
+        }
+
+
+class CodexCliError(RuntimeError):
+    """codex introuvable, non authentifié, trop lent, ou sortie illisible."""
+
+
+def _parse_usage(stdout: bytes | None) -> CodexUsage:
+    """Lit l'event `turn.completed` (le dernier) pour en extraire l'usage."""
+    usage = CodexUsage()
+    for line in (stdout or b"").decode(errors="replace").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            evt = json.loads(line)
+        except ValueError:
+            continue
+        if evt.get("type") == "turn.completed" and isinstance(evt.get("usage"), dict):
+            u = evt["usage"]
+            usage = CodexUsage(
+                input_tokens=int(u.get("input_tokens", 0) or 0),
+                cached_input_tokens=int(u.get("cached_input_tokens", 0) or 0),
+                output_tokens=int(u.get("output_tokens", 0) or 0),
+                reasoning_output_tokens=int(u.get("reasoning_output_tokens", 0) or 0),
+            )
+    return usage
+
+
+def run_codex(prompt: str, schema: dict, timeout: int) -> tuple[dict, CodexUsage]:
+    """Lance `codex exec` avec un schéma JSON imposé. Retourne (data, usage).
+
+    Lève `CodexCliError` si codex échoue / sortie illisible.
+    """
+    with tempfile.TemporaryDirectory() as td:
+        schema_path = Path(td) / "schema.json"
+        out_path = Path(td) / "out.json"
+        schema_path.write_text(json.dumps(schema))
+        cmd = [
+            settings.codex_bin, "exec", "--json", "--skip-git-repo-check",
+            "--ephemeral", "-s", "read-only", "--color", "never",
+            "--output-schema", str(schema_path), "-o", str(out_path),
+        ]
+        if settings.codex_model:
+            cmd += ["-m", settings.codex_model]
+        cmd.append(prompt)
+        try:
+            # stdin fermé : sinon `codex exec` se bloque en attente d'entrée.
+            proc = subprocess.run(
+                cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, timeout=timeout, check=True,
+            )
+        except FileNotFoundError as e:
+            raise CodexCliError(f"codex introuvable ({settings.codex_bin})") from e
+        except subprocess.TimeoutExpired as e:
+            raise CodexCliError(f"codex timeout ({timeout}s)") from e
+        except subprocess.CalledProcessError as e:
+            tail = (e.stderr or b"").decode(errors="replace")[-300:]
+            raise CodexCliError(f"codex a échoué : {tail}") from e
+        try:
+            data = json.loads(out_path.read_text())
+        except Exception as e:  # fichier vide / JSON cassé
+            raise CodexCliError(f"sortie codex illisible : {e}") from e
+
+    return data, _parse_usage(proc.stdout)

@@ -163,6 +163,7 @@ export interface DeepSearchResponse {
   query_builder: "codex" | "fallback";
   judge: "codex" | "skipped";
   codex_limit?: boolean;
+  codex_tokens?: Record<string, number>; // tokens GPT-5.4 (query / judge / total)
   counts: Record<string, number>;
   results: DeepHit[];
 }

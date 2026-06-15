@@ -532,13 +532,13 @@ def _run_pubmed_codex_search(
     pubmed_query: str | None = None
     emit("codex", "Lancement de GPT-5.4 pour construire la requete PubMed...")
     try:
-        pq = build_pubmed_query(req.query)
+        pq, qb_usage = build_pubmed_query(req.query)
         pubmed_query = pq["pubmed_query"]
         mesh = pq.get("mesh_terms", [])
         term = pubmed_query
         emit(
             "codex_done",
-            "Requete PubMed construite",
+            f"Requete PubMed construite · {_fmt_tokens(qb_usage)}",
             pubmed_query=pubmed_query,
             mesh_terms=mesh,
         )
@@ -895,6 +895,7 @@ class DeepSearchResponse(BaseModel):
     query_builder: Literal["codex", "fallback"]
     judge: Literal["codex", "skipped"]
     codex_limit: bool = False  # quota GPT-5.4 atteint (résultats dégradés)
+    codex_tokens: dict[str, int] = {}  # tokens GPT-5.4 par étape (query/judge/total)
     counts: dict[str, int]  # pubmed / local / merged / judged / kept
     results: list[DeepHit]  # = C, classé
 
@@ -906,6 +907,15 @@ def _year(d: str | None) -> int | None:
         return int(str(d)[:4])
     except ValueError:
         return None
+
+
+def _fmt_tokens(usage) -> str:
+    """Format lisible des tokens d'un appel codex (ex. « 27 014 tokens »)."""
+    n = f"{usage.total_tokens:,}".replace(",", " ")
+    if usage.cached_input_tokens:
+        c = f"{usage.cached_input_tokens:,}".replace(",", " ")
+        return f"{n} tokens (dont {c} en cache)"
+    return f"{n} tokens"
 
 
 def _run_deep_search(
@@ -921,6 +931,7 @@ def _run_deep_search(
     )
 
     codex_limit = False
+    codex_tokens: dict[str, int] = {"query": 0, "judge": 0, "total": 0}
 
     def emit(phase: str, msg: str, **data) -> None:
         if progress:
@@ -942,12 +953,13 @@ def _run_deep_search(
     keywords: list[str] = []
     emit("codex", "🚀 Construction de la requête PubMed (GPT-5.4)…")
     try:
-        pq = build_pubmed_query(req.query)
+        pq, qb_usage = build_pubmed_query(req.query)
         pubmed_query = pq["pubmed_query"]
         mesh = pq.get("mesh_terms", [])
         keywords = pq.get("keywords_en", [])
         term = pubmed_query
-        emit("codex_done", "🧠 Requête PubMed construite",
+        codex_tokens["query"] = qb_usage.total_tokens
+        emit("codex_done", f"🧠 Requête PubMed construite · {_fmt_tokens(qb_usage)}",
              pubmed_query=pubmed_query, mesh_terms=mesh)
     except QueryBuildError as e:
         builder = "fallback"
@@ -1023,10 +1035,12 @@ def _run_deep_search(
     judge_mode: Literal["codex", "skipped"] = "codex"
     scores: dict[int, object] = {}
     try:
-        scores = judge_articles(
+        scores, judge_usage = judge_articles(
             req.query,
             [{"pmid": p, "title": _title(p), "abstract": _abstract(p)} for p in judgeable],
         )
+        codex_tokens["judge"] = judge_usage.total_tokens
+        emit("judge_done", f"🧠 Jugement terminé · {_fmt_tokens(judge_usage)}")
     except JudgeError as e:
         judge_mode = "skipped"  # repli : pas de score, tri lexical + récence
         note_limit(e)
@@ -1082,6 +1096,7 @@ def _run_deep_search(
         query_builder=builder,
         judge=judge_mode,
         codex_limit=codex_limit,
+        codex_tokens={**codex_tokens, "total": codex_tokens["query"] + codex_tokens["judge"]},
         counts={
             "pubmed": len(a_set),
             "local": len(local_set),
@@ -1135,7 +1150,7 @@ def _translate_kept(
         return {}
 
     try:
-        fr = translate_abstracts(list(items.values()), session)
+        fr, tr_usage = translate_abstracts(list(items.values()), session)
     except TranslateError as e:
         if is_usage_limit(str(e)):
             progress("codex_limit",
@@ -1144,7 +1159,8 @@ def _translate_kept(
         else:
             progress("translate_skip", f"⚠️ Traduction indisponible ({e})", {})
         return {}
-    progress("translate_done", f"🌐 {len(fr)} traductions ajoutées au cache", {})
+    progress("translate_done",
+             f"🌐 {len(fr)} traductions ajoutées au cache · {_fmt_tokens(tr_usage)}", {})
     return {
         str(p): {"title_fr": t.title_fr, "abstract_fr": t.abstract_fr}
         for p, t in fr.items()

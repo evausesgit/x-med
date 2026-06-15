@@ -898,6 +898,14 @@ export default function Home() {
             </p>
             <CopyLinkButton />
           </div>
+          {deep.codex_tokens && (deep.codex_tokens.total ?? 0) > 0 && (
+            <p className="meta" style={{ margin: "2px 0 0" }}>
+              🧮 GPT-5.4 : {deep.codex_tokens.total!.toLocaleString("fr-FR")} tokens
+              {" — "}requête {(deep.codex_tokens.query ?? 0).toLocaleString("fr-FR")}
+              {" · "}jugement {(deep.codex_tokens.judge ?? 0).toLocaleString("fr-FR")}
+              {" (hors traduction, voir le déroulé)"}
+            </p>
+          )}
           {deep.pubmed_query && (
             <details className="explanation">
               <summary>Requête PubMed générée + mots-clés</summary>
