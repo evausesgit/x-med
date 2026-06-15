@@ -1083,6 +1083,19 @@ button:disabled {
   }
 }
 
+/* --- Bandeau : limite d'usage GPT-5.4 atteinte --- */
+.codex-limit {
+  margin: 16px 0;
+  padding: 13px 16px;
+  border-radius: 11px;
+  background: var(--red-soft);
+  border: 1px solid #e0a99a;
+  border-left: 4px solid #c0492f;
+  color: #6b2316;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
 /* --- Indicateur de recherche : roue qui tourne + concepts MeSH animés --- */
 .search-loader {
   display: flex;

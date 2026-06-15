@@ -162,6 +162,7 @@ export interface DeepSearchResponse {
   keywords_en: string[];
   query_builder: "codex" | "fallback";
   judge: "codex" | "skipped";
+  codex_limit?: boolean;
   counts: Record<string, number>;
   results: DeepHit[];
 }

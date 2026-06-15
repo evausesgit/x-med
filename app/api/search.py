@@ -517,7 +517,11 @@ def _run_pubmed_codex_search(
         assess_batch,
         iter_batches,
     )
-    from app.services.query_builder import QueryBuildError, build_pubmed_query
+    from app.services.query_builder import (
+        QueryBuildError,
+        build_pubmed_query,
+        is_usage_limit,
+    )
 
     def emit(phase: str, msg: str, **data) -> None:
         if progress:
@@ -541,7 +545,12 @@ def _run_pubmed_codex_search(
     except QueryBuildError as exc:
         builder = "fallback"
         term = req.query
-        emit("fallback", f"GPT-5.4 indisponible ({exc}). Repli sur la question brute.")
+        if is_usage_limit(str(exc)):
+            emit("codex_limit",
+                 "🚫 Limite d'usage GPT-5.4 atteinte — résultats en mode dégradé. "
+                 "Réessayez plus tard.")
+        else:
+            emit("fallback", f"GPT-5.4 indisponible ({exc}). Repli sur la question brute.")
 
     emit("esearch", "Interrogation de PubMed...")
     total, pmids = eut.esearch(
@@ -885,6 +894,7 @@ class DeepSearchResponse(BaseModel):
     keywords_en: list[str]
     query_builder: Literal["codex", "fallback"]
     judge: Literal["codex", "skipped"]
+    codex_limit: bool = False  # quota GPT-5.4 atteint (résultats dégradés)
     counts: dict[str, int]  # pubmed / local / merged / judged / kept
     results: list[DeepHit]  # = C, classé
 
@@ -904,11 +914,26 @@ def _run_deep_search(
     """Cœur de la recherche v2 — réutilisé par l'endpoint POST et le stream SSE."""
     from app.services import pubmed_eutils as eut
     from app.services.codex_judge import JudgeError, judge_articles
-    from app.services.query_builder import QueryBuildError, build_pubmed_query
+    from app.services.query_builder import (
+        QueryBuildError,
+        build_pubmed_query,
+        is_usage_limit,
+    )
+
+    codex_limit = False
 
     def emit(phase: str, msg: str, **data) -> None:
         if progress:
             progress(phase, msg, data)
+
+    def note_limit(exc: Exception) -> None:
+        """Si l'erreur codex est un dépassement de quota, on le signale (bandeau UI)."""
+        nonlocal codex_limit
+        if not codex_limit and is_usage_limit(str(exc)):
+            codex_limit = True
+            emit("codex_limit",
+                 "🚫 Limite d'usage GPT-5.4 atteinte — résultats en mode dégradé "
+                 "(pas de tri intelligent ni de traduction). Réessayez plus tard.")
 
     # --- Étape 1 : requête structurée + PubMed → A ---
     builder: Literal["codex", "fallback"] = "codex"
@@ -924,10 +949,12 @@ def _run_deep_search(
         term = pubmed_query
         emit("codex_done", "🧠 Requête PubMed construite",
              pubmed_query=pubmed_query, mesh_terms=mesh)
-    except QueryBuildError:
+    except QueryBuildError as e:
         builder = "fallback"
         term = req.query
-        emit("fallback", "⚠️ codex indisponible — repli sur la question brute.")
+        note_limit(e)
+        if not codex_limit:
+            emit("fallback", "⚠️ codex indisponible — repli sur la question brute.")
 
     emit("esearch", "🔎 Interrogation de PubMed (esearch)…")
     try:
@@ -1000,8 +1027,9 @@ def _run_deep_search(
             req.query,
             [{"pmid": p, "title": _title(p), "abstract": _abstract(p)} for p in judgeable],
         )
-    except JudgeError:
+    except JudgeError as e:
         judge_mode = "skipped"  # repli : pas de score, tri lexical + récence
+        note_limit(e)
 
     # --- Assemblage + classement = C ---
     hits: list[DeepHit] = []
@@ -1053,6 +1081,7 @@ def _run_deep_search(
         keywords_en=keywords,
         query_builder=builder,
         judge=judge_mode,
+        codex_limit=codex_limit,
         counts={
             "pubmed": len(a_set),
             "local": len(local_set),
@@ -1079,6 +1108,7 @@ def _translate_kept(
     Borné à `cap` pour maîtriser le coût ; le cache se remplit au fil des recherches.
     """
     from app.services import pubmed_eutils as eut
+    from app.services.query_builder import is_usage_limit
     from app.services.translate import TranslateError, translate_abstracts
 
     need = [h for h in result.results if not h.abstract_fr][:cap]
@@ -1107,7 +1137,12 @@ def _translate_kept(
     try:
         fr = translate_abstracts(list(items.values()), session)
     except TranslateError as e:
-        progress("translate_skip", f"⚠️ Traduction indisponible ({e})", {})
+        if is_usage_limit(str(e)):
+            progress("codex_limit",
+                     "🚫 Limite d'usage GPT-5.4 atteinte — traduction indisponible "
+                     "pour l'instant. Réessayez plus tard.", {})
+        else:
+            progress("translate_skip", f"⚠️ Traduction indisponible ({e})", {})
         return {}
     progress("translate_done", f"🌐 {len(fr)} traductions ajoutées au cache", {})
     return {

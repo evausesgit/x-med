@@ -252,6 +252,8 @@ export default function Home() {
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Limite d'usage GPT-5.4 atteinte : on en informe l'utilisateur (bandeau).
+  const [codexLimit, setCodexLimit] = useState(false);
   const esRef = useRef<EventSource | null>(null);
 
   // Ferme le flux SSE en cours si le composant est démonté.
@@ -336,6 +338,7 @@ export default function Home() {
   async function runSearch(newOffset = 0) {
     setLoading(true);
     setError(null);
+    setCodexLimit(false);
     syncUrl(mode, q);
     try {
       if (isPubmed) {
@@ -358,12 +361,18 @@ export default function Home() {
             dateTo || undefined,
             12,
             {
-              onLog: (log) => setLogs((prev) => [...prev, log]),
+              onLog: (log) => {
+                setLogs((prev) => [...prev, log]);
+                if (log.phase === "codex_limit") setCodexLimit(true);
+              },
               onResult: (res) => {
                 setDeep(res);
+                if (res.codex_limit) setCodexLimit(true);
                 setLoading(false);
               },
               onError: (msg) => {
+                if (msg && /usage limit|limite d'usage|rate limit/i.test(msg))
+                  setCodexLimit(true);
                 setError(msg || "La recherche v2 a échoué.");
                 setLoading(false);
               },
@@ -392,12 +401,17 @@ export default function Home() {
           dateFrom || undefined,
           dateTo || undefined,
           {
-          onLog: (log) => setLogs((prev) => [...prev, log]),
+          onLog: (log) => {
+            setLogs((prev) => [...prev, log]);
+            if (log.phase === "codex_limit") setCodexLimit(true);
+          },
           onResult: (res) => {
             setPubmed(res);
             setLoading(false);
           },
           onError: (msg) => {
+            if (msg && /usage limit|limite d'usage|rate limit/i.test(msg))
+              setCodexLimit(true);
             setError(msg || "La recherche PubMed a échoué.");
             setLoading(false);
           },
@@ -690,6 +704,16 @@ export default function Home() {
           </>
         )}
       </div>
+
+      {codexLimit && (
+        <div className="codex-limit" role="alert">
+          🚫 <b>Limite d’usage GPT-5.4 atteinte.</b> Les recherches «&nbsp;PubMed +
+          codex&nbsp;» reposent sur GPT-5.4 (construction de la requête, tri et
+          traduction) : le quota est épuisé pour le moment. Les résultats sont en{" "}
+          <b>mode dégradé</b> (sans tri intelligent ni traduction FR). Réessayez un
+          peu plus tard.
+        </div>
+      )}
 
       {error && <p className="error">⚠ {error}</p>}
 
