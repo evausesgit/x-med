@@ -152,6 +152,7 @@ export interface DeepHit {
   evidence_level: number | null;
   score: number | null; // 0–3
   reason: string | null;
+  abstract: string | null; // abstract original (EN)
   abstract_fr: string | null; // traduction FR (cache ou streamée)
 }
 

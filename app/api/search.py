@@ -884,7 +884,8 @@ class DeepHit(BaseModel):
     evidence_level: int | None = None
     score: int | None = None  # 0-3 (None si non jugé)
     reason: str | None = None
-    abstract_fr: str | None = None  # traduction FR (cache article_fr), si dispo
+    abstract: str | None = None  # abstract original (EN), toujours fourni si dispo
+    abstract_fr: str | None = None  # traduction FR (cache ou streamée), si dispo
 
 
 class DeepSearchResponse(BaseModel):
@@ -1067,6 +1068,7 @@ def _run_deep_search(
             evidence_level=(a.evidence_level if a else None),
             score=score,
             reason=(j.reason if j else None),
+            abstract=_abstract(p),
         ))
 
     # tri : pertinence (score desc) → qualité (evidence_level asc) → récence (année desc)
@@ -1115,7 +1117,7 @@ def search_pubmed_deep(req: DeepSearchRequest, session: Session = Depends(get_se
 
 
 def _translate_kept(
-    result: DeepSearchResponse, session: Session, progress, cap: int = 15
+    result: DeepSearchResponse, session: Session, progress, cap: int = 20
 ) -> dict[str, dict]:
     """Traduit en FR les résultats retenus pas encore traduits (cache article_fr).
 

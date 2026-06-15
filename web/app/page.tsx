@@ -956,11 +956,21 @@ export default function Home() {
               </div>
               {r.score != null && <DeepScoreBar score={r.score} />}
               {r.reason && <p className="explanation-note">{r.reason}</p>}
-              {r.abstract_fr && (
-                <details className="explanation" open>
-                  <summary>📄 Résumé traduit (FR)</summary>
+              {r.abstract_fr ? (
+                <div className="abstract-fr">
+                  <div className="abstract-fr-label">📄 Résumé (traduit en français)</div>
                   <p className="abstract">{r.abstract_fr}</p>
-                </details>
+                </div>
+              ) : (
+                r.abstract && (
+                  <details className="explanation">
+                    <summary>
+                      📄 Résumé (anglais)
+                      {loading ? " — traduction en cours…" : ""}
+                    </summary>
+                    <p className="abstract">{r.abstract}</p>
+                  </details>
+                )
               )}
             </article>
           ))}
