@@ -58,15 +58,29 @@ def _build_message(
     ]
 
     if metrics:
-        lines.extend(
-            [
-                f"Résultats PubMed: {_fmt_int(metrics.get('pubmed_total_hits'))} total / {_fmt_int(metrics.get('pubmed_pmids'))} récupérés",
-                f"Abstracts locaux analysés: {_fmt_int(metrics.get('local_abstracts'))}",
-                f"Lots Codex: {_fmt_int(metrics.get('codex_batches'))}",
-                f"Tokens estimés envoyés à Codex: {_fmt_int(metrics.get('estimated_codex_tokens'))}",
-                f"Articles retenus: {_fmt_int(metrics.get('relevant_total'))}",
-            ]
-        )
+        method = metrics.get("method")
+        if method:
+            lines.append(f"Méthode: {method}")
+
+        def add(label: str, *keys: str) -> None:
+            # Premier key présent (non None) gagne — permet de partager le rendu
+            # entre v1 (`estimated_codex_tokens`) et v2 (`codex_tokens`).
+            for key in keys:
+                value = metrics.get(key)
+                if value is not None:
+                    lines.append(f"{label}: {_fmt_int(value)}")
+                    return
+
+        add("Résultats PubMed (total)", "pubmed_total_hits")
+        add("PMIDs récupérés / fusionnés", "pubmed_pmids", "merged_candidates")
+        add("Abstracts locaux analysés", "local_abstracts")
+        add("Abstracts jugés par Codex", "judged")
+        add("Lots Codex", "codex_batches")
+        add("Tokens Codex", "codex_tokens", "estimated_codex_tokens")
+        add("Articles retenus", "relevant_total")
+
+        if metrics.get("codex_limit"):
+            lines.append("⚠️ Limite d'usage GPT-5.4 atteinte (résultats dégradés)")
         pubmed_query = metrics.get("pubmed_query")
         if pubmed_query:
             lines.append(f"Requête PubMed construite: {_short(str(pubmed_query), limit=700)}")

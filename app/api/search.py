@@ -531,6 +531,7 @@ def _run_pubmed_codex_search(
 
     if metrics is None:
         metrics = {}
+    metrics.setdefault("method", "v1 (lots d'abstracts)")
     metrics.setdefault("estimated_codex_tokens", 0)
     metrics.setdefault("codex_batches", 0)
 
@@ -1190,10 +1191,54 @@ def _run_deep_search(
     )
 
 
+def _deep_metrics(result: DeepSearchResponse) -> dict:
+    """Métriques v2 pour la notification Hermes (vrais tokens GPT-5.4)."""
+    return {
+        "method": "v2 (filtre lexical/MeSH + jugement codex)",
+        "pubmed_query": result.pubmed_query,
+        "pubmed_total_hits": result.counts.get("pubmed"),
+        "merged_candidates": result.counts.get("merged"),
+        "local_abstracts": result.counts.get("local"),
+        "judged": result.counts.get("judged"),
+        "codex_tokens": result.codex_tokens.get("total"),
+        "relevant_total": result.counts.get("kept"),
+        "codex_limit": result.codex_limit,
+    }
+
+
 @router.post("/search/pubmed/deep", response_model=DeepSearchResponse)
 def search_pubmed_deep(req: DeepSearchRequest, session: Session = Depends(get_session)):
     """Recherche v2 : PubMed (A) + base locale filtrée (B), jugée par codex."""
-    return _run_deep_search(req, session)
+    from app.services.search_notifications import send_search_notification
+
+    t0 = time.monotonic()
+    progress_events: list[dict] = []
+
+    def progress(phase: str, msg: str, data: dict) -> None:
+        progress_events.append(
+            {"phase": phase, "msg": msg, "elapsed_s": round(time.monotonic() - t0, 1), **data}
+        )
+
+    try:
+        result = _run_deep_search(req, session, progress)
+        send_search_notification(
+            status="ok",
+            query=req.query,
+            duration_s=time.monotonic() - t0,
+            metrics=_deep_metrics(result),
+            progress_events=progress_events,
+        )
+        return result
+    except Exception as exc:
+        send_search_notification(
+            status="error",
+            query=req.query,
+            duration_s=time.monotonic() - t0,
+            metrics={"method": "v2 (filtre lexical/MeSH + jugement codex)"},
+            progress_events=progress_events,
+            error=str(exc),
+        )
+        raise
 
 
 def _translate_kept(
@@ -1267,13 +1312,17 @@ def search_pubmed_deep_stream(
     def gen():
         t0 = time.monotonic()
         events: Queue[tuple[str, dict] | None] = Queue()
+        progress_events: list[dict] = []
 
         def progress(phase: str, msg: str, data: dict) -> None:
-            events.put(("log", {"phase": phase,
-                                "msg": f"{msg} ({round(time.monotonic() - t0, 1)}s)",
-                                **data}))
+            elapsed = round(time.monotonic() - t0, 1)
+            progress_events.append({"phase": phase, "msg": msg, "elapsed_s": elapsed, **data})
+            events.put(("log", {"phase": phase, "msg": f"{msg} ({elapsed}s)", **data}))
 
         def produce() -> None:
+            from app.services.search_notifications import send_search_notification
+
+            notified = False
             try:
                 with SessionLocal() as worker_session:
                     result = _run_deep_search(
@@ -1284,6 +1333,15 @@ def search_pubmed_deep_stream(
                         worker_session,
                         progress,
                     )
+                    # Notif dès que la recherche a abouti (la traduction qui suit est
+                    # un post-traitement best-effort, pas un échec de recherche).
+                    send_search_notification(
+                        status="ok", query=query,
+                        duration_s=time.monotonic() - t0,
+                        metrics=_deep_metrics(result),
+                        progress_events=progress_events,
+                    )
+                    notified = True
                     # On envoie les résultats tout de suite (traductions en cache
                     # déjà incluses), puis on traduit le reste en arrière-plan.
                     events.put(("result", result.model_dump()))
@@ -1291,6 +1349,14 @@ def search_pubmed_deep_stream(
                     if fr:
                         events.put(("translations", fr))
             except Exception as exc:
+                if not notified:
+                    send_search_notification(
+                        status="error", query=query,
+                        duration_s=time.monotonic() - t0,
+                        metrics={"method": "v2 (filtre lexical/MeSH + jugement codex)"},
+                        progress_events=progress_events,
+                        error=str(exc),
+                    )
                 events.put(("error", {"msg": f"Recherche v2 indisponible : {exc}"}))
             finally:
                 events.put(None)
