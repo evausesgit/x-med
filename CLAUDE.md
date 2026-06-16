@@ -30,6 +30,24 @@ Deux idées structurantes :
 - **Matching en deux temps** (clé pour la maîtrise des coûts) : un **pré-filtre rapide** réduit ~4 000 articles/jour à quelques dizaines de candidats, *avant* tout appel à Claude. Le pré-filtre historique est une intersection d'arrays MeSH en SQL (`&&`) ; `PIPELINE_EMBEDDINGS.md` le remplace par une **recherche sémantique pgvector** (distance cosinus `<=>` + index HNSW) qui rattrape les synonymes cliniques et le franco-anglais. Seuls les candidats pré-filtrés passent au scoring Claude.
 - **Deux sources PubMed distinctes** : le **FTP NLM** (flux bulk quotidien, source principale du pipeline) et l'**API E-utilities** (`esearch`/`efetch`, pour la recherche ponctuelle à la demande depuis l'API FastAPI). Ne pas confondre les deux usages.
 
+## Démarrer / redémarrer le backend proprement
+
+Le moyen canonique de (re)lancer toute la stack dev est **`bash scripts/dev_up.sh`** : il
+remonte Postgres+Redis, applique les migrations, relance l'**API FastAPI sur `:8800`**
+(`0.0.0.0`, en daemon `setsid` détaché) et rebuild+relance le **front Next sur `:3003`**.
+Il tue l'ancien process **par le port** (jamais `pkill -f`) et fait des health-checks.
+Logs : `/tmp/xmed-api.log`, `/tmp/xmed-web.log`, `/tmp/xmed-web-build.log`.
+
+⚠️ **Piège PATH (cause de « 502 codex introuvable » sur la recherche PubMed).** La
+recherche PubMed mode « lots d'abstracts » appelle le binaire **`codex`** (CLI GPT-5.4),
+installé via **npm global dans `~/.npm-global/bin`**. Ce dossier est dans le PATH d'un
+terminal interactif, mais **PAS** dans celui d'un process lancé par un **agent** (arbre
+`systemd --user` → hermes gateway), dont le PATH est minimal. Si l'API a été démarrée par
+un agent sans ce dossier, `codex` est introuvable et `/search/pubmed` renvoie 502.
+`scripts/dev_up.sh` force désormais `~/.npm-global/bin` dans le PATH ; **toujours
+redémarrer le backend via ce script** (et pas un `uvicorn` lancé à la main) pour garantir
+que `codex` est résolvable. Vérifier avec `command -v codex` avant de soupçonner le code.
+
 ## Stack cible (à respecter lors de l'implémentation)
 
 Python 3.12 · PostgreSQL 16 (+ extension **pgvector**) · Redis + Celery / Celery Beat · SQLAlchemy + Alembic · lxml · FastAPI · Jinja2 · Docker Compose.

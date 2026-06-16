@@ -15,6 +15,17 @@ set -e
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
 
+# `codex` (CLI GPT-5.4 utilisé par la recherche PubMed, mode « lots d'abstracts »)
+# est installé via npm GLOBAL dans ~/.npm-global/bin. Quand ce script est lancé par
+# un terminal interactif, ce dossier est déjà dans le PATH. Mais lancé par un AGENT
+# (arbre `systemd --user` → hermes gateway), le PATH hérité est minimal et N'inclut
+# PAS ~/.npm-global/bin → uvicorn ne trouve pas `codex` et /search/pubmed renvoie
+# « 502 codex introuvable ». On force donc le dossier dans le PATH, quel que soit le
+# lanceur, pour que le backend trouve toujours codex.
+export PATH="$HOME/.npm-global/bin:$PATH"
+command -v codex >/dev/null 2>&1 \
+  || echo "⚠ codex introuvable dans le PATH — la recherche PubMed (mode abstracts) échouera"
+
 # Tue le process qui écoute sur le port donné (par PID), puis attend la libération.
 kill_port() {
   local port="$1"

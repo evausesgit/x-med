@@ -510,11 +510,13 @@ def _run_pubmed_codex_search(
     req: PubmedRequest,
     session: Session,
     progress: ProgressCallback | None = None,
+    metrics: dict | None = None,
 ) -> PubmedSearchResponse:
     from app.services import pubmed_eutils as eut
     from app.services.codex_abstracts import (
         AbstractCandidate,
         assess_batch,
+        candidate_tokens,
         iter_batches,
     )
     from app.services.query_builder import (
@@ -527,6 +529,11 @@ def _run_pubmed_codex_search(
         if progress:
             progress(phase, msg, data)
 
+    if metrics is None:
+        metrics = {}
+    metrics.setdefault("estimated_codex_tokens", 0)
+    metrics.setdefault("codex_batches", 0)
+
     builder: Literal["codex", "fallback"] = "codex"
     mesh: list[str] = []
     pubmed_query: str | None = None
@@ -535,6 +542,8 @@ def _run_pubmed_codex_search(
         pq, qb_usage = build_pubmed_query(req.query)
         pubmed_query = pq["pubmed_query"]
         mesh = pq.get("mesh_terms", [])
+        metrics["pubmed_query"] = pubmed_query
+        metrics["mesh_terms"] = mesh
         term = pubmed_query
         emit(
             "codex_done",
@@ -560,6 +569,8 @@ def _run_pubmed_codex_search(
         mindate=req.date_from,
         maxdate=req.date_to,
     )
+    metrics["pubmed_total_hits"] = total
+    metrics["pubmed_pmids"] = len(pmids)
     emit("esearch_done", f"{total} resultats PubMed, {len(pmids)} recuperes")
 
     meta = eut.esummary(pmids) if pmids else {}
@@ -623,6 +634,7 @@ def _run_pubmed_codex_search(
             and_(*_local_conditions(req.date_from, req.date_to))
         )
     ) or 0
+    metrics["local_abstracts"] = int(local_total)
     emit(
         "local_start",
         f"Analyse exhaustive de {local_total} abstracts locaux par lots GPT-5.4...",
@@ -641,11 +653,16 @@ def _run_pubmed_codex_search(
         )
     )
     for batch_count, batch in enumerate(iter_batches(local_candidates), start=1):
+        batch_tokens = sum(candidate_tokens(candidate) for candidate in batch)
+        metrics["estimated_codex_tokens"] += batch_tokens
+        metrics["codex_batches"] = batch_count
         emit(
             "local_batch",
             f"Lot {batch_count}: analyse de {len(batch)} abstracts...",
             batch=batch_count,
             batch_size=len(batch),
+            batch_tokens=batch_tokens,
+            estimated_codex_tokens=metrics["estimated_codex_tokens"],
         )
         for assessment in assess_batch(req.query, batch):
             if assessment.relevant:
@@ -681,11 +698,16 @@ def _run_pubmed_codex_search(
 
     for batch in iter_batches(unassessed_a):
         batch_count += 1
+        batch_tokens = sum(candidate_tokens(candidate) for candidate in batch)
+        metrics["estimated_codex_tokens"] += batch_tokens
+        metrics["codex_batches"] = batch_count
         emit(
             "pubmed_batch",
             f"Lot {batch_count}: evaluation de {len(batch)} abstracts de A...",
             batch=batch_count,
             batch_size=len(batch),
+            batch_tokens=batch_tokens,
+            estimated_codex_tokens=metrics["estimated_codex_tokens"],
         )
         for assessment in assess_batch(req.query, batch):
             assessments[assessment.pmid] = assessment
@@ -752,6 +774,8 @@ def _run_pubmed_codex_search(
         relevant_total=len(merged),
         codex_batches=batch_count,
     )
+    metrics["codex_batches"] = batch_count
+    metrics["relevant_total"] = len(merged)
     return PubmedSearchResponse(
         query=req.query,
         pubmed_query=pubmed_query,
@@ -770,9 +794,41 @@ def _run_pubmed_codex_search(
 @router.post("/search/pubmed", response_model=PubmedSearchResponse)
 def search_pubmed(req: PubmedRequest, session: Session = Depends(get_session)):
     """Execute la recherche PubMed + lecture exhaustive des abstracts locaux."""
+    t0 = time.monotonic()
+    metrics: dict = {}
+    progress_events: list[dict] = []
+
+    def progress(phase: str, msg: str, data: dict) -> None:
+        progress_events.append(
+            {
+                "phase": phase,
+                "msg": msg,
+                "elapsed_s": round(time.monotonic() - t0, 1),
+                **data,
+            }
+        )
+
+    from app.services.search_notifications import send_search_notification
+
     try:
-        return _run_pubmed_codex_search(req, session)
+        result = _run_pubmed_codex_search(req, session, progress, metrics)
+        send_search_notification(
+            status="ok",
+            query=req.query,
+            duration_s=time.monotonic() - t0,
+            metrics=metrics,
+            progress_events=progress_events,
+        )
+        return result
     except Exception as e:
+        send_search_notification(
+            status="error",
+            query=req.query,
+            duration_s=time.monotonic() - t0,
+            metrics=metrics,
+            progress_events=progress_events,
+            error=str(e),
+        )
         raise HTTPException(502, f"Recherche PubMed/Codex indisponible : {e}")
 
 
@@ -792,20 +848,28 @@ def search_pubmed_stream(
     def gen():
         t0 = time.monotonic()
         events: Queue[tuple[str, dict] | None] = Queue()
+        metrics: dict = {}
+        progress_events: list[dict] = []
 
         def progress(phase: str, msg: str, data: dict) -> None:
+            elapsed = round(time.monotonic() - t0, 1)
+            progress_events.append(
+                {"phase": phase, "msg": msg, "elapsed_s": elapsed, **data}
+            )
             events.put(
                 (
                     "log",
                     {
                         "phase": phase,
-                        "msg": f"{msg} ({round(time.monotonic() - t0, 1)}s)",
+                        "msg": f"{msg} ({elapsed}s)",
                         **data,
                     },
                 )
             )
 
         def produce() -> None:
+            from app.services.search_notifications import send_search_notification
+
             try:
                 with SessionLocal() as worker_session:
                     result = _run_pubmed_codex_search(
@@ -818,9 +882,25 @@ def search_pubmed_stream(
                         ),
                         worker_session,
                         progress,
+                        metrics,
                     )
+                send_search_notification(
+                    status="ok",
+                    query=query,
+                    duration_s=time.monotonic() - t0,
+                    metrics=metrics,
+                    progress_events=progress_events,
+                )
                 events.put(("result", result.model_dump()))
             except Exception as exc:
+                send_search_notification(
+                    status="error",
+                    query=query,
+                    duration_s=time.monotonic() - t0,
+                    metrics=metrics,
+                    progress_events=progress_events,
+                    error=str(exc),
+                )
                 events.put(
                     (
                         "error",

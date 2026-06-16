@@ -30,6 +30,13 @@ class Settings(BaseSettings):
     codex_abstract_timeout: int = 900
     codex_relevance_threshold: float = 0.55
 
+    # Notification Hermes/Telegram lorsqu'une recherche PubMed/Codex est lancée.
+    # `telegram` cible le home channel Hermes, donc le DM Eva par défaut sur cette machine.
+    search_notify_enabled: bool = True
+    search_notify_target: str = "telegram"
+    search_notify_hermes_bin: str = "hermes"
+    search_notify_timeout: int = 20
+
     @property
     def embedding_model_list(self) -> list[str]:
         return [m.strip() for m in self.embedding_models.split(",") if m.strip()]
