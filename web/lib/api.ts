@@ -474,3 +474,53 @@ export async function updateProfile(id: string, profile: DoctorProfile): Promise
   if (!res.ok) throw new Error(`Erreur API (${res.status})`);
   return res.json();
 }
+
+// ---------- Recherches sauvegardées ----------
+// On enregistre le snapshot complet d'une recherche (la réponse v2 telle
+// qu'affichée) pour la rouvrir/relire plus tard sans relancer codex.
+export interface SavedSearchSummary {
+  id: string;
+  doctor_id: string | null;
+  doctor_name: string | null;
+  query: string;
+  method: string;
+  n_results: number;
+  created_at: string;
+}
+export interface SavedSearchDetail extends SavedSearchSummary {
+  params: Record<string, unknown> | null;
+  payload: DeepSearchResponse;
+}
+
+export async function saveSearch(body: {
+  query: string;
+  payload: DeepSearchResponse;
+  doctor_id?: string | null;
+  method?: string;
+  params?: Record<string, unknown> | null;
+}): Promise<SavedSearchDetail> {
+  const res = await fetch(`${API_BASE}/saved-searches`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  return res.json();
+}
+
+export async function listSavedSearches(): Promise<SavedSearchSummary[]> {
+  const res = await fetch(`${API_BASE}/saved-searches`);
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function getSavedSearch(id: string): Promise<SavedSearchDetail> {
+  const res = await fetch(`${API_BASE}/saved-searches/${id}`);
+  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  return res.json();
+}
+
+export async function deleteSavedSearch(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/saved-searches/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+}

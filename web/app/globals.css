@@ -1167,3 +1167,46 @@ button:disabled {
     transform: none;
   }
 }
+
+/* Barre de sauvegarde d'une recherche (sous les résultats v2) */
+.save-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 12px 0 4px;
+  padding: 12px 14px;
+  background: var(--accent-soft);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.save-bar-label {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--muted);
+}
+.save-bar select {
+  min-width: 220px;
+}
+
+/* Liste des recherches sauvegardées (page /recherches) */
+.saved-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.saved-item-main {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+.saved-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.saved-detail {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--line);
+}

@@ -4,17 +4,21 @@ import { useEffect, useRef, useState } from "react";
 import {
   ArticleResult,
   DeepSearchResponse,
+  Doctor,
   EmbeddingModelInfo,
+  listDoctors,
   listModels,
   meshAutocomplete,
   PubmedLog,
   PubmedSearchResponse,
+  saveSearch,
   searchMesh,
   searchPubmedDeepStream,
   searchPubmedStream,
   searchSemantic,
   SearchResponse,
 } from "@/lib/api";
+import Link from "next/link";
 
 const PAGE = 20;
 const EVIDENCE_LABEL: Record<number, string> = {
@@ -213,6 +217,85 @@ function SearchLoader({ variant }: { variant: "v1" | "v2" | "other" }) {
           🔖 {MESH_SAMPLES[i]}
         </span>
       </div>
+    </div>
+  );
+}
+
+// Sauvegarde du résultat v2 courant : on enregistre le snapshot complet (pour
+// relire/réutiliser sans relancer codex), rattaché à un profil au choix. Pour
+// l'instant tout le monde voit toutes les recherches (page « Sauvegardées »).
+function SaveSearchBar({
+  deep,
+  query,
+  dateFrom,
+  dateTo,
+}: {
+  deep: DeepSearchResponse;
+  query: string;
+  dateFrom: string;
+  dateTo: string;
+}) {
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [doctorId, setDoctorId] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [savedId, setSavedId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    listDoctors().then(setDoctors);
+  }, []);
+
+  // Une nouvelle recherche (autre requête) réarme le bouton.
+  useEffect(() => {
+    setSavedId(null);
+    setError(null);
+  }, [query]);
+
+  async function save() {
+    setBusy(true);
+    setError(null);
+    try {
+      const s = await saveSearch({
+        query,
+        payload: deep,
+        doctor_id: doctorId || null,
+        method: "v2",
+        params: { date_from: dateFrom, date_to: dateTo },
+      });
+      setSavedId(s.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Échec de la sauvegarde");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="save-bar">
+      <label className="save-bar-label">Profil</label>
+      <select
+        value={doctorId}
+        onChange={(e) => setDoctorId(e.target.value)}
+        disabled={busy || !!savedId}
+      >
+        <option value="">— Aucun profil —</option>
+        {doctors.map((d) => (
+          <option key={d.id} value={d.id}>
+            {d.name}
+            {d.profile?.specialty_main ? ` · ${d.profile.specialty_main}` : ""}
+          </option>
+        ))}
+      </select>
+      {savedId ? (
+        <span className="meta" style={{ margin: 0 }}>
+          ✓ Sauvegardée — <Link href="/recherches">voir mes recherches</Link>
+        </span>
+      ) : (
+        <button type="button" className="primary" onClick={save} disabled={busy}>
+          {busy ? "…" : "💾 Sauvegarder cette recherche"}
+        </button>
+      )}
+      {error && <span className="error" style={{ margin: 0 }}>{error}</span>}
     </div>
   );
 }
@@ -891,6 +974,14 @@ export default function Home() {
             </p>
             <CopyLinkButton />
           </div>
+          {!loading && deep.results.length > 0 && (
+            <SaveSearchBar
+              deep={deep}
+              query={q.trim()}
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+            />
+          )}
           {deep.codex_tokens && (deep.codex_tokens.total ?? 0) > 0 && (
             <p className="meta" style={{ margin: "2px 0 0" }}>
               🧮 GPT-5.4 : {deep.codex_tokens.total!.toLocaleString("fr-FR")} tokens

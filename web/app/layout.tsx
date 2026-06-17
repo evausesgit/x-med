@@ -20,6 +20,7 @@ export default function RootLayout({
             </Link>
             <div className="topnav-links">
               <Link href="/">Recherche</Link>
+              <Link href="/recherches">Sauvegardées</Link>
               <Link href="/digest">Digest</Link>
               <Link href="/profil">Profils</Link>
               <Link href="/annotate">Annoter</Link>
