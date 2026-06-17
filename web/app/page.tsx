@@ -17,7 +17,9 @@ import {
   searchPubmedStream,
   searchSemantic,
   SearchResponse,
+  translateAbstract,
 } from "@/lib/api";
+import type { DeepHit } from "@/lib/api";
 import Link from "next/link";
 
 const PAGE = 20;
@@ -300,6 +302,88 @@ function SaveSearchBar({
   );
 }
 
+// Résumé d'un résultat v2 avec choix de langue (FR / EN) et traduction à la
+// demande. Le FR vient du cache ou de la traduction auto streamée ; si on le
+// demande sans qu'il existe encore, on déclenche codex à la volée puis on
+// fusionne le résultat. Le choix de l'utilisateur prime : une fois une langue
+// sélectionnée, la traduction auto qui arrive en arrière-plan ne la change plus.
+function DeepAbstract({
+  hit,
+  onTranslated,
+}: {
+  hit: DeepHit;
+  onTranslated: (pmid: number, abstractFr: string) => void;
+}) {
+  // Défaut : FR si on a déjà la traduction (langue de travail du produit),
+  // sinon l'original EN — on ne déclenche pas codex sans action de l'utilisateur.
+  const [lang, setLang] = useState<"fr" | "en">(hit.abstract_fr ? "fr" : "en");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const touched = useRef(false);
+
+  // Traduction auto (cache/stream) arrivée après coup : on bascule en FR tant
+  // que l'utilisateur n'a pas explicitement choisi une langue.
+  useEffect(() => {
+    if (!touched.current && hit.abstract_fr) setLang("fr");
+  }, [hit.abstract_fr]);
+
+  if (!hit.abstract && !hit.abstract_fr) return null;
+
+  async function choose(next: "fr" | "en") {
+    touched.current = true;
+    setErr(null);
+    if (next === "fr" && !hit.abstract_fr) {
+      // Traduction à la demande (codex), puis fusion dans l'état parent.
+      setBusy(true);
+      try {
+        const r = await translateAbstract(hit.pmid, hit.title, hit.abstract);
+        if (r.abstract_fr) {
+          onTranslated(hit.pmid, r.abstract_fr);
+          setLang("fr");
+        } else {
+          setErr("Traduction indisponible pour cet article.");
+        }
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "Échec de la traduction.");
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+    setLang(next);
+  }
+
+  const text = lang === "fr" && hit.abstract_fr ? hit.abstract_fr : hit.abstract;
+
+  return (
+    <div className="abstract-block">
+      <div className="abstract-lang">
+        <span className="abstract-fr-label">📄 Résumé</span>
+        <div className="toggle lang-toggle">
+          <button
+            type="button"
+            className={lang === "fr" ? "on" : ""}
+            disabled={busy}
+            onClick={() => choose("fr")}
+          >
+            {busy ? "Traduction…" : "Français"}
+          </button>
+          <button
+            type="button"
+            className={lang === "en" ? "on" : ""}
+            disabled={busy}
+            onClick={() => choose("en")}
+          >
+            English
+          </button>
+        </div>
+        {err && <span className="error" style={{ margin: 0 }}>{err}</span>}
+      </div>
+      {text && <p className="abstract">{text}</p>}
+    </div>
+  );
+}
+
 export default function Home() {
   // v2 (filtre + jugement) est la recherche par défaut à l'arrivée sur le site.
   const [mode, setMode] = useState<Mode>("pubmed_v2");
@@ -341,6 +425,19 @@ export default function Home() {
 
   // Ferme le flux SSE en cours si le composant est démonté.
   useEffect(() => () => esRef.current?.close(), []);
+
+  // Fusionne une traduction FR (auto ou à la demande) dans le résultat v2.
+  const markTranslated = (pmid: number, abstractFr: string) =>
+    setDeep((prev) =>
+      prev
+        ? {
+            ...prev,
+            results: prev.results.map((r) =>
+              r.pmid === pmid ? { ...r, abstract_fr: abstractFr } : r,
+            ),
+          }
+        : prev,
+    );
 
   // modèles d'embedding disponibles (pour le mode sémantique)
   useEffect(() => {
@@ -1040,22 +1137,7 @@ export default function Home() {
               </div>
               {r.score != null && <DeepScoreBar score={r.score} />}
               {r.reason && <p className="explanation-note">{r.reason}</p>}
-              {r.abstract_fr ? (
-                <div className="abstract-fr">
-                  <div className="abstract-fr-label">📄 Résumé (traduit en français)</div>
-                  <p className="abstract">{r.abstract_fr}</p>
-                </div>
-              ) : (
-                r.abstract && (
-                  <details className="explanation">
-                    <summary>
-                      📄 Résumé (anglais)
-                      {loading ? " — traduction en cours…" : ""}
-                    </summary>
-                    <p className="abstract">{r.abstract}</p>
-                  </details>
-                )
-              )}
+              <DeepAbstract hit={r} onTranslated={markTranslated} />
             </article>
           ))}
         </>

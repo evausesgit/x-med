@@ -329,6 +329,31 @@ button:disabled {
 .copy-link:hover {
   background: #eef4f0;
 }
+.copy-link:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.abstract-block {
+  margin-top: 10px;
+}
+.abstract-lang {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.lang-toggle button {
+  min-height: 30px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.lang-toggle button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
 
 .search-log {
   margin: 14px 0;
