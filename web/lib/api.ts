@@ -249,6 +249,32 @@ export function searchPubmedDeepStream(
   return es;
 }
 
+// Traduction FR à la demande d'un article (bouton « Traduire en français »).
+// Sert le cache côté API, sinon appelle codex et met en cache.
+export interface TranslationResult {
+  pmid: number;
+  title_fr: string | null;
+  abstract_fr: string | null;
+}
+
+export async function translateAbstract(
+  pmid: number,
+  title?: string | null,
+  abstract?: string | null,
+): Promise<TranslationResult> {
+  const res = await fetch(`${API_BASE}/translate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pmid, title, abstract }),
+  });
+  if (!res.ok) {
+    if (res.status === 429)
+      throw new Error("Limite d'usage GPT-5.4 atteinte — réessayez plus tard.");
+    throw new Error(`Erreur API (${res.status})`);
+  }
+  return res.json();
+}
+
 export interface SearchParams {
   q?: string;
   mesh?: string[];

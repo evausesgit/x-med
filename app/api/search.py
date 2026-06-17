@@ -1294,6 +1294,66 @@ def _translate_kept(
     }
 
 
+class TranslateRequest(BaseModel):
+    pmid: int
+    title: str | None = None
+    abstract: str | None = None  # abstract EN déjà affiché (évite un aller-retour NCBI)
+
+
+class TranslateResponse(BaseModel):
+    pmid: int
+    title_fr: str | None
+    abstract_fr: str | None
+
+
+@router.post("/translate", response_model=TranslateResponse)
+def translate_one(req: TranslateRequest, session: Session = Depends(get_session)):
+    """Traduction FR à la demande d'un article (bouton « Traduire en français »).
+
+    Sert le cache `article_fr` s'il existe, sinon appelle codex et met en cache.
+    L'abstract peut être fourni par le front (déjà affiché) ; à défaut on le
+    récupère dans la base locale puis, en dernier recours, via efetch NCBI.
+    """
+    from app.services.query_builder import is_usage_limit
+    from app.services.translate import TranslateError, get_cached, translate_abstracts
+
+    cached = get_cached(session, [req.pmid])
+    if req.pmid in cached:
+        tr = cached[req.pmid]
+        return TranslateResponse(pmid=req.pmid, title_fr=tr.title_fr, abstract_fr=tr.abstract_fr)
+
+    title = req.title
+    abstract = (req.abstract or "").strip()
+    if not abstract:
+        art = session.get(Article, req.pmid)
+        if art and art.abstract:
+            abstract = art.abstract
+            title = title or art.title
+        else:
+            from app.services import pubmed_eutils as eut
+
+            try:
+                abstract = (eut.efetch_abstracts([req.pmid]).get(req.pmid) or "").strip()
+            except Exception:
+                abstract = ""
+    if not abstract:
+        raise HTTPException(404, "Aucun abstract à traduire pour cet article.")
+
+    try:
+        fr, _ = translate_abstracts(
+            [{"pmid": req.pmid, "title": title or "", "abstract": abstract}], session
+        )
+    except TranslateError as e:
+        if is_usage_limit(str(e)):
+            raise HTTPException(429, "Limite d'usage GPT-5.4 atteinte — réessayez plus tard.")
+        raise HTTPException(502, f"Traduction indisponible : {e}")
+
+    tr = fr.get(req.pmid)
+    if not tr:
+        raise HTTPException(502, "Traduction indisponible pour cet article.")
+    return TranslateResponse(pmid=req.pmid, title_fr=tr.title_fr, abstract_fr=tr.abstract_fr)
+
+
 @router.get("/search/pubmed/deep/stream")
 def search_pubmed_deep_stream(
     query: str = Query(..., min_length=1),
