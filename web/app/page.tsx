@@ -489,14 +489,7 @@ export default function Home() {
             className={mode === "pubmed_v2" ? "on" : ""}
             onClick={() => selectMode("pubmed_v2")}
           >
-            PubMed + codex / filtre + jugement
-          </button>
-          <button
-            type="button"
-            className={mode === "pubmed_v1" ? "on" : ""}
-            onClick={() => selectMode("pubmed_v1")}
-          >
-            PubMed + codex / lots abstracts
+            PubMed + Filtre lexical + Codex
           </button>
           <button
             type="button"
