@@ -9,6 +9,22 @@ const nextConfig: NextConfig = {
   // Next 16 bloque les requêtes de dev venant d'une autre origine que localhost.
   // On autorise l'accès distant (IP publique du serveur) en mode dev.
   allowedDevOrigins: ["65.108.202.130"],
+  // `next start` gzippe les réponses par défaut. La compression doit accumuler
+  // le flux avant d'émettre, ce qui BUFFERISE le SSE de /search/.../stream : le
+  // navigateur ne voit alors que la roue, puis tout le déroulé d'un coup à la fin.
+  // On laisse le reverse-proxy (Traefik/Coolify) compresser le reste à la place.
+  compress: false,
+  async headers() {
+    // Empêche un proxy (nginx/Traefik) de bufferiser les réponses streamées.
+    // FastAPI pose déjà cet en-tête côté API ; on le repose ici pour qu'il
+    // survive au passage par le serveur Next (rewrites /api/* → FastAPI).
+    return [
+      {
+        source: "/api/:path*",
+        headers: [{ key: "X-Accel-Buffering", value: "no" }],
+      },
+    ];
+  },
   async rewrites() {
     return [
       {
