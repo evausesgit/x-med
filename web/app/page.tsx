@@ -21,35 +21,22 @@ import {
 } from "@/lib/api";
 import type { DeepHit } from "@/lib/api";
 import Link from "next/link";
+import ResultCard, { type Relevance } from "./ResultCard";
 
 const PAGE = 20;
-const EVIDENCE_LABEL: Record<number, string> = {
-  1: "Preuve élevée",
-  2: "Preuve modérée",
-  3: "Cas / série",
-  4: "Autre",
-};
-
-function Badge({ level }: { level: number | null }) {
-  if (!level) return null;
-  return (
-    <span className={`badge ev${level}`}>
-      Niv. {level} · {EVIDENCE_LABEL[level]}
-    </span>
-  );
-}
 
 // Seuils de pertinence pour la recherche par sens (similarité cosinus bge-m3).
 // ⚠ Provisoires : à caler sur le gold set annoté par les médecins (/annotate).
 const SEM_RELEVANT = 0.5; // en-dessous : on prévient que rien n'est vraiment pertinent
 const SEM_FLOOR = 0.45; // en-dessous : hors périmètre couvert
 
-// Barre de pertinence pour la recherche par sens.
-// En sémantique pur, `score` EST la similarité cosinus (0–1) renvoyée par
-// /search/semantic : un signal ABSOLU et interprétable. On l'affiche tel quel
-// (plus de normalisation au meilleur de la page, qui faisait passer tous les
-// résultats pour « ~100 % Très pertinent »).
-function MatchBar({ score }: { score: number }) {
+// --- Pertinence par méthode → format commun de la carte (relchip + barre) ---
+// Chaque méthode a sa propre échelle ; on convertit ici en {pct, tier, label}.
+
+// Sémantique : `score` EST la similarité cosinus (0–1), signal ABSOLU et
+// interprétable. On l'affiche tel quel (pas de normalisation au meilleur de la
+// page, qui faisait passer tous les résultats pour « ~100 % Très pertinent »).
+function semanticRelevance(score: number): Relevance {
   const pct = Math.round(score * 100);
   const tier =
     score >= 0.6 ? "high" : score >= SEM_RELEVANT ? "mid" : score >= SEM_FLOOR ? "low" : "off";
@@ -61,50 +48,29 @@ function MatchBar({ score }: { score: number }) {
         : score >= SEM_FLOOR
           ? "Lié"
           : "Hors périmètre";
-  return (
-    <div
-      className="match"
-      title={`Similarité de sens : ${score.toFixed(3)} (0–1, signal absolu, non normalisé).`}
-    >
-      <span className={`match-label ml-${tier}`}>{label}</span>
-      <div className="match-bar">
-        <div className="match-fill" style={{ width: `${pct}%` }} />
-      </div>
-      <span className="match-pct">{pct}%</span>
-    </div>
-  );
+  return {
+    pct,
+    tier,
+    label,
+    text: `${pct}%`,
+    title: `Similarité de sens : ${score.toFixed(3)} (0–1, signal absolu, non normalisé).`,
+  };
 }
 
-function CodexScoreBar({ score }: { score: number }) {
+// v1 : score absolu GPT-5.4 (0–1).
+function codexRelevance(score: number): Relevance {
   const pct = Math.round(score * 100);
   const tier = score >= 0.75 ? "high" : score >= 0.55 ? "mid" : "low";
-  const label =
-    score >= 0.75 ? "Très pertinent" : score >= 0.55 ? "Pertinent" : "Partiel";
-  return (
-    <div className="match" title={`Score absolu GPT-5.4 : ${score.toFixed(2)} / 1.`}>
-      <span className={`match-label ml-${tier}`}>{label}</span>
-      <div className="match-bar">
-        <div className="match-fill" style={{ width: `${pct}%` }} />
-      </div>
-      <span className="match-pct">{pct}%</span>
-    </div>
-  );
+  const label = score >= 0.75 ? "Très pertinent" : score >= 0.55 ? "Pertinent" : "Partiel";
+  return { pct, tier, label, text: `${pct}%`, title: `Score absolu GPT-5.4 : ${score.toFixed(2)} / 1.` };
 }
 
-// Barre de score pour la méthode v2 (deep) : score entier 0–3 attribué par codex.
-function DeepScoreBar({ score }: { score: number }) {
+// v2 (deep) : score entier 0–3 attribué par codex.
+function deepRelevance(score: number): Relevance {
   const pct = Math.round((score / 3) * 100);
   const tier = score >= 3 ? "high" : score >= 2 ? "mid" : "low";
   const label = score >= 3 ? "Très pertinent" : score >= 2 ? "Pertinent" : "Partiel";
-  return (
-    <div className="match" title={`Score codex : ${score} / 3 (grille 0–3).`}>
-      <span className={`match-label ml-${tier}`}>{label}</span>
-      <div className="match-bar">
-        <div className="match-fill" style={{ width: `${pct}%` }} />
-      </div>
-      <span className="match-pct">{score}/3</span>
-    </div>
-  );
+  return { pct, tier, label, text: `${score}/3`, title: `Score codex : ${score} / 3 (grille 0–3).` };
 }
 
 function Explanation({ article }: { article: ArticleResult }) {
@@ -932,37 +898,45 @@ export default function Home() {
             </p>
           )}
 
-          {data.results.map((r: ArticleResult, i: number) => (
-            <article className="result" key={r.pmid}>
-              <h3>
-                <span className="rank">#{offset + i + 1}</span>
-                <a href={r.pubmed_url} target="_blank" rel="noreferrer">
-                  {r.title}
-                </a>
-              </h3>
-              <div className="journal">
-                <Badge level={r.evidence_level} />
-                {r.journal || "Journal inconnu"}
-                {r.pub_year ? ` · ${r.pub_year}` : ""}
-              </div>
-              {mode === "semantic" && r.score != null && (
-                <MatchBar score={r.score} />
-              )}
-              {r.abstract_snippet && (
-                <p className="abstract">{r.abstract_snippet}</p>
-              )}
-              <Explanation article={r} />
-              {r.mesh_terms && r.mesh_terms.length > 0 && (
-                <div className="tags">
-                  {r.mesh_terms.slice(0, 8).map((t) => (
-                    <span className="tag" key={t}>
-                      {t}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </article>
-          ))}
+          <div className="xmed-digest results-surface">
+            <div className="result-cards">
+              {data.results.map((r: ArticleResult, i: number) => {
+                // Abstract + « Pourquoi ce résultat ? » dans la zone repliée — on
+                // ne montre le bouton que s'il y a vraiment quelque chose à voir.
+                const e = r.explanation;
+                const hasExp = !!(
+                  e &&
+                  (e.concepts.length > 0 || e.population || e.intervention || e.study_type)
+                );
+                const detail =
+                  r.abstract_snippet || hasExp ? (
+                    <>
+                      {r.abstract_snippet && <p className="abstract">{r.abstract_snippet}</p>}
+                      <Explanation article={r} />
+                    </>
+                  ) : undefined;
+                return (
+                  <ResultCard
+                    key={r.pmid}
+                    rank={offset + i + 1}
+                    title={r.title}
+                    journal={r.journal}
+                    year={r.pub_year}
+                    level={r.evidence_level}
+                    relevance={
+                      mode === "semantic" && r.score != null
+                        ? semanticRelevance(r.score)
+                        : undefined
+                    }
+                    pubmedUrl={r.pubmed_url}
+                    mesh={r.mesh_terms ?? undefined}
+                  >
+                    {detail}
+                  </ResultCard>
+                );
+              })}
+            </div>
+          </div>
 
           {mode === "keyword" && data.total > PAGE && (
             <div className="pager">
@@ -1011,52 +985,58 @@ export default function Home() {
           {pubmed.ranked.length === 0 && (
             <p className="notice">Aucun article jugé pertinent pour cette recherche.</p>
           )}
-          {pubmed.ranked.map((r, i) => (
-            <article className="result" key={`ranked-${r.pmid}`}>
-              <h3>
-                <span className="rank">#{i + 1}</span>
-                <a href={r.pubmed_url} target="_blank" rel="noreferrer">
-                  {r.title}
-                </a>
-              </h3>
-              <div className="journal">
-                <Badge level={r.evidence_level} />
-                {r.journal || "Journal inconnu"}
-                {r.pub_year ? ` · ${r.pub_year}` : ""}
-                <span className="tag" style={{ marginLeft: 8 }}>
-                  {r.sources.includes("pubmed") ? "A · PubMed" : ""}
-                  {r.sources.length === 2 ? " + " : ""}
-                  {r.sources.includes("local") ? "B · local" : ""}
-                </span>
-              </div>
-              <CodexScoreBar score={r.score} />
-              <p className="explanation-note">{r.justification}</p>
-              {r.abstract_snippet && <p className="abstract">{r.abstract_snippet}</p>}
-            </article>
-          ))}
+          <div className="xmed-digest results-surface">
+            <div className="result-cards">
+              {pubmed.ranked.map((r, i) => (
+                <ResultCard
+                  key={`ranked-${r.pmid}`}
+                  rank={i + 1}
+                  title={r.title}
+                  journal={r.journal}
+                  year={r.pub_year}
+                  level={r.evidence_level}
+                  relevance={codexRelevance(r.score)}
+                  reason={r.justification}
+                  sourceTag={
+                    `${r.sources.includes("pubmed") ? "A · PubMed" : ""}` +
+                      `${r.sources.length === 2 ? " + " : ""}` +
+                      `${r.sources.includes("local") ? "B · local" : ""}` || undefined
+                  }
+                  pubmedUrl={r.pubmed_url}
+                >
+                  {r.abstract_snippet ? (
+                    <p className="abstract">{r.abstract_snippet}</p>
+                  ) : undefined}
+                </ResultCard>
+              ))}
+            </div>
+          </div>
 
           <details className="explanation" style={{ marginTop: 24 }}>
             <summary>Voir la liste A brute renvoyée par PubMed</summary>
             {pubmed.results.length === 0 && (
               <p className="notice">Aucun article PubMed pour cette requête.</p>
             )}
-            {pubmed.results.map((r, i) => (
-                <article className="result" key={`pm-${r.pmid}`}>
-                  <h3>
-                    <span className="rank">#{i + 1}</span>
-                    <a href={r.pubmed_url} target="_blank" rel="noreferrer">
-                      {r.title}
-                    </a>
-                  </h3>
-                  <div className="journal">
-                    <Badge level={r.evidence_level} />
-                    {r.journal || "Journal inconnu"}
-                    {r.pub_year ? ` · ${r.pub_year}` : ""}
-                    {r.in_db ? " · dans la base locale" : " · hors base locale"}
-                  </div>
-                  {r.abstract_fr && <p className="abstract">{r.abstract_fr}</p>}
-                </article>
-            ))}
+            <div className="xmed-digest results-surface">
+              <div className="result-cards">
+                {pubmed.results.map((r, i) => (
+                  <ResultCard
+                    key={`pm-${r.pmid}`}
+                    rank={i + 1}
+                    title={r.title}
+                    journal={r.journal}
+                    year={r.pub_year}
+                    level={r.evidence_level}
+                    sourceTag={r.in_db ? "dans la base locale" : "hors base locale"}
+                    pubmedUrl={r.pubmed_url}
+                  >
+                    {r.abstract_fr ? (
+                      <p className="abstract">{r.abstract_fr}</p>
+                    ) : undefined}
+                  </ResultCard>
+                ))}
+              </div>
+            </div>
           </details>
         </>
       )}
@@ -1115,31 +1095,34 @@ export default function Home() {
           {deep.results.length === 0 && (
             <p className="notice">Aucun article jugé pertinent pour cette recherche.</p>
           )}
-          {deep.results.map((r, i) => (
-            <article className="result" key={`deep-${r.pmid}`}>
-              <h3>
-                <span className="rank">#{i + 1}</span>
-                <a href={r.pubmed_url} target="_blank" rel="noreferrer">
-                  {r.title}
-                </a>
-              </h3>
-              <div className="journal">
-                <Badge level={r.evidence_level} />
-                {r.journal || "Journal inconnu"}
-                {r.pub_year ? ` · ${r.pub_year}` : ""}
-                <span className="tag" style={{ marginLeft: 8 }}>
-                  {r.source === "both"
-                    ? "A · PubMed + B · local"
-                    : r.source === "pubmed"
-                      ? "A · PubMed"
-                      : "B · local"}
-                </span>
-              </div>
-              {r.score != null && <DeepScoreBar score={r.score} />}
-              {r.reason && <p className="explanation-note">{r.reason}</p>}
-              <DeepAbstract hit={r} onTranslated={markTranslated} />
-            </article>
-          ))}
+          <div className="xmed-digest results-surface">
+            <div className="result-cards">
+              {deep.results.map((r, i) => (
+                <ResultCard
+                  key={`deep-${r.pmid}`}
+                  rank={i + 1}
+                  title={r.title}
+                  journal={r.journal}
+                  year={r.pub_year}
+                  level={r.evidence_level}
+                  relevance={r.score != null ? deepRelevance(r.score) : undefined}
+                  reason={r.reason}
+                  sourceTag={
+                    r.source === "both"
+                      ? "A · PubMed + B · local"
+                      : r.source === "pubmed"
+                        ? "A · PubMed"
+                        : "B · local"
+                  }
+                  pubmedUrl={r.pubmed_url}
+                >
+                  {r.abstract || r.abstract_fr ? (
+                    <DeepAbstract hit={r} onTranslated={markTranslated} />
+                  ) : undefined}
+                </ResultCard>
+              ))}
+            </div>
+          </div>
         </>
       )}
     </main>

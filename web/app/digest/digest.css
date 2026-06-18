@@ -272,6 +272,12 @@
 .xmed-digest .section-h::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 .xmed-digest .section-h .count { font-family: var(--mono); font-size: 11px; color: var(--faint); }
 .xmed-digest .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+/* Surface « cartes de recherche » : on emprunte la typo + les variables du
+   digest, mais sans le fond crème ni la texture pointillée (les cartes flottent
+   sur le fond de la page). Pile en colonne pour laisser respirer abstracts et
+   justifications. */
+.xmed-digest.results-surface { background: none; background-image: none; }
+.xmed-digest .result-cards { display: flex; flex-direction: column; gap: 16px; margin-top: 16px; }
 .xmed-digest .item {
   position: relative;
   padding: 20px 22px;
