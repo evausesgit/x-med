@@ -8,6 +8,7 @@ import {
   EmbeddingModelInfo,
   listDoctors,
   listModels,
+  lookupSavedSearch,
   meshAutocomplete,
   PubmedLog,
   PubmedSearchResponse,
@@ -197,27 +198,32 @@ function SaveSearchBar({
   query,
   dateFrom,
   dateTo,
+  alreadySavedId,
 }: {
   deep: DeepSearchResponse;
   query: string;
   dateFrom: string;
   dateTo: string;
+  // Présent quand le résultat affiché vient déjà d'une sauvegarde : on affiche
+  // alors l'état « ✓ Sauvegardée » plutôt que le bouton (pas de doublon).
+  alreadySavedId?: string;
 }) {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [doctorId, setDoctorId] = useState("");
   const [busy, setBusy] = useState(false);
-  const [savedId, setSavedId] = useState<string | null>(null);
+  const [savedId, setSavedId] = useState<string | null>(alreadySavedId ?? null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     listDoctors().then(setDoctors);
   }, []);
 
-  // Une nouvelle recherche (autre requête) réarme le bouton.
+  // Une nouvelle recherche (autre requête) réarme le bouton ; si ce résultat est
+  // déjà sauvegardé, on garde l'état « ✓ Sauvegardée ».
   useEffect(() => {
-    setSavedId(null);
+    setSavedId(alreadySavedId ?? null);
     setError(null);
-  }, [query]);
+  }, [query, alreadySavedId]);
 
   async function save() {
     setBusy(true);
@@ -381,6 +387,9 @@ export default function Home() {
   const [data, setData] = useState<SearchResponse | null>(null);
   const [pubmed, setPubmed] = useState<PubmedSearchResponse | null>(null);
   const [deep, setDeep] = useState<DeepSearchResponse | null>(null);
+  // Quand le résultat v2 affiché vient d'une recherche déjà sauvegardée (pas d'un
+  // nouvel appel codex) : sert à montrer le bandeau « affiché depuis la sauvegarde ».
+  const [savedHit, setSavedHit] = useState<{ id: string; created_at: string } | null>(null);
   const [logs, setLogs] = useState<PubmedLog[]>([]);
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -481,7 +490,7 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, model, q]);
 
-  async function runSearch(newOffset = 0) {
+  async function runSearch(newOffset = 0, opts: { force?: boolean } = {}) {
     setLoading(true);
     setError(null);
     setCodexLimit(false);
@@ -495,12 +504,34 @@ export default function Home() {
         setData(null);
         setPubmed(null);
         setDeep(null);
+        setSavedHit(null);
         setLogs([]);
         setOffset(0);
         esRef.current?.close();
         // Méthode v2 : streaming SSE (déroulé en direct) — comme v1, pour ne pas
         // se faire couper par le proxy sur les requêtes longues.
         if (pubmedVariant === "v2") {
+          // Avant tout appel codex (coûteux), on regarde si une recherche
+          // identique a déjà été sauvegardée : on réaffiche alors le snapshot.
+          // `force` (bouton « Relancer quand même ») court-circuite ce cache.
+          if (!opts.force) {
+            let existing = null;
+            try {
+              existing = await lookupSavedSearch({
+                query: q.trim(),
+                date_from: dateFrom || undefined,
+                date_to: dateTo || undefined,
+              });
+            } catch {
+              /* lookup best-effort : en cas d'échec, on relance la recherche */
+            }
+            if (existing) {
+              setDeep(existing.payload);
+              setSavedHit({ id: existing.id, created_at: existing.created_at });
+              setLoading(false);
+              return;
+            }
+          }
           esRef.current = searchPubmedDeepStream(
             q.trim(),
             dateFrom || undefined,
@@ -1051,12 +1082,31 @@ export default function Home() {
             </p>
             <CopyLinkButton />
           </div>
+          {savedHit && (
+            <p className="notice" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span>
+                💾 Résultat déjà sauvegardé le{" "}
+                {new Date(savedHit.created_at).toLocaleDateString("fr-FR", {
+                  day: "numeric", month: "long", year: "numeric",
+                })}{" "}
+                — affiché sans relancer codex.
+              </span>
+              <button
+                type="button"
+                style={{ minHeight: 32, padding: "4px 12px" }}
+                onClick={() => runSearch(0, { force: true })}
+              >
+                Relancer quand même
+              </button>
+            </p>
+          )}
           {!loading && deep.results.length > 0 && (
             <SaveSearchBar
               deep={deep}
               query={q.trim()}
               dateFrom={dateFrom}
               dateTo={dateTo}
+              alreadySavedId={savedHit?.id}
             />
           )}
           {deep.codex_tokens && (deep.codex_tokens.total ?? 0) > 0 && (

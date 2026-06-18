@@ -540,6 +540,22 @@ export async function listSavedSearches(): Promise<SavedSearchSummary[]> {
   return res.json();
 }
 
+// Avant de relancer une recherche v2 (coûteuse en tokens codex), on regarde si
+// un snapshot identique a déjà été sauvegardé. Renvoie le plus récent, ou null.
+export async function lookupSavedSearch(params: {
+  query: string;
+  method?: string;
+  date_from?: string;
+  date_to?: string;
+}): Promise<SavedSearchDetail | null> {
+  const sp = new URLSearchParams({ query: params.query, method: params.method ?? "v2" });
+  if (params.date_from) sp.set("date_from", params.date_from);
+  if (params.date_to) sp.set("date_to", params.date_to);
+  const res = await fetch(`${API_BASE}/saved-searches/lookup?${sp.toString()}`);
+  if (!res.ok) return null;
+  return res.json();
+}
+
 export async function getSavedSearch(id: string): Promise<SavedSearchDetail> {
   const res = await fetch(`${API_BASE}/saved-searches/${id}`);
   if (!res.ok) throw new Error(`Erreur API (${res.status})`);

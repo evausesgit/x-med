@@ -15,7 +15,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db import get_session
@@ -56,6 +56,20 @@ def _doctor_name(s: SavedSearch) -> str | None:
 def _n_results(payload: dict[str, Any]) -> int:
     results = payload.get("results")
     return len(results) if isinstance(results, list) else 0
+
+
+def _norm(v: Any) -> str | None:
+    """Normalise une valeur de paramètre pour la comparaison : "" → None."""
+    return (str(v).strip() or None) if v is not None else None
+
+
+def _params_match(stored: dict[str, Any] | None, date_from: str | None, date_to: str | None) -> bool:
+    """Une recherche est « la même » si la fenêtre de dates coïncide (vide == absent)."""
+    stored = stored or {}
+    return (
+        _norm(stored.get("date_from")) == _norm(date_from)
+        and _norm(stored.get("date_to")) == _norm(date_to)
+    )
 
 
 def _summary(s: SavedSearch) -> SavedSearchSummary:
@@ -123,6 +137,34 @@ def list_saved_searches(session: Session = Depends(get_session)):
         select(SavedSearch).order_by(SavedSearch.created_at.desc())
     ).all()
     return [_summary(s) for s in rows]
+
+
+@router.get("/saved-searches/lookup", response_model=SavedSearchDetail | None)
+def lookup_saved_search(
+    query: str,
+    method: str = "v2",
+    date_from: str | None = None,
+    date_to: str | None = None,
+    session: Session = Depends(get_session),
+):
+    """Cherche une recherche déjà sauvegardée identique (même requête normalisée,
+    même méthode, même fenêtre de dates) pour éviter de relancer codex. Renvoie le
+    snapshot le plus récent, ou `null` si rien ne correspond.
+
+    ⚠ Doit rester déclarée AVANT `/saved-searches/{search_id}`, sinon « lookup »
+    serait capturé comme un identifiant.
+    """
+    normalized = query.strip().lower()
+    rows = session.scalars(
+        select(SavedSearch)
+        .where(func.lower(func.trim(SavedSearch.query)) == normalized)
+        .where(SavedSearch.method == method)
+        .order_by(SavedSearch.created_at.desc())
+    ).all()
+    for s in rows:
+        if _params_match(s.params, date_from, date_to):
+            return _detail(s)
+    return None
 
 
 @router.get("/saved-searches/{search_id}", response_model=SavedSearchDetail)
