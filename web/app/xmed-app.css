@@ -1,0 +1,1022 @@
+/* X-Med — design system « X-Med App ».
+   Porté depuis la maquette Claude Design (X-Med App.dc.html + XMedResult.dc.html).
+   Préfixes : .xm-* pour le shell (nav, recherche, digest), .xmr-* pour la carte
+   de résultat partagée. S'appuie sur les tokens/polices de globals.css. */
+
+/* ============================ NAV ============================ */
+.xm-nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(246, 244, 238, 0.86);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line);
+}
+.xm-nav-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 14px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.xm-brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  text-decoration: none;
+}
+.xm-logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #eef4f1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-serif);
+  font-size: 17px;
+  font-weight: 600;
+  flex: none;
+}
+.xm-wordmark {
+  font-family: var(--font-serif);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text);
+}
+.xm-nav-right {
+  display: flex;
+  gap: 22px;
+  align-items: center;
+}
+.xm-navlink {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--muted);
+  text-decoration: none;
+  cursor: pointer;
+}
+.xm-navlink:hover {
+  color: var(--text);
+}
+.xm-navlink.on {
+  color: var(--text);
+  font-weight: 600;
+}
+.xm-lang {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 4px 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: default;
+}
+.xm-menu-wrap {
+  position: relative;
+}
+.xm-menu-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 38px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 0;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.xm-menu-btn span {
+  width: 16px;
+  height: 1.6px;
+  background: #3a352e;
+  border-radius: 2px;
+}
+.xm-menu {
+  position: absolute;
+  right: 0;
+  top: 46px;
+  width: 244px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 16px 44px rgba(46, 38, 26, 0.16);
+  padding: 8px;
+  z-index: 40;
+  animation: xm-rise 0.16s ease;
+}
+.xm-menu-head {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--faint);
+  padding: 8px 10px 7px;
+}
+.xm-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  color: #3a352e;
+  text-decoration: none;
+  cursor: pointer;
+}
+.xm-menu-item:hover {
+  background: #f4f1eb;
+}
+.xm-menu-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #b9b1a2;
+}
+
+/* ============================ PAGE SHELL ============================ */
+.xm-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 40px 28px 90px;
+}
+.xm-hero {
+  margin: 0 0 22px;
+  font-family: var(--font-serif);
+  font-size: 36px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  line-height: 1.1;
+  max-width: 620px;
+}
+
+/* ============================ SEARCH BAR ============================ */
+.xm-searchbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border: 1.5px solid var(--accent);
+  border-radius: 14px;
+  padding: 6px 6px 6px 20px;
+  box-shadow: 0 6px 24px rgba(31, 81, 71, 0.1);
+}
+.xm-searchbar svg.icon {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  flex: none;
+}
+.xm-searchbar input {
+  flex: 1;
+  border: 0;
+  outline: 0;
+  min-height: 0;
+  background: transparent;
+  font-family: var(--font-serif);
+  font-size: 18px;
+  color: var(--text);
+  padding: 12px 0;
+}
+.xm-searchbar input:focus {
+  box-shadow: none;
+}
+.xm-explore {
+  border: 0;
+  border-radius: 10px;
+  padding: 13px 26px;
+  background: var(--accent);
+  color: #fbfaf6;
+  font-family: inherit;
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 0;
+}
+.xm-explore:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+.xm-explore:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* ============================ METHOD + DATES ============================ */
+.xm-method-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+.xm-method-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--faint);
+}
+.xm-chip {
+  padding: 5px 13px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  color: var(--muted);
+  border: 1px solid #e4ded3;
+  background: var(--surface);
+  cursor: pointer;
+  min-height: 0;
+  font-weight: 500;
+  font-family: inherit;
+}
+.xm-chip:hover:not(.on) {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+.xm-chip.on {
+  background: var(--text);
+  color: #fff;
+  border-color: var(--text);
+  font-weight: 600;
+}
+.xm-daterange {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid #e4ded3;
+  border-radius: 9px;
+  padding: 5px 11px;
+}
+.xm-daterange svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: var(--faint);
+  stroke-width: 2;
+  flex: none;
+}
+.xm-daterange input {
+  border: 0;
+  outline: 0;
+  min-height: 0;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
+  width: 122px;
+  padding: 0;
+}
+.xm-daterange input:focus {
+  box-shadow: none;
+}
+.xm-daterange .sep {
+  color: #c0b8a9;
+  font-size: 12px;
+}
+
+/* ============================ RESULTS HEADER ============================ */
+.xm-results-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 34px 0 18px;
+}
+.xm-results-count {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.xm-copylink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+  background: none;
+  border: 0;
+  min-height: 0;
+  padding: 0;
+}
+.xm-copylink svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+.xm-disclaimer {
+  margin: 22px 2px 0;
+  font-size: 12.5px;
+  color: #948c7e;
+  line-height: 1.55;
+}
+
+/* ============================ LIVE EVENTS (SSE) ============================ */
+/* « Déroulé de la recherche » dans la langue du design : surface papier, dot
+   pulsé vert, lignes en mono qui se déroulent en direct. */
+.xm-live {
+  margin: 18px 0 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.xm-live-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(31, 81, 71, 0.05), transparent);
+}
+.xm-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2f8a63;
+  box-shadow: 0 0 0 0 rgba(47, 138, 99, 0.5);
+}
+.xm-live.running .xm-live-dot {
+  animation: xm-pulse 1.8s infinite;
+}
+@keyframes xm-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(47, 138, 99, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 7px rgba(47, 138, 99, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(47, 138, 99, 0);
+  }
+}
+.xm-live-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 600;
+}
+.xm-live-spin {
+  margin-left: auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-soft);
+  border-top-color: var(--accent);
+  animation: spin 0.8s linear infinite;
+}
+.xm-live-body {
+  padding: 12px 18px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+.xm-live-line {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #3a352e;
+  font-variant-numeric: tabular-nums;
+  animation: xm-rise 0.2s ease;
+}
+.xm-live-line::before {
+  content: "›";
+  color: var(--accent);
+  margin-right: 8px;
+}
+.xm-live-query {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  background: #f4f1eb;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.xm-live-mesh {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--accent);
+  animation: meshfade 0.45s ease;
+}
+
+/* ============================ RESULT CARD (XMedResult) ============================ */
+.xmr-card {
+  background: var(--surface);
+  border: 1px solid #ece7dd;
+  border-radius: 13px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  padding: 26px 30px;
+  margin-bottom: 18px;
+  transition: border-color 0.15s, box-shadow 0.2s;
+}
+.xmr-card:hover {
+  border-color: var(--line-strong);
+  box-shadow: 0 18px 40px -26px rgba(46, 38, 26, 0.4);
+}
+.xmr-card.featured {
+  border-color: #e7d8ad;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), inset 3px 0 0 var(--gold);
+}
+.xmr-feat-kicker {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 14px;
+}
+.xmr-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 124px;
+  gap: 28px;
+  align-items: start;
+  margin-bottom: 18px;
+}
+.xmr-grid.no-ring {
+  grid-template-columns: minmax(0, 1fr);
+}
+.xmr-head {
+  min-width: 0;
+}
+.xmr-tags-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 11px;
+  flex-wrap: wrap;
+}
+.xmr-no {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--faint);
+}
+.xmr-tierchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.xmr-tierchip .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.xmr-ev {
+  padding: 2px 9px;
+  border-radius: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.xmr-ev1 {
+  background: #e0efe6;
+  color: #1d5b43;
+}
+.xmr-ev2 {
+  background: #f6eccf;
+  color: #7a571a;
+}
+.xmr-ev3 {
+  background: #f6e3da;
+  color: #9b4a2f;
+}
+.xmr-ev4 {
+  background: #efece5;
+  color: var(--muted);
+}
+.xmr-title {
+  margin: 0 0 9px;
+  font-family: var(--font-serif);
+  font-size: 25px;
+  font-weight: 500;
+  line-height: 1.18;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+.xmr-title a {
+  color: inherit;
+  text-decoration: none;
+}
+.xmr-title a:hover {
+  color: var(--accent);
+}
+.xmr-journal {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: #8a8276;
+  margin-bottom: 12px;
+}
+.xmr-stand {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #3a352e;
+}
+
+/* ring */
+.xmr-ringwrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.xmr-ring {
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 1s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+.xmr-ring-inner {
+  width: 78px;
+  height: 78px;
+  border-radius: 50%;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.xmr-ring-val {
+  font-family: var(--font-serif);
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--accent);
+  line-height: 1;
+}
+.xmr-ring-unit {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: #8a8276;
+  margin-top: 2px;
+}
+.xmr-ring-cap {
+  font-size: 11px;
+  color: #948c7e;
+  text-align: center;
+  line-height: 1.4;
+}
+
+/* mesh chips */
+.xmr-mesh {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+.xmr-mchip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  background: #f1efe8;
+  border: 1px solid #e4ded3;
+  color: var(--muted);
+  text-decoration: none;
+  transition: border-color 0.2s, color 0.2s;
+}
+.xmr-mchip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* action bar */
+.xmr-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px 18px;
+  padding-top: 15px;
+  border-top: 1px solid #efeae0;
+  flex-wrap: wrap;
+}
+.xmr-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: #3a352e;
+  border-radius: 8px;
+  padding: 8px 15px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 0;
+}
+.xmr-toggle.on {
+  border-color: var(--accent);
+  background: #eef4f0;
+  color: var(--accent);
+}
+.xmr-toggle .caret {
+  display: inline-block;
+  transition: transform 0.2s;
+  font-size: 14px;
+  line-height: 1;
+}
+.xmr-toggle.on .caret {
+  transform: rotate(180deg);
+}
+.xmr-act {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  color: var(--muted);
+  font-weight: 500;
+  cursor: pointer;
+  background: none;
+  border: 0;
+  padding: 0;
+  min-height: 0;
+  text-decoration: none;
+  font-family: inherit;
+}
+.xmr-act.accent {
+  color: var(--accent);
+  font-weight: 600;
+}
+.xmr-act.on {
+  color: var(--accent);
+  font-weight: 600;
+}
+.xmr-act:hover {
+  color: var(--accent);
+}
+.xmr-act svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  flex: none;
+}
+.xmr-act.saved svg {
+  fill: currentColor;
+}
+.xmr-read {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--faint);
+}
+.xmr-read svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+/* expanded reading */
+.xmr-reveal {
+  margin-top: 18px;
+  padding-top: 20px;
+  border-top: 1px solid #efeae0;
+  animation: xm-rise 0.22s ease;
+}
+.xmr-reveal-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.xmr-reveal-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.xmr-langtoggle {
+  display: inline-flex;
+  background: #efeae0;
+  border: 1px solid #e4ded3;
+  border-radius: 7px;
+  padding: 2px;
+}
+.xmr-langtoggle button {
+  padding: 5px 13px;
+  border-radius: 5px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  min-height: 0;
+  font-family: inherit;
+}
+.xmr-langtoggle button.on {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+.xmr-langtoggle button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.xmr-source {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: #b3aa9b;
+}
+.xmr-reveal-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 30px;
+  align-items: start;
+}
+.xmr-reveal-grid.single {
+  grid-template-columns: minmax(0, 1fr);
+}
+.xmr-abstract {
+  border-left: 2px solid #e0ebe5;
+  padding-left: 18px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: #33433c;
+  white-space: pre-line;
+}
+.xmr-sections {
+  border-left: 2px solid #e0ebe5;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+.xmr-section-label {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 3px;
+  color: var(--accent);
+}
+.xmr-section-label.concl {
+  color: var(--gold);
+}
+.xmr-section-text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #3a352e;
+}
+.xmr-section-text.concl {
+  color: var(--text);
+  font-weight: 500;
+}
+.xmr-ia {
+  background: #eef4f0;
+  border: 1px solid #d4e3dc;
+  border-radius: 11px;
+  padding: 18px 20px;
+}
+.xmr-ia-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 13px;
+}
+.xmr-ia-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.xmr-ia-title svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+.xmr-ia-dis {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #8aa39a;
+}
+.xmr-ia-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.xmr-ia-list li {
+  display: flex;
+  gap: 9px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #33433c;
+}
+.xmr-ia-list li .dash {
+  color: #2f8a63;
+  flex: none;
+  font-weight: 700;
+}
+
+/* ============================ DIGEST HEADER ============================ */
+.xm-digest-head {
+  padding: 40px 0 22px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 28px;
+}
+.xm-digest-head-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.xm-digest-kicker {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 9px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.xm-digest-kicker .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2f8a63;
+}
+.xm-digest-title {
+  margin: 0 0 8px;
+  font-family: var(--font-serif);
+  font-size: 34px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  line-height: 1.1;
+}
+.xm-digest-sub {
+  margin: 0;
+  font-size: 15px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+.xm-digest-gen {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--faint);
+  text-align: right;
+  line-height: 1.7;
+}
+.xm-digest-themes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+.xm-digest-themes-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--faint);
+  margin-right: 4px;
+}
+.xm-theme {
+  padding: 4px 11px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 500;
+}
+.xm-theme-link {
+  margin-left: auto;
+  font-size: 12.5px;
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+/* ============================ STATES (loader / banners) ============================ */
+.xm-banner {
+  margin: 16px 0;
+  padding: 13px 16px;
+  border-radius: 11px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.xm-banner.warn {
+  background: #f6ead9;
+  border: 1px solid #ecd9a6;
+  color: #6f4a17;
+}
+.xm-banner.error {
+  background: var(--red-soft);
+  border: 1px solid #e0a99a;
+  border-left: 4px solid #c0492f;
+  color: #6b2316;
+}
+.xm-banner.info {
+  background: var(--accent-soft);
+  border: 1px solid #cbded6;
+  color: var(--accent);
+}
+
+/* ============================ RESPONSIVE ============================ */
+@media (max-width: 880px) {
+  .xmr-reveal-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .xmr-ia {
+    order: -1;
+  }
+}
+@media (max-width: 720px) {
+  .xm-page {
+    padding: 28px 18px 70px;
+  }
+  .xm-nav-inner {
+    padding: 12px 18px;
+  }
+  .xm-nav-right {
+    gap: 14px;
+  }
+  .xm-hero {
+    font-size: 28px;
+  }
+  .xm-searchbar {
+    flex-wrap: wrap;
+    padding: 10px 12px;
+  }
+  .xm-searchbar input {
+    width: 100%;
+    flex-basis: 100%;
+    padding: 4px 0;
+  }
+  .xm-explore {
+    width: 100%;
+  }
+  .xm-daterange {
+    margin-left: 0;
+  }
+  .xmr-card {
+    padding: 20px 18px;
+  }
+  .xmr-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .xmr-ringwrap {
+    flex-direction: row;
+    align-self: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .xm-live.running .xm-live-dot,
+  .xm-live-spin,
+  .xmr-ring {
+    animation: none;
+    transition: none;
+  }
+}
