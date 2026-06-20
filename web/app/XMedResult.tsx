@@ -56,7 +56,12 @@ export interface XMedResultProps {
   spoken?: string | null;
   /** libellé de la zone repliée (défaut « Résumé & abstract ») */
   revealLabel?: string;
-  /** contenu de la zone repliée (abstract, toggle FR/EN…) */
+  /** nœud supplémentaire dans l'en-tête replié (ex. bascule FR/EN du digest) */
+  revealHead?: React.ReactNode;
+  /** classe du conteneur du corps replié : « xmr-abstract » (défaut, texte brut)
+      ou « xmr-sections » (résumé structuré Contexte/Méthodes/Résultats/Conclusion) */
+  revealBodyClassName?: string;
+  /** contenu de la zone repliée (abstract, sections, toggle FR/EN…) */
   children?: React.ReactNode;
 }
 
@@ -122,6 +127,8 @@ export default function XMedResult({
   why,
   spoken,
   revealLabel = "Résumé & abstract",
+  revealHead,
+  revealBodyClassName = "xmr-abstract",
   children,
 }: XMedResultProps) {
   const [open, setOpen] = useState(false);
@@ -264,10 +271,11 @@ export default function XMedResult({
         <div className="xmr-reveal">
           <div className="xmr-reveal-head">
             <span className="xmr-reveal-label">{revealLabel}</span>
+            {revealHead}
             {sourceTitle && <span className="xmr-source">Source : {sourceTitle}</span>}
           </div>
           <div className={`xmr-reveal-grid ${why && why.length ? "" : "single"}`}>
-            <div className="xmr-abstract">{children}</div>
+            <div className={revealBodyClassName}>{children}</div>
             {why && why.length > 0 && (
               <div className="xmr-ia">
                 <div className="xmr-ia-head">
