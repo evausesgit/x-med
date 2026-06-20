@@ -1,6 +1,32 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { Newsreader, IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
+import "./xmed-app.css";
+import Nav from "./Nav";
+
+// Polices du design system « X-Med App », auto-hébergées par next/font (pas de
+// requête runtime vers Google, pas de décalage de mise en page). Elles exposent
+// les variables CSS consommées par globals.css / xmed-app.css.
+// Variables dédiées (--ff-*) référencées par les tokens --font-* de globals.css,
+// qui leur ajoutent une pile de repli générique.
+const serif = Newsreader({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--ff-serif",
+  display: "swap",
+});
+const sans = IBM_Plex_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--ff-sans",
+  display: "swap",
+});
+const mono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--ff-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "X-Med — Explorez la recherche médicale",
@@ -11,30 +37,9 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="fr">
+    <html lang="fr" className={`${serif.variable} ${sans.variable} ${mono.variable}`}>
       <body>
-        <nav className="topnav">
-          <div className="topnav-inner">
-            <Link href="/" className="brand">
-              X-Med
-            </Link>
-            <div className="topnav-links">
-              <Link href="/">Recherche</Link>
-              <Link href="/recherches">Sauvegardées</Link>
-              <Link href="/digest">Digest</Link>
-              <Link href="/profil">Profils</Link>
-              <Link href="/annotate">Annoter</Link>
-              <Link href="/evaluation">Évaluation</Link>
-              <Link href="/embeddings">Vectorisation</Link>
-              <Link href="/architecture">Comment ça marche</Link>
-              {/* Page statique servie depuis public/recherche-guidee/ : <a> et non
-                  <Link> (le routeur Next traiterait ce chemin comme une route → 404).
-                  On vise index.html explicitement : l'URL « dossier » /recherche-guidee/
-                  déclenche le 308 de Next (strip du slash) puis un 404. */}
-              <a href="/recherche-guidee/index.html">Visite guidée</a>
-            </div>
-          </div>
-        </nav>
+        <Nav />
         {children}
       </body>
     </html>
