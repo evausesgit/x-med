@@ -30,60 +30,6 @@ export interface SearchResponse {
   results: ArticleResult[];
 }
 
-export interface PubmedHit {
-  pmid: number;
-  title: string;
-  journal: string | null;
-  pub_year: number | null;
-  doi: string | null;
-  pubmed_url: string;
-  in_db: boolean;
-  evidence_level: number | null;
-  abstract_fr: string | null;
-}
-
-export interface PubmedSearchResponse {
-  query: string;
-  pubmed_query: string | null;
-  mesh_terms: string[];
-  query_builder: "codex" | "fallback";
-  total_hits: number;
-  results: PubmedHit[];
-  related: ArticleResult[];
-  ranked: RankedPubmedHit[];
-  local_abstracts: number;
-  codex_batches: number;
-  relevant_total: number;
-}
-
-export interface RankedPubmedHit {
-  pmid: number;
-  title: string;
-  journal: string | null;
-  pub_year: number | null;
-  evidence_level: number | null;
-  doi: string | null;
-  pubmed_url: string;
-  in_db: boolean;
-  sources: ("pubmed" | "local")[];
-  score: number;
-  justification: string;
-  abstract_snippet: string | null;
-}
-
-export async function searchPubmed(
-  query: string,
-  k = 12,
-  model?: string,
-): Promise<PubmedSearchResponse> {
-  const res = await fetch(`${API_BASE}/search/pubmed`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query, k, ...(model ? { model } : {}) }),
-  });
-  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
-  return res.json();
-}
 
 export interface PubmedLog {
   phase: string;
@@ -92,52 +38,6 @@ export interface PubmedLog {
   mesh_terms?: string[];
 }
 
-// Version streaming (SSE) : émet le déroulé en direct via onLog, puis onResult.
-// Retourne l'EventSource pour pouvoir fermer/annuler.
-export function searchPubmedStream(
-  query: string,
-  k: number,
-  dateFrom: string | undefined,
-  dateTo: string | undefined,
-  handlers: {
-    onLog: (log: PubmedLog) => void;
-    onResult: (res: PubmedSearchResponse) => void;
-    onError: (msg?: string) => void;
-  },
-): EventSource {
-  const sp = new URLSearchParams({ query, k: String(k) });
-  if (dateFrom) sp.set("date_from", dateFrom);
-  if (dateTo) sp.set("date_to", dateTo);
-  const es = new EventSource(`${API_BASE}/search/pubmed/stream?${sp.toString()}`);
-  es.addEventListener("log", (e) => {
-    try {
-      handlers.onLog(JSON.parse((e as MessageEvent).data));
-    } catch {
-      /* ignore une ligne malformée */
-    }
-  });
-  es.addEventListener("result", (e) => {
-    try {
-      handlers.onResult(JSON.parse((e as MessageEvent).data));
-    } finally {
-      es.close();
-    }
-  });
-  es.addEventListener("error", (e) => {
-    const data = (e as MessageEvent).data;
-    if (data) {
-      try {
-        handlers.onError(JSON.parse(data).msg);
-      } catch {
-        handlers.onError();
-      }
-    } else {
-      handlers.onError();
-    }
-    es.close();
-  });
-  return es;
-}
 
 // --- Méthode v2 « PubMed + codex » : filtre lexical+MeSH → codex juge (deep) ---
 export interface DeepHit {

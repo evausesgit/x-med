@@ -25,10 +25,7 @@ class Settings(BaseSettings):
     ncbi_email: str | None = None
     codex_bin: str = "codex"
     codex_model: str = "gpt-5.4"
-    codex_abstract_batch_tokens: int = 180_000
-    codex_abstract_batch_max_articles: int = 250
     codex_abstract_timeout: int = 900
-    codex_relevance_threshold: float = 0.55
 
     # Notification Hermes/Telegram lorsqu'une recherche PubMed/Codex est lancée.
     # `telegram` cible le home channel Hermes, donc le DM Eva par défaut sur cette machine.

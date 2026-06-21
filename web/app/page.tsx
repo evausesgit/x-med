@@ -11,11 +11,9 @@ import {
   lookupSavedSearch,
   meshAutocomplete,
   PubmedLog,
-  PubmedSearchResponse,
   saveSearch,
   searchMesh,
   searchPubmedDeepStream,
-  searchPubmedStream,
   searchSemantic,
   SearchResponse,
   translateAbstract,
@@ -56,15 +54,7 @@ function semanticRelevance(score: number): Relevance {
   };
 }
 
-// v1 : score absolu GPT-5.4 (0–1).
-function codexRelevance(score: number): Relevance {
-  const pct = Math.round(score * 100);
-  const tier: Relevance["tier"] = score >= 0.75 ? "high" : score >= 0.55 ? "mid" : "low";
-  const label = score >= 0.75 ? "Très pertinent" : score >= 0.55 ? "Pertinent" : "Partiel";
-  return { pct, tier, label, title: `Score absolu GPT-5.4 : ${score.toFixed(2)} / 1.` };
-}
-
-// v2 (deep) : score entier 0–3 attribué par codex.
+// Score entier 0–3 attribué par codex.
 function deepRelevance(score: number): Relevance {
   const pct = Math.round((score / 3) * 100);
   const tier: Relevance["tier"] = score >= 3 ? "high" : score >= 2 ? "mid" : "low";
@@ -122,8 +112,9 @@ function Explanation({ article }: { article: ArticleResult }) {
   );
 }
 
-// Deux onglets PubMed distincts : v2 (filtre + jugement) et v1 (lots d'abstracts).
-type Mode = "pubmed_v2" | "pubmed_v1" | "semantic" | "keyword";
+// Recherche PubMed + IA (filtre lexical/MeSH → jugement codex), recherche par
+// sens (sémantique) et recherche par mots-clés/MeSH.
+type Mode = "pubmed_v2" | "semantic" | "keyword";
 
 function CopyLinkButton() {
   const [copied, setCopied] = useState(false);
@@ -175,11 +166,11 @@ function LiveEvents({
   logs,
 }: {
   running: boolean;
-  variant: "v1" | "v2" | "other";
+  variant: "pubmed" | "other";
   logs: PubmedLog[];
 }) {
   const [i, setI] = useState(0);
-  const isPubmed = variant === "v1" || variant === "v2";
+  const isPubmed = variant === "pubmed";
   useEffect(() => {
     if (isPubmed) return; // les lignes viennent du serveur (SSE)
     const t = setInterval(() => setI((n) => (n + 1) % MESH_SAMPLES.length), 1300);
@@ -187,11 +178,9 @@ function LiveEvents({
   }, [isPubmed]);
 
   const title =
-    variant === "v1"
-      ? "GPT-5.4 lit les abstracts par lots"
-      : variant === "v2"
-        ? "Pré-filtre local puis jugement par codex"
-        : "Recherche en cours";
+    variant === "pubmed"
+      ? "Pré-filtre local puis jugement par codex"
+      : "Recherche en cours";
   const queryLog = logs.find((l) => l.pubmed_query);
 
   return (
@@ -412,11 +401,11 @@ export default function Home() {
   const [models, setModels] = useState<EmbeddingModelInfo[]>([]);
   const [model, setModel] = useState("");
 
-  const isPubmed = mode === "pubmed_v1" || mode === "pubmed_v2";
-  const pubmedVariant: "v1" | "v2" = mode === "pubmed_v1" ? "v1" : "v2";
+  // Recherche PubMed + IA : filtre lexical+MeSH local borné, puis un appel codex
+  // de jugement (méthode unique).
+  const isPubmed = mode === "pubmed_v2";
 
   const [data, setData] = useState<SearchResponse | null>(null);
-  const [pubmed, setPubmed] = useState<PubmedSearchResponse | null>(null);
   const [deep, setDeep] = useState<DeepSearchResponse | null>(null);
   const [savedHit, setSavedHit] = useState<{ id: string; created_at: string } | null>(null);
   const [logs, setLogs] = useState<PubmedLog[]>([]);
@@ -467,7 +456,7 @@ export default function Home() {
     const sp = new URLSearchParams();
     sp.set("mode", m);
     if (query.trim()) sp.set("q", query.trim());
-    if (m === "pubmed_v1" || m === "pubmed_v2") {
+    if (m === "pubmed_v2") {
       if (dateFrom) sp.set("from", dateFrom);
       if (dateTo) sp.set("to", dateTo);
     }
@@ -479,10 +468,9 @@ export default function Home() {
     syncUrl(m, q);
   }
 
-  // Clic sur la pastille de méthode. « PubMed + IA » couvre v1 et v2 : on garde la
-  // variante courante si on y est déjà, sinon v2 (défaut).
+  // Clic sur la pastille de méthode.
   function selectMethod(method: "pubmed" | "semantic" | "keyword") {
-    if (method === "pubmed") selectMode(isPubmed ? mode : "pubmed_v2");
+    if (method === "pubmed") selectMode("pubmed_v2");
     else selectMode(method);
   }
 
@@ -491,10 +479,11 @@ export default function Home() {
     const sp = new URLSearchParams(window.location.search);
     const m = sp.get("mode");
     const query = sp.get("q");
-    if (m === "pubmed_v1" || m === "pubmed_v2" || m === "semantic" || m === "keyword") {
+    if (m === "pubmed_v2" || m === "semantic" || m === "keyword") {
       setMode(m);
-    } else if (m === "pubmed") {
-      setMode(sp.get("variant") === "v1" ? "pubmed_v1" : "pubmed_v2");
+    } else if (m === "pubmed" || m === "pubmed_v1") {
+      // rétro-compat des anciens liens (?mode=pubmed, ?mode=pubmed_v1) → méthode unique.
+      setMode("pubmed_v2");
     }
     const from = sp.get("from");
     const to = sp.get("to");
@@ -526,85 +515,72 @@ export default function Home() {
           return;
         }
         setData(null);
-        setPubmed(null);
         setDeep(null);
         setSavedHit(null);
         setLogs([]);
         setOffset(0);
         esRef.current?.close();
-        if (pubmedVariant === "v2") {
-          if (!opts.force) {
-            let existing = null;
-            try {
-              existing = await lookupSavedSearch({
-                query: q.trim(),
-                date_from: dateFrom || undefined,
-                date_to: dateTo || undefined,
-              });
-            } catch {
-              /* lookup best-effort */
-            }
-            if (existing) {
-              setDeep(existing.payload);
-              setSavedHit({ id: existing.id, created_at: existing.created_at });
-              setLoading(false);
-              return;
-            }
+        // Recherche PubMed + IA : streaming SSE (déroulé en direct) pour ne pas
+        // se faire couper par le proxy sur les requêtes longues.
+        // Avant tout appel codex (coûteux), on regarde si une recherche identique
+        // a déjà été sauvegardée : on réaffiche alors le snapshot.
+        // `force` (bouton « Relancer quand même ») court-circuite ce cache.
+        if (!opts.force) {
+          let existing = null;
+          try {
+            existing = await lookupSavedSearch({
+              query: q.trim(),
+              date_from: dateFrom || undefined,
+              date_to: dateTo || undefined,
+            });
+          } catch {
+            /* lookup best-effort : en cas d'échec, on relance la recherche */
           }
-          esRef.current = searchPubmedDeepStream(
-            q.trim(),
-            dateFrom || undefined,
-            dateTo || undefined,
-            12,
-            {
-              onLog: (log) => {
-                setLogs((prev) => [...prev, log]);
-                if (log.phase === "codex_limit") setCodexLimit(true);
-              },
-              onResult: (res) => {
-                setDeep(res);
-                if (res.codex_limit) setCodexLimit(true);
-                setLoading(false);
-              },
-              onError: (msg) => {
-                if (msg && /usage limit|limite d'usage|rate limit/i.test(msg))
-                  setCodexLimit(true);
-                setError(msg || "La recherche v2 a échoué.");
-                setLoading(false);
-              },
-              onTranslations: (fr) =>
-                setDeep((prev) =>
-                  prev
-                    ? {
-                        ...prev,
-                        results: prev.results.map((r) =>
-                          fr[String(r.pmid)]
-                            ? { ...r, abstract_fr: fr[String(r.pmid)].abstract_fr }
-                            : r,
-                        ),
-                      }
-                    : prev,
-                ),
-            },
-          );
-          return;
+          if (existing) {
+            setDeep(existing.payload);
+            setSavedHit({ id: existing.id, created_at: existing.created_at });
+            setLoading(false);
+            return;
+          }
         }
-        esRef.current = searchPubmedStream(q.trim(), 12, dateFrom || undefined, dateTo || undefined, {
-          onLog: (log) => {
-            setLogs((prev) => [...prev, log]);
-            if (log.phase === "codex_limit") setCodexLimit(true);
+        esRef.current = searchPubmedDeepStream(
+          q.trim(),
+          dateFrom || undefined,
+          dateTo || undefined,
+          12,
+          {
+            onLog: (log) => {
+              setLogs((prev) => [...prev, log]);
+              if (log.phase === "codex_limit") setCodexLimit(true);
+            },
+            onResult: (res) => {
+              setDeep(res);
+              if (res.codex_limit) setCodexLimit(true);
+              setLoading(false);
+            },
+            onError: (msg) => {
+              if (msg && /usage limit|limite d'usage|rate limit/i.test(msg))
+                setCodexLimit(true);
+              setError(msg || "La recherche a échoué.");
+              setLoading(false);
+            },
+            // Traductions FR qui arrivent après les résultats : on les fusionne.
+            onTranslations: (fr) =>
+              setDeep((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      results: prev.results.map((r) =>
+                        fr[String(r.pmid)]
+                          ? { ...r, abstract_fr: fr[String(r.pmid)].abstract_fr }
+                          : r,
+                      ),
+                    }
+                  : prev,
+              ),
           },
-          onResult: (res) => {
-            setPubmed(res);
-            setLoading(false);
-          },
-          onError: (msg) => {
-            if (msg && /usage limit|limite d'usage|rate limit/i.test(msg)) setCodexLimit(true);
-            setError(msg || "La recherche PubMed a échoué.");
-            setLoading(false);
-          },
-        });
-        return;
+        );
+        return; // `loading` reste vrai jusqu'à onResult/onError
       }
       let res: SearchResponse;
       if (mode === "semantic") {
@@ -626,14 +602,12 @@ export default function Home() {
         });
       }
       setData(res);
-      setPubmed(null);
       setDeep(null);
       setOffset(newOffset);
       setLoading(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur inconnue");
       setData(null);
-      setPubmed(null);
       setDeep(null);
       setLoading(false);
     }
@@ -719,33 +693,15 @@ export default function Home() {
         )}
       </div>
 
-      {/* PubMed : choix v2 (rapide, défaut) vs v1 (exhaustif). */}
+      {/* PubMed + IA : note de fonctionnement (méthode unique). */}
       {isPubmed && (
         <p
           className="meta"
-          style={{ margin: "12px 2px 0", display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}
+          style={{ margin: "12px 2px 0", color: "var(--faint)", fontSize: 12.5 }}
         >
-          <span className="toggle">
-            <button
-              type="button"
-              className={pubmedVariant === "v2" ? "on" : ""}
-              onClick={() => selectMode("pubmed_v2")}
-            >
-              Rapide (v2)
-            </button>
-            <button
-              type="button"
-              className={pubmedVariant === "v1" ? "on" : ""}
-              onClick={() => selectMode("pubmed_v1")}
-            >
-              Exhaustif (v1)
-            </button>
-          </span>
-          <span style={{ color: "var(--faint)", fontSize: 12.5 }}>
-            {pubmedVariant === "v2"
-              ? "Pré-filtre local puis jugement codex — rapide, insensible à la largeur de la période."
-              : "GPT-5.4 lit tous les abstracts locaux de la période par lots — exhaustif mais plus long."}
-          </span>
+          L’IA construit une requête experte, on pré-filtre la base en local
+          (mots-clés + MeSH), puis GPT-5.4 lit et juge uniquement ces candidats —
+          rapide, insensible à la largeur de la période.
         </p>
       )}
 
@@ -863,7 +819,7 @@ export default function Home() {
       {error && <p className="xm-banner error">⚠ {error}</p>}
 
       {(loading || (isPubmed && logs.length > 0)) && (
-        <LiveEvents running={loading} variant={isPubmed ? pubmedVariant : "other"} logs={logs} />
+        <LiveEvents running={loading} variant={isPubmed ? "pubmed" : "other"} logs={logs} />
       )}
 
       {/* ---------- Résultats sémantique / mots-clés ---------- */}
@@ -934,79 +890,6 @@ export default function Home() {
               </button>
             </div>
           )}
-        </>
-      )}
-
-      {/* ---------- Résultats PubMed v1 ---------- */}
-      {pubmed && (
-        <>
-          <div className="xm-results-head">
-            <span className="xm-results-count">
-              {pubmed.relevant_total.toLocaleString("fr-FR")} jugé(s) pertinent(s) ·{" "}
-              {pubmed.local_abstracts.toLocaleString("fr-FR")} abstracts lus ·{" "}
-              {pubmed.codex_batches} lot(s) GPT-5.4
-            </span>
-            <CopyLinkButton />
-          </div>
-
-          {pubmed.ranked.length === 0 && (
-            <p className="xm-banner warn">Aucun article jugé pertinent pour cette recherche.</p>
-          )}
-          <div>
-            {pubmed.ranked.map((r, i) => (
-              <XMedResult
-                key={`ranked-${r.pmid}`}
-                rank={i + 1}
-                title={r.title}
-                journal={r.journal}
-                year={r.pub_year}
-                level={r.evidence_level}
-                relevance={codexRelevance(r.score)}
-                stand={r.justification}
-                sourceTag={
-                  `${r.sources.includes("pubmed") ? "A · PubMed" : ""}` +
-                    `${r.sources.length === 2 ? " + " : ""}` +
-                    `${r.sources.includes("local") ? "B · local" : ""}` || undefined
-                }
-                pubmedUrl={r.pubmed_url}
-                spoken={r.justification ?? undefined}
-              >
-                {r.abstract_snippet ? (
-                  <span style={{ whiteSpace: "pre-line" }}>{r.abstract_snippet}</span>
-                ) : undefined}
-              </XMedResult>
-            ))}
-          </div>
-
-          <details className="explanation" style={{ marginTop: 24 }}>
-            <summary>Voir la requête PubMed et la liste A brute</summary>
-            {pubmed.pubmed_query && (
-              <p className="abstract" style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}>
-                {pubmed.pubmed_query}
-              </p>
-            )}
-            {pubmed.results.length === 0 && (
-              <p className="meta">Aucun article PubMed pour cette requête.</p>
-            )}
-            <div>
-              {pubmed.results.map((r, i) => (
-                <XMedResult
-                  key={`pm-${r.pmid}`}
-                  rank={i + 1}
-                  title={r.title}
-                  journal={r.journal}
-                  year={r.pub_year}
-                  level={r.evidence_level}
-                  sourceTag={r.in_db ? "dans la base locale" : "hors base locale"}
-                  pubmedUrl={r.pubmed_url}
-                >
-                  {r.abstract_fr ? (
-                    <span style={{ whiteSpace: "pre-line" }}>{r.abstract_fr}</span>
-                  ) : undefined}
-                </XMedResult>
-              ))}
-            </div>
-          </details>
         </>
       )}
 

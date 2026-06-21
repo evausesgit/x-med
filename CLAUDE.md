@@ -39,11 +39,11 @@ Il tue l'ancien process **par le port** (jamais `pkill -f`) et fait des health-c
 Logs : `/tmp/xmed-api.log`, `/tmp/xmed-web.log`, `/tmp/xmed-web-build.log`.
 
 ⚠️ **Piège PATH (cause de « 502 codex introuvable » sur la recherche PubMed).** La
-recherche PubMed mode « lots d'abstracts » appelle le binaire **`codex`** (CLI GPT-5.4),
+recherche PubMed + IA appelle le binaire **`codex`** (CLI GPT-5.4),
 installé via **npm global dans `~/.npm-global/bin`**. Ce dossier est dans le PATH d'un
 terminal interactif, mais **PAS** dans celui d'un process lancé par un **agent** (arbre
 `systemd --user` → hermes gateway), dont le PATH est minimal. Si l'API a été démarrée par
-un agent sans ce dossier, `codex` est introuvable et `/search/pubmed` renvoie 502.
+un agent sans ce dossier, `codex` est introuvable et `/search/pubmed/deep` renvoie 502.
 `scripts/dev_up.sh` force désormais `~/.npm-global/bin` dans le PATH ; **toujours
 redémarrer le backend via ce script** (et pas un `uvicorn` lancé à la main) pour garantir
 que `codex` est résolvable. Vérifier avec `command -v codex` avant de soupçonner le code.

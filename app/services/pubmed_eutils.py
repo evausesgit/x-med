@@ -1,8 +1,8 @@
 """Client PubMed E-utilities (esearch / esummary / efetch) — recherche à la demande.
 
 Source distincte du flux FTP bulk (voir pubmed_ftp.py et ARCHITECTURE.md : « Deux
-sources PubMed distinctes »). Utilisé par le mode de recherche « PubMed d'abord »
-(/search/pubmed) : on interroge PubMed en direct pour les articles récents et
+sources PubMed distinctes »). Utilisé par la recherche PubMed + IA
+(/search/pubmed/deep) : on interroge PubMed en direct pour les articles récents et
 pertinents, puis on enrichit avec notre base.
 
 Pas de clé requise (limite NIH 3 req/s) ; une clé NCBI (gratuite) monte à 10 req/s.
