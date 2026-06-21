@@ -67,6 +67,18 @@ export interface DeepSearchResponse {
   codex_tokens?: Record<string, number>; // tokens GPT-5.4 (query / judge / total)
   counts: Record<string, number>;
   results: DeepHit[];
+  // PMID jugeables pas encore soumis à codex : permet « Analyser 50 de plus ».
+  remaining?: number[];
+}
+
+// Réponse d'un lot supplémentaire « Analyser N de plus » (/search/pubmed/deep/more).
+export interface DeepMoreResponse {
+  judge: "codex" | "skipped";
+  codex_limit?: boolean;
+  codex_tokens?: Record<string, number>;
+  judged: number;
+  kept: number;
+  results: DeepHit[];
 }
 
 // Non streaming : filtre lexical local borné, puis un seul appel codex de jugement.
@@ -112,6 +124,61 @@ export function searchPubmedDeepStream(
   if (dateFrom) sp.set("date_from", dateFrom);
   if (dateTo) sp.set("date_to", dateTo);
   const es = new EventSource(`${API_BASE}/search/pubmed/deep/stream?${sp.toString()}`);
+  es.addEventListener("log", (e) => {
+    try {
+      handlers.onLog(JSON.parse((e as MessageEvent).data));
+    } catch {
+      /* ignore une ligne malformée */
+    }
+  });
+  es.addEventListener("translations", (e) => {
+    try {
+      handlers.onTranslations?.(JSON.parse((e as MessageEvent).data));
+    } catch {
+      /* ignore */
+    }
+  });
+  es.addEventListener("result", (e) => {
+    try {
+      handlers.onResult(JSON.parse((e as MessageEvent).data));
+    } finally {
+      es.close();
+    }
+  });
+  es.addEventListener("error", (e) => {
+    const data = (e as MessageEvent).data;
+    if (data) {
+      try {
+        handlers.onError(JSON.parse(data).msg);
+      } catch {
+        handlers.onError();
+      }
+    } else {
+      handlers.onError();
+    }
+    es.close();
+  });
+  return es;
+}
+
+// « Analyser N de plus » : juge un lot supplémentaire de PMID (issus de
+// DeepSearchResponse.remaining) en SSE — même raison que ci-dessus (codex long).
+export function searchPubmedDeepMoreStream(
+  query: string,
+  pmids: number[],
+  handlers: {
+    onLog: (log: PubmedLog) => void;
+    onResult: (res: DeepMoreResponse) => void;
+    onError: (msg?: string) => void;
+    onTranslations?: (
+      fr: Record<string, { title_fr: string; abstract_fr: string }>,
+    ) => void;
+  },
+): EventSource {
+  const sp = new URLSearchParams({ query, pmids: pmids.join(",") });
+  const es = new EventSource(
+    `${API_BASE}/search/pubmed/deep/more/stream?${sp.toString()}`,
+  );
   es.addEventListener("log", (e) => {
     try {
       handlers.onLog(JSON.parse((e as MessageEvent).data));

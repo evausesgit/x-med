@@ -399,8 +399,8 @@ class DeepSearchRequest(BaseModel):
     date_from: str | None = None  # st (YYYY-MM-DD ou YYYY)
     date_to: str | None = None  # ed
     k_pubmed: int = 20  # taille de A (esearch)
-    max_local: int = 50  # candidats locaux (filtre FTS+MeSH)
-    judge_cap: int = 80  # plafond d'articles soumis à codex (1 appel)
+    max_local: int = 200  # candidats locaux (filtre FTS+MeSH) — vivier large, jugé par lots
+    judge_batch: int = 50  # nombre d'abstracts jugés par codex à chaque lot (« 50 de plus »)
     min_score: int = 2  # seuil de conservation (0-3)
 
 
@@ -429,8 +429,29 @@ class DeepSearchResponse(BaseModel):
     judge: Literal["codex", "skipped"]
     codex_limit: bool = False  # quota GPT-5.4 atteint (résultats dégradés)
     codex_tokens: dict[str, int] = {}  # tokens GPT-5.4 par étape (query/judge/total)
-    counts: dict[str, int]  # pubmed / local / merged / judged / kept
+    counts: dict[str, int]  # pubmed / local / merged / judgeable / judged / kept
     results: list[DeepHit]  # = C, classé
+    # PMID jugeables (avec abstract) pas encore soumis à codex, dans l'ordre du
+    # pré-filtre : le front les envoie par lots de `judge_batch` au flux « /more ».
+    remaining: list[int] = []
+
+
+class DeepMoreRequest(BaseModel):
+    """« Analyser 50 de plus » : juge un lot de PMID déjà pré-filtrés (issus de
+    `DeepSearchResponse.remaining`)."""
+
+    query: str  # PRM : même phrase clinique que la recherche initiale
+    pmids: list[int]  # lot suivant à juger (le front en envoie ≤ judge_batch)
+    min_score: int = 2
+
+
+class DeepMoreResponse(BaseModel):
+    judge: Literal["codex", "skipped"]
+    codex_limit: bool = False
+    codex_tokens: dict[str, int] = {}
+    judged: int  # abstracts effectivement jugés dans ce lot
+    kept: int  # retenus (score ≥ min_score) dans ce lot
+    results: list[DeepHit]
 
 
 def _year(d: str | None) -> int | None:
@@ -560,22 +581,28 @@ def _run_deep_search(
     def _abstract(p: int) -> str | None:
         return db[p].abstract if p in db else ext_abstracts.get(p)
 
-    # Candidats jugeables = ceux qui ont un abstract (codex doit lire le texte)
-    judgeable = [p for p in candidate_pmids if (_abstract(p) or "").strip()][: req.judge_cap]
-    emit("judge", f"🧬 GPT-5.4 lit et juge {len(judgeable)} abstracts…")
+    # Candidats jugeables = ceux qui ont un abstract (codex doit lire le texte).
+    # On ne juge que le PREMIER lot (`judge_batch`) ; le reste (`remaining`) est
+    # renvoyé au front, qui peut demander « 50 de plus » via le flux /more.
+    judgeable = [p for p in candidate_pmids if (_abstract(p) or "").strip()]
+    first_batch = judgeable[: req.judge_batch]
+    rest = judgeable[req.judge_batch :]
+    emit("judge", f"🧬 GPT-5.4 lit et juge {len(first_batch)} abstracts "
+                  f"(sur {len(judgeable)} jugeables)…")
 
-    # --- Étape 3 : codex lit & juge ---
+    # --- Étape 3 : codex lit & juge le premier lot ---
     judge_mode: Literal["codex", "skipped"] = "codex"
     scores: dict[int, object] = {}
     try:
         scores, judge_usage = judge_articles(
             req.query,
-            [{"pmid": p, "title": _title(p), "abstract": _abstract(p)} for p in judgeable],
+            [{"pmid": p, "title": _title(p), "abstract": _abstract(p)} for p in first_batch],
         )
         codex_tokens["judge"] = judge_usage.total_tokens
         emit("judge_done", f"🧠 Jugement terminé · {_fmt_tokens(judge_usage)}")
     except JudgeError as e:
         judge_mode = "skipped"  # repli : pas de score, tri lexical + récence
+        rest = []  # jugement HS → pas de pagination « 50 de plus »
         note_limit(e)
 
     # --- Assemblage + classement = C ---
@@ -635,10 +662,12 @@ def _run_deep_search(
             "pubmed": len(a_set),
             "local": len(local_set),
             "merged": len(candidate_pmids),
+            "judgeable": len(judgeable),
             "judged": len(scores),
             "kept": len(hits),
         },
         results=hits,
+        remaining=rest,
     )
 
 
@@ -655,6 +684,116 @@ def _deep_metrics(result: DeepSearchResponse) -> dict:
         "relevant_total": result.counts.get("kept"),
         "codex_limit": result.codex_limit,
     }
+
+
+def _run_deep_more(
+    req: DeepMoreRequest, session: Session, progress: ProgressCallback | None = None
+) -> DeepMoreResponse:
+    """Juge un lot de PMID déjà pré-filtrés (pagination « 50 de plus » de la v2).
+
+    Réutilisé par l'endpoint POST et le flux SSE. Récupère titres/abstracts (base
+    locale puis efetch NCBI pour les manquants), fait juger le lot par codex, ne
+    garde que les articles ≥ `min_score`, classe et complète les traductions FR
+    déjà en cache.
+    """
+    from app.services import pubmed_eutils as eut
+    from app.services.codex_judge import JudgeError, judge_articles
+    from app.services.query_builder import is_usage_limit
+    from app.services.translate import get_cached
+
+    codex_limit = False
+    codex_tokens: dict[str, int] = {"judge": 0, "total": 0}
+
+    def emit(phase: str, msg: str, **data) -> None:
+        if progress:
+            progress(phase, msg, data)
+
+    pmids = list(dict.fromkeys(req.pmids))  # dédup en gardant l'ordre du pré-filtre
+    db = _fetch_articles(session, pmids)
+    missing = [p for p in pmids if p not in db]
+    meta: dict = {}
+    ext_abstracts: dict = {}
+    if missing:
+        try:
+            meta = eut.esummary(missing)
+        except Exception:
+            meta = {}
+        try:
+            ext_abstracts = eut.efetch_abstracts(missing)
+        except Exception:
+            ext_abstracts = {}
+
+    def _title(p: int) -> str:
+        return db[p].title if p in db else (meta[p].title if p in meta else str(p))
+
+    def _abstract(p: int) -> str | None:
+        return db[p].abstract if p in db else ext_abstracts.get(p)
+
+    judgeable = [p for p in pmids if (_abstract(p) or "").strip()]
+    emit("judge", f"🧬 GPT-5.4 lit et juge {len(judgeable)} abstracts de plus…")
+
+    judge_mode: Literal["codex", "skipped"] = "codex"
+    scores: dict[int, object] = {}
+    try:
+        scores, judge_usage = judge_articles(
+            req.query,
+            [{"pmid": p, "title": _title(p), "abstract": _abstract(p)} for p in judgeable],
+        )
+        codex_tokens["judge"] = judge_usage.total_tokens
+        emit("judge_done", f"🧠 Jugement terminé · {_fmt_tokens(judge_usage)}")
+    except JudgeError as e:
+        judge_mode = "skipped"
+        if is_usage_limit(str(e)):
+            codex_limit = True
+            emit("codex_limit",
+                 "🚫 Limite d'usage GPT-5.4 atteinte — réessayez plus tard.")
+        else:
+            emit("judge_skip", f"⚠️ Jugement indisponible ({e})")
+
+    hits: list[DeepHit] = []
+    for p in pmids:
+        j = scores.get(p)
+        score = j.score if j else None
+        if score is None or score < req.min_score:
+            continue
+        a = db.get(p)
+        m = meta.get(p)
+        hits.append(DeepHit(
+            pmid=p,
+            title=_title(p),
+            journal=(a.journal if a else (m.journal if m else None)),
+            pub_year=(a.pub_year if a else (m.pub_year if m else None)),
+            doi=(a.doi if a else (m.doi if m else None)),
+            pubmed_url=f"https://pubmed.ncbi.nlm.nih.gov/{p}/",
+            in_db=a is not None,
+            source=("local" if a is not None else "pubmed"),
+            evidence_level=(a.evidence_level if a else None),
+            score=score,
+            reason=(j.reason if j else None),
+            abstract=_abstract(p),
+        ))
+
+    hits.sort(key=lambda h: (
+        -(h.score if h.score is not None else -1),
+        h.evidence_level if h.evidence_level is not None else 99,
+        -(h.pub_year or 0),
+    ))
+
+    cached_fr = get_cached(session, [h.pmid for h in hits])
+    for h in hits:
+        tr = cached_fr.get(h.pmid)
+        if tr:
+            h.abstract_fr = tr.abstract_fr
+
+    emit("done", f"✅ {len(hits)} articles retenus dans ce lot")
+    return DeepMoreResponse(
+        judge=judge_mode,
+        codex_limit=codex_limit,
+        codex_tokens={**codex_tokens, "total": codex_tokens["judge"]},
+        judged=len(scores),
+        kept=len(hits),
+        results=hits,
+    )
 
 
 @router.post("/search/pubmed/deep", response_model=DeepSearchResponse)
@@ -811,7 +950,7 @@ def search_pubmed_deep_stream(
     date_from: str | None = Query(default=None),
     date_to: str | None = Query(default=None),
     k_pubmed: int = Query(default=20, ge=1, le=50),
-    max_local: int = Query(default=50, ge=1, le=200),
+    max_local: int = Query(default=200, ge=1, le=400),
 ):
     """Identique à /search/pubmed/deep mais en SSE : émet le déroulé en direct
     (les keep-alives empêchent le proxy de couper les requêtes longues) puis un
@@ -869,6 +1008,71 @@ def search_pubmed_deep_stream(
                         error=str(exc),
                     )
                 events.put(("error", {"msg": f"Recherche v2 indisponible : {exc}"}))
+            finally:
+                events.put(None)
+
+        Thread(target=produce, daemon=True).start()
+        while True:
+            try:
+                event = events.get(timeout=15)
+            except Empty:
+                yield ": keep-alive\n\n"
+                continue
+            if event is None:
+                return
+            event_name, payload = event
+            yield sse(event_name, payload)
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no",
+                 "Connection": "keep-alive"},
+    )
+
+
+@router.post("/search/pubmed/deep/more", response_model=DeepMoreResponse)
+def search_pubmed_deep_more(req: DeepMoreRequest, session: Session = Depends(get_session)):
+    """« Analyser N de plus » : juge le lot de PMID fourni (cf. `remaining`)."""
+    return _run_deep_more(req, session)
+
+
+@router.get("/search/pubmed/deep/more/stream")
+def search_pubmed_deep_more_stream(
+    query: str = Query(..., min_length=1),
+    pmids: str = Query(..., description="PMID à juger, séparés par des virgules"),
+    min_score: int = Query(default=2, ge=0, le=3),
+):
+    """Version SSE de /search/pubmed/deep/more : émet le déroulé puis `result`
+    (forme DeepMoreResponse), comme le stream de la recherche initiale. Les
+    keep-alives évitent que le proxy coupe l'appel codex (qui peut durer ~1 min)."""
+    pmid_list = [int(x) for x in pmids.split(",") if x.strip().isdigit()]
+
+    def sse(event: str, data: dict) -> str:
+        return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+    def gen():
+        t0 = time.monotonic()
+        events: Queue[tuple[str, dict] | None] = Queue()
+
+        def progress(phase: str, msg: str, data: dict) -> None:
+            elapsed = round(time.monotonic() - t0, 1)
+            events.put(("log", {"phase": phase, "msg": f"{msg} ({elapsed}s)", **data}))
+
+        def produce() -> None:
+            try:
+                with SessionLocal() as worker_session:
+                    result = _run_deep_more(
+                        DeepMoreRequest(query=query, pmids=pmid_list, min_score=min_score),
+                        worker_session,
+                        progress,
+                    )
+                    events.put(("result", result.model_dump()))
+                    fr = _translate_kept(result, worker_session, progress)
+                    if fr:
+                        events.put(("translations", fr))
+            except Exception as exc:
+                events.put(("error", {"msg": f"Jugement indisponible : {exc}"}))
             finally:
                 events.put(None)
 

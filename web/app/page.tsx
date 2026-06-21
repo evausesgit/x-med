@@ -13,6 +13,7 @@ import {
   PubmedLog,
   saveSearch,
   searchMesh,
+  searchPubmedDeepMoreStream,
   searchPubmedDeepStream,
   searchSemantic,
   SearchResponse,
@@ -411,11 +412,20 @@ export default function Home() {
   const [logs, setLogs] = useState<PubmedLog[]>([]);
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(false);
+  // Jugement d'un lot supplémentaire (« Analyser 50 de plus ») en cours.
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [codexLimit, setCodexLimit] = useState(false);
   const esRef = useRef<EventSource | null>(null);
+  const moreRef = useRef<EventSource | null>(null);
 
-  useEffect(() => () => esRef.current?.close(), []);
+  useEffect(
+    () => () => {
+      esRef.current?.close();
+      moreRef.current?.close();
+    },
+    [],
+  );
 
   const markTranslated = (pmid: number, abstractFr: string) =>
     setDeep((prev) =>
@@ -428,6 +438,72 @@ export default function Home() {
           }
         : prev,
     );
+
+  // Classement identique au backend : score décroissant (non jugé en dernier),
+  // niveau de preuve croissant, puis année décroissante.
+  const sortDeep = (rows: DeepHit[]): DeepHit[] =>
+    [...rows].sort(
+      (a, b) =>
+        (b.score ?? -1) - (a.score ?? -1) ||
+        (a.evidence_level ?? 99) - (b.evidence_level ?? 99) ||
+        (b.pub_year ?? 0) - (a.pub_year ?? 0),
+    );
+
+  // « Analyser 50 de plus » : juge le prochain lot de `remaining` puis fusionne.
+  function loadMore() {
+    if (!deep?.remaining?.length || loadingMore) return;
+    const next = deep.remaining.slice(0, 50);
+    setLoadingMore(true);
+    setError(null);
+    moreRef.current?.close();
+    moreRef.current = searchPubmedDeepMoreStream(q.trim(), next, {
+      onLog: (log) => {
+        setLogs((prev) => [...prev, log]);
+        if (log.phase === "codex_limit") setCodexLimit(true);
+      },
+      onResult: (res) => {
+        if (res.codex_limit) setCodexLimit(true);
+        setDeep((prev) => {
+          if (!prev) return prev;
+          const known = new Set(prev.results.map((r) => r.pmid));
+          const merged = sortDeep([
+            ...prev.results,
+            ...res.results.filter((r) => !known.has(r.pmid)),
+          ]);
+          return {
+            ...prev,
+            results: merged,
+            remaining: (prev.remaining ?? []).slice(next.length),
+            counts: {
+              ...prev.counts,
+              judged: (prev.counts.judged ?? 0) + res.judged,
+              kept: merged.length,
+            },
+          };
+        });
+        setLoadingMore(false);
+      },
+      onError: (msg) => {
+        if (msg && /usage limit|limite d'usage|rate limit/i.test(msg))
+          setCodexLimit(true);
+        setError(msg || "L'analyse du lot suivant a échoué.");
+        setLoadingMore(false);
+      },
+      onTranslations: (fr) =>
+        setDeep((prev) =>
+          prev
+            ? {
+                ...prev,
+                results: prev.results.map((r) =>
+                  fr[String(r.pmid)]
+                    ? { ...r, abstract_fr: fr[String(r.pmid)].abstract_fr }
+                    : r,
+                ),
+              }
+            : prev,
+        ),
+    });
+  }
 
   useEffect(() => {
     listModels().then((ms) => {
@@ -519,7 +595,9 @@ export default function Home() {
         setSavedHit(null);
         setLogs([]);
         setOffset(0);
+        setLoadingMore(false);
         esRef.current?.close();
+        moreRef.current?.close();
         // Recherche PubMed + IA : streaming SSE (déroulé en direct) pour ne pas
         // se faire couper par le proxy sur les requêtes longues.
         // Avant tout appel codex (coûteux), on regarde si une recherche identique
@@ -818,8 +896,12 @@ export default function Home() {
 
       {error && <p className="xm-banner error">⚠ {error}</p>}
 
-      {(loading || (isPubmed && logs.length > 0)) && (
-        <LiveEvents running={loading} variant={isPubmed ? "pubmed" : "other"} logs={logs} />
+      {(loading || loadingMore || (isPubmed && logs.length > 0)) && (
+        <LiveEvents
+          running={loading || loadingMore}
+          variant={isPubmed ? "pubmed" : "other"}
+          logs={logs}
+        />
       )}
 
       {/* ---------- Résultats sémantique / mots-clés ---------- */}
@@ -992,6 +1074,24 @@ export default function Home() {
               </XMedResult>
             ))}
           </div>
+
+          {deep.judge === "codex" && (deep.remaining?.length ?? 0) > 0 && (
+            <div style={{ textAlign: "center", marginTop: 16 }}>
+              <button
+                type="button"
+                className="primary"
+                disabled={loadingMore}
+                onClick={loadMore}
+              >
+                {loadingMore
+                  ? "Analyse en cours…"
+                  : `Analyser ${Math.min(50, deep.remaining!.length)} de plus`}
+              </button>
+              <p className="meta" style={{ marginTop: 6 }}>
+                {deep.remaining!.length} abstract(s) pré-filtré(s) restant(s) à juger.
+              </p>
+            </div>
+          )}
         </>
       )}
 
