@@ -8,6 +8,17 @@ Pipeline hybride qui combine :
 - **Claude API** : enrichissement IA (scoring de pertinence, résumé, traduction)
 - **Digest personnalisé** : email généré par profil médecin
 
+### Cadrage produit V2 — septembre 2026
+
+Le plan produit V2 issu du retour devis / médecin est documenté dans
+`docs/plans/2026-06-26-xmed-v2-fonctionnalites-couts.md`.
+
+La cible V2 à tester auprès d'une liste de médecins en septembre est une suite de
+5 fonctionnalités : **recherche**, **traduction**, **audio**, **résumé** et
+**lecture critique**. La fonctionnalité différenciante à prioriser est la
+lecture critique d'un article et la comparaison de 2 à 3 articles sélectionnés.
+Toute implémentation V2 doit intégrer un suivi du coût par action IA dès le MVP.
+
 ### Explicabilité des résultats
 
 L'API de recherche joint à chaque article une explication factuelle calculée
