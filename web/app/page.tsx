@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  analyzeCompareStream,
   ArticleResult,
   DeepSearchResponse,
   Doctor,
@@ -18,13 +19,10 @@ import {
   searchSemantic,
   SearchResponse,
 } from "@/lib/api";
-import type { DeepHit } from "@/lib/api";
+import type { CompareResult, DeepHit } from "@/lib/api";
 import Link from "next/link";
-import XMedResult, {
-  CritiqueButton,
-  deepRelevance,
-  type Relevance,
-} from "./XMedResult";
+import XMedResult, { deepRelevance, type Relevance } from "./XMedResult";
+import { CritiquePanel, MAX_COMPARE, SelectButton } from "./Critique";
 import { LanguageToggle, useDisplayLang, useTranslatedHits } from "./lang";
 
 const PAGE = 20;
@@ -363,13 +361,72 @@ export default function Home() {
   const esRef = useRef<EventSource | null>(null);
   const moreRef = useRef<EventSource | null>(null);
 
+  // Analyse critique comparative : PMID sélectionnés (≤ MAX_COMPARE), résultat,
+  // déroulé et état de l'appel codex.
+  const [selected, setSelected] = useState<number[]>([]);
+  const [analysis, setAnalysis] = useState<CompareResult | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisLogs, setAnalysisLogs] = useState<PubmedLog[]>([]);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  // Ordre de sélection figé au lancement (stabilise les colonnes du tableau).
+  const [analysisOrder, setAnalysisOrder] = useState<number[]>([]);
+  const critiqueRef = useRef<EventSource | null>(null);
+
   useEffect(
     () => () => {
       esRef.current?.close();
       moreRef.current?.close();
+      critiqueRef.current?.close();
     },
     [],
   );
+
+  function toggleSelected(pmid: number) {
+    setSelected((prev) =>
+      prev.includes(pmid)
+        ? prev.filter((p) => p !== pmid)
+        : prev.length >= MAX_COMPARE
+          ? prev
+          : [...prev, pmid],
+    );
+  }
+
+  function clearSelection() {
+    setSelected([]);
+    setAnalysis(null);
+    setAnalysisError(null);
+    setAnalysisLogs([]);
+    critiqueRef.current?.close();
+    setAnalyzing(false);
+  }
+
+  function runAnalysis() {
+    if (selected.length < 2 || analyzing) return;
+    const order = [...selected];
+    setAnalyzing(true);
+    setAnalysis(null);
+    setAnalysisError(null);
+    setAnalysisLogs([]);
+    setAnalysisOrder(order);
+    critiqueRef.current?.close();
+    critiqueRef.current = analyzeCompareStream(q.trim(), order, {
+      onLog: (log) => setAnalysisLogs((prev) => [...prev, log]),
+      onResult: (res) => {
+        if (res.codex_limit) {
+          setAnalysisError(
+            "Limite d'usage GPT-5.4 atteinte — réessayez l'analyse plus tard.",
+          );
+        } else {
+          setAnalysis(res);
+        }
+        setAnalyzing(false);
+      },
+      onError: (msg) => {
+        setAnalysisError(msg || "L'analyse critique a échoué.");
+        setAnalyzing(false);
+      },
+    });
+  }
 
   // Langue d'affichage (préférence persistante) + traduction à la demande des
   // résultats quand on bascule en français (un seul appel par lot, cache global).
@@ -540,6 +597,7 @@ export default function Home() {
         setLogs([]);
         setOffset(0);
         setLoadingMore(false);
+        clearSelection();
         esRef.current?.close();
         moreRef.current?.close();
         // Recherche PubMed + IA : streaming SSE (déroulé en direct) pour ne pas
@@ -995,6 +1053,41 @@ export default function Home() {
             <p className="xm-banner warn">Aucun article jugé pertinent pour cette recherche.</p>
           )}
 
+          {/* Barre d'analyse critique : apparaît dès qu'un article est coché. */}
+          {selected.length > 0 && (
+            <div className="xm-compare-bar">
+              <span className="xm-compare-count">
+                <strong>{selected.length}</strong> / {MAX_COMPARE} sélectionné
+                {selected.length > 1 ? "s" : ""} pour l&apos;analyse
+              </span>
+              <span className="xm-compare-actions">
+                <button
+                  type="button"
+                  className="primary"
+                  disabled={selected.length < 2 || analyzing}
+                  onClick={runAnalysis}
+                  title={
+                    selected.length < 2
+                      ? "Sélectionnez au moins 2 articles"
+                      : "Lancer l'analyse critique comparative"
+                  }
+                >
+                  {analyzing ? "Analyse en cours…" : "🔬 Analyser la sélection"}
+                </button>
+                <button type="button" className="xmr-act" onClick={clearSelection}>
+                  Effacer
+                </button>
+              </span>
+            </div>
+          )}
+
+          {/* Déroulé live de l'analyse codex. */}
+          {analyzing && <LiveEvents running variant="other" logs={analysisLogs} />}
+          {analysisError && (
+            <p className="xm-banner warn">⚠ {analysisError}</p>
+          )}
+          {analysis && <CritiquePanel result={analysis} order={analysisOrder} />}
+
           {deep.results.length > 0 && (
             <div
               style={{
@@ -1027,7 +1120,15 @@ export default function Home() {
                       : undefined
                   }
                   contribution={r.reason}
-                  extraActions={<CritiqueButton />}
+                  extraActions={
+                    <SelectButton
+                      selected={selected.includes(r.pmid)}
+                      disabled={
+                        !selected.includes(r.pmid) && selected.length >= MAX_COMPARE
+                      }
+                      onToggle={() => toggleSelected(r.pmid)}
+                    />
+                  }
                   sourceTag={
                     r.source === "both"
                       ? "A · PubMed + B · local"

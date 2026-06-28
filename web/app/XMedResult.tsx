@@ -132,16 +132,6 @@ export function deepRelevance(score: number, relevancePct?: number | null): Rele
   return { pct, tier, label, title };
 }
 
-// Action « Analyse critique » — stub en attendant la fonctionnalité (Phase 3 du
-// plan V2). Désactivée pour l'instant.
-export function CritiqueButton() {
-  return (
-    <button type="button" className="xmr-act" disabled title="Bientôt disponible">
-      Analyse critique · bientôt
-    </button>
-  );
-}
-
 export default function XMedResult({
   rank,
   title,

@@ -1198,3 +1198,203 @@ def search_pubmed_deep_more_stream(
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no",
                  "Connection": "keep-alive"},
     )
+
+
+# ---------------------------------------------------------------------------
+# Analyse critique comparative (V1) : le médecin sélectionne 2–3 articles dans
+# les résultats et lance une comparaison structurée (cf. codex_critique).
+# ---------------------------------------------------------------------------
+
+# Borne dure : la V1 ne compare que 2 à 3 articles (un seul appel codex lisible).
+MAX_COMPARE = 3
+
+
+class CompareRequest(BaseModel):
+    query: str = Field(..., min_length=1)  # question clinique (PRM)
+    pmids: list[int] = Field(..., min_length=2, max_length=MAX_COMPARE)
+
+
+class CompareRow(BaseModel):
+    pmid: int
+    title: str | None = None
+    study_type: str
+    population: str
+    primary_outcome: str
+    effect_size: str
+    limits: str
+
+
+class CompareResponse(BaseModel):
+    query: str
+    rows: list[CompareRow]
+    concordance: str
+    synthesis: str
+    codex_limit: bool = False
+    codex_tokens: dict[str, int] = {}
+
+
+def _resolve_compare_articles(
+    session: Session, pmids: list[int]
+) -> dict[int, dict]:
+    """Résout titre + abstract de chaque PMID : base locale d'abord, puis NCBI
+    (efetch abstracts + esummary titres) pour ce qui manque. EventSource étant en
+    GET, le front ne peut pas POSTer les abstracts déjà affichés — on les
+    re-résout ici (2–3 PMID, rapide)."""
+    out: dict[int, dict] = {}
+    missing_abs: list[int] = []
+    missing_title: list[int] = []
+    for pmid in pmids:
+        art = session.get(Article, pmid)
+        title = art.title if art else None
+        abstract = (art.abstract if art else None) or ""
+        out[pmid] = {"pmid": pmid, "title": title, "abstract": abstract}
+        if not abstract.strip():
+            missing_abs.append(pmid)
+        if not title:
+            missing_title.append(pmid)
+
+    if missing_abs:
+        from app.services import pubmed_eutils as eut
+
+        try:
+            fetched = eut.efetch_abstracts(missing_abs)
+        except Exception:
+            fetched = {}
+        for pmid, ab in fetched.items():
+            out[pmid]["abstract"] = ab
+    if missing_title:
+        from app.services import pubmed_eutils as eut
+
+        try:
+            summ = eut.esummary(missing_title)
+        except Exception:
+            summ = {}
+        for pmid, hit in summ.items():
+            out[pmid]["title"] = hit.title
+    return out
+
+
+def _run_compare(
+    req: CompareRequest, session: Session, progress: ProgressCallback | None = None
+) -> CompareResponse:
+    """Cœur de l'analyse critique : résout les abstracts puis appelle codex."""
+    from app.services.codex_critique import CritiqueError, compare_articles
+    from app.services.query_builder import is_usage_limit
+
+    def emit(phase: str, msg: str, data: dict | None = None) -> None:
+        if progress:
+            progress(phase, msg, data or {})
+
+    emit("resolve", f"Récupération des {len(req.pmids)} articles sélectionnés", {})
+    resolved = _resolve_compare_articles(session, req.pmids)
+    # On garde l'ordre de sélection du médecin.
+    articles = [resolved[p] for p in req.pmids if p in resolved]
+    usable = [a for a in articles if (a.get("abstract") or "").strip()]
+    if len(usable) < 2:
+        raise HTTPException(
+            422,
+            "Au moins 2 des articles sélectionnés doivent avoir un résumé "
+            "exploitable pour lancer l'analyse comparative.",
+        )
+
+    emit("critique", "Analyse critique comparative par codex", {})
+    try:
+        critique, usage = compare_articles(req.query, usable)
+    except CritiqueError as e:
+        if is_usage_limit(str(e)):
+            return CompareResponse(
+                query=req.query, rows=[], concordance="", synthesis="",
+                codex_limit=True,
+            )
+        raise HTTPException(502, f"Analyse critique indisponible : {e}")
+
+    emit("done", f"Analyse terminée — {_fmt_tokens(usage)}", {})
+    titles = {p: resolved[p]["title"] for p in resolved}
+    rows = [
+        CompareRow(
+            pmid=r.pmid,
+            title=titles.get(r.pmid),
+            study_type=r.study_type,
+            population=r.population,
+            primary_outcome=r.primary_outcome,
+            effect_size=r.effect_size,
+            limits=r.limits,
+        )
+        for r in critique.rows
+    ]
+    return CompareResponse(
+        query=req.query,
+        rows=rows,
+        concordance=critique.concordance,
+        synthesis=critique.synthesis,
+        codex_tokens={"total": usage.total_tokens},
+    )
+
+
+@router.post("/analyze/compare", response_model=CompareResponse)
+def analyze_compare(req: CompareRequest, session: Session = Depends(get_session)):
+    """Analyse critique comparative de 2–3 articles (non streaming, pour tests)."""
+    return _run_compare(req, session)
+
+
+@router.get("/analyze/compare/stream")
+def analyze_compare_stream(
+    query: str = Query(..., min_length=1),
+    pmids: str = Query(..., description="PMID à comparer (2–3), séparés par des virgules"),
+):
+    """Version SSE de /analyze/compare : émet le déroulé puis un événement
+    `result` (forme CompareResponse). Les keep-alives évitent que le proxy coupe
+    l'appel codex (qui peut durer ~1 min)."""
+    pmid_list = [int(x) for x in pmids.split(",") if x.strip().isdigit()][:MAX_COMPARE]
+
+    def sse(event: str, data: dict) -> str:
+        return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+    def gen():
+        t0 = time.monotonic()
+        events: Queue[tuple[str, dict] | None] = Queue()
+
+        def progress(phase: str, msg: str, data: dict) -> None:
+            elapsed = round(time.monotonic() - t0, 1)
+            events.put(("log", {"phase": phase, "msg": f"{msg} ({elapsed}s)", **data}))
+
+        def produce() -> None:
+            try:
+                if len(pmid_list) < 2:
+                    events.put((
+                        "error",
+                        {"msg": "Sélectionnez 2 à 3 articles pour lancer l'analyse."},
+                    ))
+                    return
+                with SessionLocal() as worker_session:
+                    result = _run_compare(
+                        CompareRequest(query=query, pmids=pmid_list),
+                        worker_session,
+                        progress,
+                    )
+                    events.put(("result", result.model_dump()))
+            except HTTPException as exc:
+                events.put(("error", {"msg": str(exc.detail)}))
+            except Exception as exc:
+                events.put(("error", {"msg": f"Analyse critique indisponible : {exc}"}))
+            finally:
+                events.put(None)
+
+        Thread(target=produce, daemon=True).start()
+        while True:
+            try:
+                event = events.get(timeout=15)
+            except Empty:
+                yield ": keep-alive\n\n"
+                continue
+            if event is None:
+                return
+            event_name, payload = event
+            yield sse(event_name, payload)
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no",
+                 "Connection": "keep-alive"},
+    )
