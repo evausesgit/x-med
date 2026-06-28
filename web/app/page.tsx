@@ -995,21 +995,6 @@ export default function Home() {
             <p className="xm-banner warn">Aucun article jugé pertinent pour cette recherche.</p>
           )}
 
-          {deep.results.length > 0 && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                justifyContent: "flex-end",
-                margin: "4px 0 12px",
-              }}
-            >
-              <span className="meta">Langue d&apos;affichage</span>
-              <LanguageToggle lang={lang} onChange={setLang} busy={translating} />
-            </div>
-          )}
-
           <div>
             {deep.results.map((r, i) => {
               const d = resolveLang(r);
@@ -1027,6 +1012,7 @@ export default function Home() {
                       : undefined
                   }
                   contribution={r.reason}
+                  why={r.reason ? [r.reason] : undefined}
                   extraActions={<CritiqueButton />}
                   sourceTag={
                     r.source === "both"
@@ -1036,6 +1022,10 @@ export default function Home() {
                         : "B · local"
                   }
                   pubmedUrl={r.pubmed_url}
+                  sourceTitle={r.title}
+                  revealHead={
+                    <LanguageToggle lang={lang} onChange={setLang} busy={translating} />
+                  }
                   spoken={d.abstract ?? r.reason ?? undefined}
                 >
                   {d.abstract ? (
