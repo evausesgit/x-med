@@ -32,31 +32,35 @@ def _file_num(name: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--limit", type=int, default=None, help="nombre max de fichiers à traiter")
-    ap.add_argument("--from-num", type=int, default=None, help="ne traiter que les fichiers n° >= N (ex. 1335 = updatefiles)")
-    ap.add_argument("--to-num", type=int, default=None, help="ne traiter que les fichiers n° <= N")
-    ap.add_argument("--reparse", action="store_true", help="réingère les fichiers déjà dans ftp_state")
-    ap.add_argument("--no-verify", action="store_true", help="ne pas vérifier le MD5")
-    args = ap.parse_args()
+def ingest_local_files(
+    *,
+    limit: int | None = None,
+    from_num: int | None = None,
+    to_num: int | None = None,
+    reparse: bool = False,
+    no_verify: bool = False,
+) -> int:
+    """Ingère les .xml.gz locaux non encore traités. Renvoie le nb d'articles ingérés.
 
+    `from_num`/`to_num` bornent par numéro de fichier (ex. from_num=1335 = updatefiles
+    seuls, ne touche jamais la baseline). Le suivi `ftp_state` évite les doublons.
+    """
     files = list_local_files()
     if not files:
         print("Aucun fichier .xml.gz trouvé sous DATA_DIR.")
-        return
+        return 0
 
-    if args.from_num is not None or args.to_num is not None:
-        lo = args.from_num if args.from_num is not None else 0
-        hi = args.to_num if args.to_num is not None else 10**9
+    if from_num is not None or to_num is not None:
+        lo = from_num if from_num is not None else 0
+        hi = to_num if to_num is not None else 10**9
         files = [f for f in files if (n := _file_num(f.name)) is not None and lo <= n <= hi]
 
     with SessionLocal() as session:
         done = set(session.scalars(select(FtpState.filename)).all())
 
-    todo = [f for f in files if args.reparse or f.name not in done]
-    if args.limit:
-        todo = todo[: args.limit]
+    todo = [f for f in files if reparse or f.name not in done]
+    if limit:
+        todo = todo[:limit]
 
     print(f"{len(files)} fichier(s) au total, {len(todo)} à traiter.")
     grand_total = 0
@@ -66,7 +70,7 @@ def main() -> None:
         if path.stat().st_size < 1024:  # stub/téléchargement incomplet
             print(f"[{i}/{len(todo)}] vide, ignoré : {path.name}")
             continue
-        if not args.no_verify and not verify_md5(path):
+        if not no_verify and not verify_md5(path):
             print(f"[{i}/{len(todo)}] MD5 INVALIDE, ignoré : {path.name}")
             continue
 
@@ -90,6 +94,25 @@ def main() -> None:
         )
 
     print(f"\nTerminé : {grand_total} articles ingérés en {time.time() - t0:.0f}s.")
+    return grand_total
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--limit", type=int, default=None, help="nombre max de fichiers à traiter")
+    ap.add_argument("--from-num", type=int, default=None, help="ne traiter que les fichiers n° >= N (ex. 1335 = updatefiles)")
+    ap.add_argument("--to-num", type=int, default=None, help="ne traiter que les fichiers n° <= N")
+    ap.add_argument("--reparse", action="store_true", help="réingère les fichiers déjà dans ftp_state")
+    ap.add_argument("--no-verify", action="store_true", help="ne pas vérifier le MD5")
+    args = ap.parse_args()
+
+    ingest_local_files(
+        limit=args.limit,
+        from_num=args.from_num,
+        to_num=args.to_num,
+        reparse=args.reparse,
+        no_verify=args.no_verify,
+    )
 
 
 if __name__ == "__main__":
