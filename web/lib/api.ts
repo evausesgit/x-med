@@ -218,6 +218,69 @@ export function searchPubmedDeepMoreStream(
   return es;
 }
 
+// --- Analyse critique comparative (V1) : 2–3 articles sélectionnés → tableau ---
+export interface CompareRow {
+  pmid: number;
+  title: string | null;
+  study_type: string;
+  population: string;
+  primary_outcome: string;
+  effect_size: string;
+  limits: string;
+}
+
+export interface CompareResult {
+  query: string;
+  rows: CompareRow[];
+  concordance: string;
+  synthesis: string;
+  codex_limit?: boolean;
+  codex_tokens?: Record<string, number>;
+}
+
+// Analyse critique en SSE (codex ~1 min → keep-alives, comme la recherche v2) :
+// émet le déroulé via onLog puis onResult (forme CompareResult).
+export function analyzeCompareStream(
+  query: string,
+  pmids: number[],
+  handlers: {
+    onLog: (log: PubmedLog) => void;
+    onResult: (res: CompareResult) => void;
+    onError: (msg?: string) => void;
+  },
+): EventSource {
+  const sp = new URLSearchParams({ query, pmids: pmids.join(",") });
+  const es = new EventSource(`${API_BASE}/analyze/compare/stream?${sp.toString()}`);
+  es.addEventListener("log", (e) => {
+    try {
+      handlers.onLog(JSON.parse((e as MessageEvent).data));
+    } catch {
+      /* ignore une ligne malformée */
+    }
+  });
+  es.addEventListener("result", (e) => {
+    try {
+      handlers.onResult(JSON.parse((e as MessageEvent).data));
+    } finally {
+      es.close();
+    }
+  });
+  es.addEventListener("error", (e) => {
+    const data = (e as MessageEvent).data;
+    if (data) {
+      try {
+        handlers.onError(JSON.parse(data).msg);
+      } catch {
+        handlers.onError();
+      }
+    } else {
+      handlers.onError();
+    }
+    es.close();
+  });
+  return es;
+}
+
 // Traduction FR à la demande d'un article (bouton « Traduire en français »).
 // Sert le cache côté API, sinon appelle codex et met en cache.
 export interface TranslationResult {

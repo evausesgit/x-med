@@ -1042,3 +1042,170 @@
     transition: none;
   }
 }
+
+/* ===================== ANALYSE CRITIQUE COMPARATIVE ===================== */
+
+/* Bouton de sélection d'un résultat (injecté dans la barre d'action de la carte). */
+.xm-select {
+  font-weight: 600;
+}
+.xm-select.on {
+  color: var(--accent);
+}
+.xm-select:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.xm-select-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 5px;
+  font-size: 11px;
+  line-height: 1;
+  color: #fff;
+}
+.xm-select-box.on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Barre d'action « N/3 sélectionnés · Analyser ». Collante en haut des résultats. */
+.xm-compare-bar {
+  position: sticky;
+  top: 64px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 14px 0;
+  padding: 12px 16px;
+  background: var(--accent-soft);
+  border: 1px solid #cbded6;
+  border-radius: 12px;
+}
+.xm-compare-count {
+  font-size: 14px;
+  color: var(--accent);
+}
+.xm-compare-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* Panneau de résultat de l'analyse. */
+.xm-critique {
+  margin: 18px 0 24px;
+  padding: 22px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+}
+.xm-critique-head {
+  margin-bottom: 16px;
+}
+.xm-critique-title {
+  font-family: var(--font-serif);
+  font-size: 21px;
+  margin: 0 0 6px;
+  color: #2a2620;
+}
+.xm-critique-sub {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+/* Tableau comparatif : axes en lignes, articles en colonnes. */
+.xm-critique-tablewrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.xm-critique-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.xm-critique-table th,
+.xm-critique-table td {
+  padding: 12px 14px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+}
+.xm-critique-table thead th {
+  background: #f3f1ea;
+  border-bottom: 2px solid var(--line-strong);
+}
+.xm-critique-table tr:last-child th,
+.xm-critique-table tr:last-child td {
+  border-bottom: 0;
+}
+.xm-critique-table th:last-child,
+.xm-critique-table td:last-child {
+  border-right: 0;
+}
+/* Colonne des axes (intitulés de critères). */
+.xm-ct-axis {
+  width: 190px;
+  min-width: 160px;
+  background: #faf8f3;
+  font-weight: 600;
+  color: #3a352e;
+}
+.xm-ct-colno {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  margin-bottom: 3px;
+}
+.xm-ct-coltitle {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #2a2620;
+  text-decoration: none;
+  max-width: 320px;
+}
+.xm-ct-coltitle:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+/* Blocs concordance / synthèse sous le tableau. */
+.xm-critique-block {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #faf8f3;
+  border: 1px solid var(--line);
+}
+.xm-critique-block.accent {
+  background: var(--accent-soft);
+  border-color: #cbded6;
+}
+.xm-critique-block h3 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.xm-critique-block p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #3a352e;
+}

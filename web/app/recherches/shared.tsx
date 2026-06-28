@@ -12,7 +12,7 @@ import {
   useDisplayLang,
   useTranslatedHits,
 } from "../lang";
-import XMedResult, { CritiqueButton, deepRelevance } from "../XMedResult";
+import XMedResult, { deepRelevance } from "../XMedResult";
 
 export function fmtDate(iso: string) {
   try {
@@ -52,7 +52,6 @@ export function HitCard({
       }
       contribution={hit.reason}
       why={hit.reason ? [hit.reason] : undefined}
-      extraActions={<CritiqueButton />}
       sourceTag={
         hit.source === "both"
           ? "A · PubMed + B · local"
