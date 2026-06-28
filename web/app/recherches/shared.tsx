@@ -7,6 +7,7 @@ import { useState } from "react";
 import { DeepHit, DeepSearchResponse } from "@/lib/api";
 import {
   type DisplayedHit,
+  type DisplayLang,
   LanguageToggle,
   useDisplayLang,
   useTranslatedHits,
@@ -28,10 +29,16 @@ export function HitCard({
   hit,
   rank,
   display,
+  lang,
+  onLang,
+  busy,
 }: {
   hit: DeepHit;
   rank: number;
   display: DisplayedHit;
+  lang: DisplayLang;
+  onLang: (l: DisplayLang) => void;
+  busy: boolean;
 }) {
   return (
     <XMedResult
@@ -44,6 +51,7 @@ export function HitCard({
         hit.score != null ? deepRelevance(hit.score, hit.relevance_pct) : undefined
       }
       contribution={hit.reason}
+      why={hit.reason ? [hit.reason] : undefined}
       sourceTag={
         hit.source === "both"
           ? "A · PubMed + B · local"
@@ -52,6 +60,8 @@ export function HitCard({
             : "B · local"
       }
       pubmedUrl={hit.pubmed_url}
+      sourceTitle={hit.title}
+      revealHead={<LanguageToggle lang={lang} onChange={onLang} busy={busy} />}
       spoken={display.abstract ?? hit.reason ?? undefined}
     >
       {display.abstract ? (
@@ -94,20 +104,16 @@ export function ResultDetail({ payload }: { payload: DeepSearchResponse }) {
         <p className="notice">Aucun article dans cette recherche sauvegardée.</p>
       ) : (
         <>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              justifyContent: "flex-end",
-              margin: "4px 0 12px",
-            }}
-          >
-            <span className="meta">Langue d&apos;affichage</span>
-            <LanguageToggle lang={lang} onChange={setLang} busy={busy} />
-          </div>
           {payload.results.map((h, i) => (
-            <HitCard key={`${h.pmid}-${i}`} hit={h} rank={i + 1} display={resolve(h)} />
+            <HitCard
+              key={`${h.pmid}-${i}`}
+              hit={h}
+              rank={i + 1}
+              display={resolve(h)}
+              lang={lang}
+              onLang={setLang}
+              busy={busy}
+            />
           ))}
         </>
       )}
