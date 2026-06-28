@@ -11,37 +11,7 @@ import {
   useDisplayLang,
   useTranslatedHits,
 } from "../lang";
-
-const EVIDENCE_LABEL: Record<number, string> = {
-  1: "Preuve élevée",
-  2: "Preuve modérée",
-  3: "Cas / série",
-  4: "Autre",
-};
-
-export function Badge({ level }: { level: number | null }) {
-  if (!level) return null;
-  return (
-    <span className={`badge ev${level}`}>
-      Niv. {level} · {EVIDENCE_LABEL[level]}
-    </span>
-  );
-}
-
-export function DeepScoreBar({ score }: { score: number }) {
-  const pct = Math.round((score / 3) * 100);
-  const tier = score >= 3 ? "high" : score >= 2 ? "mid" : "low";
-  const label = score >= 3 ? "Très pertinent" : score >= 2 ? "Pertinent" : "Partiel";
-  return (
-    <div className="match" title={`Score codex : ${score} / 3 (grille 0–3).`}>
-      <span className={`match-label ml-${tier}`}>{label}</span>
-      <div className="match-bar">
-        <div className="match-fill" style={{ width: `${pct}%` }} />
-      </div>
-      <span className="match-pct">{score}/3</span>
-    </div>
-  );
-}
+import XMedResult, { CritiqueButton, deepRelevance } from "../XMedResult";
 
 export function fmtDate(iso: string) {
   try {
@@ -64,33 +34,38 @@ export function HitCard({
   display: DisplayedHit;
 }) {
   return (
-    <article className="result">
-      <h3>
-        <span className="rank">#{rank}</span>
-        <a href={hit.pubmed_url} target="_blank" rel="noreferrer">
-          {display.title}
-        </a>
-      </h3>
-      <div className="journal">
-        <Badge level={hit.evidence_level} />
-        {hit.journal || "Journal inconnu"}
-        {hit.pub_year ? ` · ${hit.pub_year}` : ""}
-      </div>
-      {hit.score != null && <DeepScoreBar score={hit.score} />}
-      {hit.reason && <p className="explanation-note">{hit.reason}</p>}
-      {display.abstract &&
-        (display.translated ? (
-          <div className="abstract-fr">
-            <div className="abstract-fr-label">📄 Résumé (traduit en français)</div>
-            <p className="abstract">{display.abstract}</p>
-          </div>
-        ) : (
-          <details className="explanation">
-            <summary>📄 Résumé (anglais)</summary>
-            <p className="abstract">{display.abstract}</p>
-          </details>
-        ))}
-    </article>
+    <XMedResult
+      rank={rank}
+      title={display.title}
+      journal={hit.journal}
+      year={hit.pub_year}
+      level={hit.evidence_level}
+      relevance={
+        hit.score != null ? deepRelevance(hit.score, hit.relevance_pct) : undefined
+      }
+      contribution={hit.reason}
+      extraActions={<CritiqueButton />}
+      sourceTag={
+        hit.source === "both"
+          ? "A · PubMed + B · local"
+          : hit.source === "pubmed"
+            ? "A · PubMed"
+            : "B · local"
+      }
+      pubmedUrl={hit.pubmed_url}
+      spoken={display.abstract ?? hit.reason ?? undefined}
+    >
+      {display.abstract ? (
+        <div>
+          {display.translated && (
+            <div className="abstract-fr-label" style={{ marginBottom: 8 }}>
+              📄 Résumé (traduit en français)
+            </div>
+          )}
+          {display.abstract}
+        </div>
+      ) : undefined}
+    </XMedResult>
   );
 }
 

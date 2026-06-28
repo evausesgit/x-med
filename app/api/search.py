@@ -414,8 +414,9 @@ class DeepHit(BaseModel):
     in_db: bool
     source: Literal["pubmed", "local", "both"]
     evidence_level: int | None = None
-    score: int | None = None  # 0-3 (None si non jugé)
-    reason: str | None = None
+    score: int | None = None  # 0-3 (None si non jugé) — clé de tri stable
+    relevance_pct: int | None = None  # 0-100 (None si non jugé) — affichage fin
+    reason: str | None = None  # « apport » : ce que l'article apporte au lecteur
     abstract: str | None = None  # abstract original (EN), toujours fourni si dispo
     abstract_fr: str | None = None  # traduction FR (cache ou streamée), si dispo
     title_fr: str | None = None  # titre traduit FR (cache ou streamé), si dispo
@@ -627,6 +628,7 @@ def _run_deep_search(
             source=source,
             evidence_level=(a.evidence_level if a else None),
             score=score,
+            relevance_pct=(j.relevance_pct if j else None),
             reason=(j.reason if j else None),
             abstract=_abstract(p),
         ))
@@ -634,6 +636,7 @@ def _run_deep_search(
     # tri : pertinence (score desc) → qualité (evidence_level asc) → récence (année desc)
     hits.sort(key=lambda h: (
         -(h.score if h.score is not None else -1),
+        -(h.relevance_pct if h.relevance_pct is not None else -1),
         h.evidence_level if h.evidence_level is not None else 99,
         -(h.pub_year or 0),
     ))
@@ -771,12 +774,14 @@ def _run_deep_more(
             source=("local" if a is not None else "pubmed"),
             evidence_level=(a.evidence_level if a else None),
             score=score,
+            relevance_pct=(j.relevance_pct if j else None),
             reason=(j.reason if j else None),
             abstract=_abstract(p),
         ))
 
     hits.sort(key=lambda h: (
         -(h.score if h.score is not None else -1),
+        -(h.relevance_pct if h.relevance_pct is not None else -1),
         h.evidence_level if h.evidence_level is not None else 99,
         -(h.pub_year or 0),
     ))

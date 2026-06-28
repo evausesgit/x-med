@@ -37,6 +37,12 @@ export interface XMedResultProps {
   relevance?: Relevance;
   /** chapô / justification (texte court sous le titre) */
   stand?: string | null;
+  /** « apport » de l'article (ce qu'il apporte au lecteur). Quand présent, il
+      devient la ligne héros de la carte et le titre passe en référence secondaire. */
+  contribution?: string | null;
+  /** actions supplémentaires injectées dans la barre d'action (ex. « Analyse
+      critique »). Rendues avant les actions standard. */
+  extraActions?: React.ReactNode;
   /** étiquette de provenance (« A · PubMed + B · local »…) */
   sourceTag?: string | null;
   pubmedUrl: string;
@@ -109,6 +115,33 @@ const TTS = {
   },
 };
 
+// Pertinence codex → format de carte. Le palier vient du score 0–3 (stable) ;
+// l'anneau affiche le pourcentage fin `relevancePct` 0–100 quand il est dispo
+// (sinon repli sur le 0–3 — recherches sauvegardées antérieures sans ce champ).
+export function deepRelevance(score: number, relevancePct?: number | null): Relevance {
+  const pct =
+    relevancePct != null
+      ? Math.max(0, Math.min(100, Math.round(relevancePct)))
+      : Math.round((score / 3) * 100);
+  const tier: Tier = score >= 3 ? "high" : score >= 2 ? "mid" : "low";
+  const label = score >= 3 ? "Très pertinent" : score >= 2 ? "Pertinent" : "Partiel";
+  const title =
+    relevancePct != null
+      ? `Pertinence ${pct} % · score codex ${score}/3.`
+      : `Score codex : ${score} / 3 (grille 0–3).`;
+  return { pct, tier, label, title };
+}
+
+// Action « Analyse critique » — stub en attendant la fonctionnalité (Phase 3 du
+// plan V2). Désactivée pour l'instant.
+export function CritiqueButton() {
+  return (
+    <button type="button" className="xmr-act" disabled title="Bientôt disponible">
+      Analyse critique · bientôt
+    </button>
+  );
+}
+
 export default function XMedResult({
   rank,
   title,
@@ -117,6 +150,8 @@ export default function XMedResult({
   level,
   relevance,
   stand,
+  contribution,
+  extraActions,
   sourceTag,
   pubmedUrl,
   mesh,
@@ -186,7 +221,10 @@ export default function XMedResult({
             )}
             {ev && <span className={`xmr-ev ${ev.cls}`}>{ev.label}</span>}
           </div>
-          <h3 className="xmr-title">
+          {contribution ? (
+            <p className="xmr-contribution">{contribution}</p>
+          ) : null}
+          <h3 className={`xmr-title ${contribution ? "secondary" : ""}`}>
             <a href={pubmedUrl} target="_blank" rel="noreferrer">
               {title}
             </a>
@@ -229,6 +267,7 @@ export default function XMedResult({
       )}
 
       <div className="xmr-actions">
+        {extraActions}
         {hasReveal && (
           <button
             type="button"

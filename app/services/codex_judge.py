@@ -35,10 +35,11 @@ _SCHEMA = {
                 "additionalProperties": False,
                 "properties": {
                     "pmid": {"type": "integer"},
-                    "score": {"type": "integer"},  # 0..3
-                    "reason": {"type": "string"},
+                    "score": {"type": "integer"},  # 0..3 (tri stable)
+                    "relevance_pct": {"type": "integer"},  # 0..100 (affichage fin)
+                    "reason": {"type": "string"},  # « apport » orienté lecteur
                 },
-                "required": ["pmid", "score", "reason"],
+                "required": ["pmid", "score", "relevance_pct", "reason"],
             },
         }
     },
@@ -47,14 +48,24 @@ _SCHEMA = {
 
 _PROMPT_HEAD = (
     "Tu es médecin et expert en lecture critique d'articles biomédicaux. "
-    "Pour la question clinique d'un médecin, évalue la pertinence de chaque "
-    "article ci-dessous d'après son titre et son résumé. Juge le SENS et la "
-    "pertinence clinique (pas la simple présence de mots), en respectant les "
-    "contraintes précises de la question (population, intervention, critère, "
-    "sous-type de maladie…). Attribue un score entier :\n"
-    "  0 = hors sujet · 1 = marginal · 2 = pertinent · 3 = très pertinent.\n"
-    "Donne une raison courte (<= 20 mots) par article. Réponds UNIQUEMENT via le "
-    "schéma JSON imposé, un objet par PMID fourni.\n\n"
+    "Pour la question clinique d'un médecin, évalue chaque article ci-dessous "
+    "d'après son titre et son résumé. Juge le SENS et la pertinence clinique (pas "
+    "la simple présence de mots), en respectant les contraintes précises de la "
+    "question (population, intervention, critère, sous-type de maladie…).\n\n"
+    "Pour chaque article, fournis :\n"
+    "1. `score` (entier) : 0 = hors sujet · 1 = marginal · 2 = pertinent · "
+    "3 = très pertinent.\n"
+    "2. `relevance_pct` (entier 0–100) : finesse de l'adéquation à la question, "
+    "cohérent avec `score` (3 ≈ 80–100, 2 ≈ 55–79, 1 ≈ 25–54, 0 ≈ 0–24).\n"
+    "3. `reason` : UNE phrase (<= 25 mots) disant CE QUE L'ARTICLE APPORTE au "
+    "médecin, pas une justification de note. Commence par un verbe d'action, sois "
+    "concret (population, intervention, angle étudié). Exemples du registre "
+    "attendu :\n"
+    "   - « Mesure directement la prévalence du floppy eyelid syndrome chez des "
+    "patients apnéiques. »\n"
+    "   - « Analyse l'association entre apnée du sommeil et floppy eyelid syndrome. »\n"
+    "   - « Évalue l'hyperlaxité palpébrale comme signe de dépistage de l'apnée. »\n\n"
+    "Réponds UNIQUEMENT via le schéma JSON imposé, un objet par PMID fourni.\n\n"
     "Question clinique du médecin : {prm}\n\n"
     "Articles :\n"
 )
@@ -64,6 +75,7 @@ _PROMPT_HEAD = (
 class Judgement:
     score: int
     reason: str
+    relevance_pct: int | None = None
 
 
 class JudgeError(RuntimeError):
@@ -108,5 +120,15 @@ def judge_articles(
             score = max(0, min(3, int(j["score"])))
         except (KeyError, TypeError, ValueError):
             continue
-        out[pmid] = Judgement(score=score, reason=str(j.get("reason", "")).strip())
+        # relevance_pct est optionnel/borné ; à défaut on retombe sur le score 0–3.
+        pct: int | None
+        try:
+            pct = max(0, min(100, int(j["relevance_pct"])))
+        except (KeyError, TypeError, ValueError):
+            pct = None
+        out[pmid] = Judgement(
+            score=score,
+            reason=str(j.get("reason", "")).strip(),
+            relevance_pct=pct,
+        )
     return out, usage

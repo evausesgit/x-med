@@ -50,8 +50,9 @@ export interface DeepHit {
   in_db: boolean;
   source: "pubmed" | "local" | "both";
   evidence_level: number | null;
-  score: number | null; // 0–3
-  reason: string | null;
+  score: number | null; // 0–3 (tri stable)
+  relevance_pct?: number | null; // 0–100 (affichage fin de l'anneau)
+  reason: string | null; // « apport » : ce que l'article apporte au lecteur
   abstract: string | null; // abstract original (EN)
   abstract_fr: string | null; // traduction FR (cache ou streamée)
   title_fr?: string | null; // titre traduit FR (cache ou streamé)

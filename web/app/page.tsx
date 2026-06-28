@@ -20,7 +20,11 @@ import {
 } from "@/lib/api";
 import type { DeepHit } from "@/lib/api";
 import Link from "next/link";
-import XMedResult, { type Relevance } from "./XMedResult";
+import XMedResult, {
+  CritiqueButton,
+  deepRelevance,
+  type Relevance,
+} from "./XMedResult";
 import { LanguageToggle, useDisplayLang, useTranslatedHits } from "./lang";
 
 const PAGE = 20;
@@ -53,14 +57,6 @@ function semanticRelevance(score: number): Relevance {
     label,
     title: `Similarité de sens : ${score.toFixed(3)} (0–1, signal absolu, non normalisé).`,
   };
-}
-
-// Score entier 0–3 attribué par codex.
-function deepRelevance(score: number): Relevance {
-  const pct = Math.round((score / 3) * 100);
-  const tier: Relevance["tier"] = score >= 3 ? "high" : score >= 2 ? "mid" : "low";
-  const label = score >= 3 ? "Très pertinent" : score >= 2 ? "Pertinent" : "Partiel";
-  return { pct, tier, label, title: `Score codex : ${score} / 3 (grille 0–3).` };
 }
 
 function Explanation({ article }: { article: ArticleResult }) {
@@ -1025,8 +1021,13 @@ export default function Home() {
                   journal={r.journal}
                   year={r.pub_year}
                   level={r.evidence_level}
-                  relevance={r.score != null ? deepRelevance(r.score) : undefined}
-                  stand={r.reason}
+                  relevance={
+                    r.score != null
+                      ? deepRelevance(r.score, r.relevance_pct)
+                      : undefined
+                  }
+                  contribution={r.reason}
+                  extraActions={<CritiqueButton />}
                   sourceTag={
                     r.source === "both"
                       ? "A · PubMed + B · local"
