@@ -132,6 +132,58 @@ export function deepRelevance(score: number, relevancePct?: number | null): Rele
   return { pct, tier, label, title };
 }
 
+// Découpe un abstract « Label : texte » par ligne (Contexte/Méthodes/Résultats/
+// Conclusion ou Background/Methods/…) en sections pour le « Résumé structuré ».
+// Un abstract non structuré (paragraphe unique, sans étiquette) donne UNE section
+// en texte brut — pas de mise en avant « conclusion ». La dernière section d'un
+// abstract réellement structuré (plusieurs lignes) est mise en avant (or).
+export function abstractSections(
+  abstract: string,
+): { label: string; text: string; concl: boolean }[] {
+  const lines = abstract
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  return lines.map((line, i) => {
+    const sep = line.indexOf(":");
+    const hasLabel = sep > 0 && sep < 24;
+    return {
+      label: hasLabel ? line.slice(0, sep).trim() : "",
+      text: hasLabel ? line.slice(sep + 1).trim() : line,
+      concl: lines.length > 1 && i === lines.length - 1,
+    };
+  });
+}
+
+// Rendu « Résumé structuré » partagé par le digest et la recherche : à fournir en
+// `children` de la carte avec `revealBodyClassName="xmr-sections"`. L'étiquette
+// FR (« traduit en français ») n'apparaît que pour un abstract traduit.
+export function StructuredAbstract({
+  abstract,
+  translated,
+}: {
+  abstract: string;
+  translated?: boolean;
+}) {
+  return (
+    <>
+      {translated && (
+        <div className="abstract-fr-label" style={{ marginBottom: 8 }}>
+          📄 Résumé (traduit en français)
+        </div>
+      )}
+      {abstractSections(abstract).map((s, i) => (
+        <div key={i}>
+          {s.label && (
+            <span className={`xmr-section-label ${s.concl ? "concl" : ""}`}>{s.label}</span>
+          )}
+          <span className={`xmr-section-text ${s.concl ? "concl" : ""}`}>{s.text}</span>
+        </div>
+      ))}
+    </>
+  );
+}
+
 export default function XMedResult({
   rank,
   title,

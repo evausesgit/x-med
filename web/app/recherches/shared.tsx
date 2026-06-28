@@ -12,7 +12,7 @@ import {
   useDisplayLang,
   useTranslatedHits,
 } from "../lang";
-import XMedResult, { deepRelevance } from "../XMedResult";
+import XMedResult, { deepRelevance, StructuredAbstract } from "../XMedResult";
 
 export function fmtDate(iso: string) {
   try {
@@ -61,18 +61,13 @@ export function HitCard({
       }
       pubmedUrl={hit.pubmed_url}
       sourceTitle={hit.title}
+      revealLabel="Résumé structuré"
+      revealBodyClassName="xmr-sections"
       revealHead={<LanguageToggle lang={lang} onChange={onLang} busy={busy} />}
       spoken={display.abstract ?? hit.reason ?? undefined}
     >
       {display.abstract ? (
-        <div>
-          {display.translated && (
-            <div className="abstract-fr-label" style={{ marginBottom: 8 }}>
-              📄 Résumé (traduit en français)
-            </div>
-          )}
-          {display.abstract}
-        </div>
+        <StructuredAbstract abstract={display.abstract} translated={display.translated} />
       ) : undefined}
     </XMedResult>
   );

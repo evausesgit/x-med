@@ -104,8 +104,18 @@ def efetch_abstracts(pmids: list[int]) -> dict[int, str]:
         pmid_el = art.find(".//MedlineCitation/PMID")
         if pmid_el is None or not pmid_el.text:
             continue
-        parts = [(ab.text or "") for ab in art.findall(".//Abstract/AbstractText")]
-        abstract = " ".join(p for p in parts if p).strip()
+        # Abstracts structurés : on préserve les sections (Label : texte, une par
+        # ligne) comme à l'ingestion FTP (parse_articles._parse_article), pour que
+        # le front rende le même « Résumé structuré » que le digest. `itertext()`
+        # capte le balisage imbriqué (<i>, <sub>…) que `.text` perdrait.
+        parts: list[str] = []
+        for ab in art.findall(".//Abstract/AbstractText"):
+            txt = "".join(ab.itertext()).strip()
+            if not txt:
+                continue
+            label = ab.get("Label")
+            parts.append(f"{label}: {txt}" if label else txt)
+        abstract = "\n".join(parts).strip()
         if abstract:
             out[int(pmid_el.text)] = abstract
     return out

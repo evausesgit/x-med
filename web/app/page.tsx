@@ -21,7 +21,7 @@ import {
 } from "@/lib/api";
 import type { CompareResult, DeepHit } from "@/lib/api";
 import Link from "next/link";
-import XMedResult, { deepRelevance, type Relevance } from "./XMedResult";
+import XMedResult, { deepRelevance, StructuredAbstract, type Relevance } from "./XMedResult";
 import { CritiquePanel, MAX_COMPARE, SelectButton } from "./Critique";
 import { LanguageToggle, useDisplayLang, useTranslatedHits } from "./lang";
 
@@ -291,29 +291,6 @@ function SaveSearchBar({
           {error}
         </span>
       )}
-    </div>
-  );
-}
-
-// Abstract d'un résultat v2 affiché dans la langue choisie au niveau de la vue
-// (sélecteur global). Rendu en `children` de la carte (zone repliée) : ici on ne
-// fait qu'afficher le texte déjà résolu (FR traduit ou EN d'origine).
-function DeepAbstract({
-  abstract,
-  translated,
-}: {
-  abstract: string | null;
-  translated: boolean;
-}) {
-  if (!abstract) return null;
-  return (
-    <div>
-      {translated && (
-        <div className="abstract-fr-label" style={{ marginBottom: 8 }}>
-          📄 Résumé (traduit en français)
-        </div>
-      )}
-      {abstract}
     </div>
   );
 }
@@ -1124,13 +1101,15 @@ export default function Home() {
                   }
                   pubmedUrl={r.pubmed_url}
                   sourceTitle={r.title}
+                  revealLabel="Résumé structuré"
+                  revealBodyClassName="xmr-sections"
                   revealHead={
                     <LanguageToggle lang={lang} onChange={setLang} busy={translating} />
                   }
                   spoken={d.abstract ?? r.reason ?? undefined}
                 >
                   {d.abstract ? (
-                    <DeepAbstract abstract={d.abstract} translated={d.translated} />
+                    <StructuredAbstract abstract={d.abstract} translated={d.translated} />
                   ) : undefined}
                 </XMedResult>
               );
