@@ -5,6 +5,12 @@
 // la page de recherche (web/app/page.tsx) pour une relecture cohérente.
 import { useState } from "react";
 import { DeepHit, DeepSearchResponse } from "@/lib/api";
+import {
+  type DisplayedHit,
+  LanguageToggle,
+  useDisplayLang,
+  useTranslatedHits,
+} from "../lang";
 
 const EVIDENCE_LABEL: Record<number, string> = {
   1: "Preuve élevée",
@@ -48,13 +54,21 @@ export function fmtDate(iso: string) {
   }
 }
 
-export function HitCard({ hit, rank }: { hit: DeepHit; rank: number }) {
+export function HitCard({
+  hit,
+  rank,
+  display,
+}: {
+  hit: DeepHit;
+  rank: number;
+  display: DisplayedHit;
+}) {
   return (
     <article className="result">
       <h3>
         <span className="rank">#{rank}</span>
         <a href={hit.pubmed_url} target="_blank" rel="noreferrer">
-          {hit.title}
+          {display.title}
         </a>
       </h3>
       <div className="journal">
@@ -64,24 +78,25 @@ export function HitCard({ hit, rank }: { hit: DeepHit; rank: number }) {
       </div>
       {hit.score != null && <DeepScoreBar score={hit.score} />}
       {hit.reason && <p className="explanation-note">{hit.reason}</p>}
-      {hit.abstract_fr ? (
-        <div className="abstract-fr">
-          <div className="abstract-fr-label">📄 Résumé (traduit en français)</div>
-          <p className="abstract">{hit.abstract_fr}</p>
-        </div>
-      ) : (
-        hit.abstract && (
+      {display.abstract &&
+        (display.translated ? (
+          <div className="abstract-fr">
+            <div className="abstract-fr-label">📄 Résumé (traduit en français)</div>
+            <p className="abstract">{display.abstract}</p>
+          </div>
+        ) : (
           <details className="explanation">
             <summary>📄 Résumé (anglais)</summary>
-            <p className="abstract">{hit.abstract}</p>
+            <p className="abstract">{display.abstract}</p>
           </details>
-        )
-      )}
+        ))}
     </article>
   );
 }
 
 export function ResultDetail({ payload }: { payload: DeepSearchResponse }) {
+  const [lang, setLang] = useDisplayLang();
+  const { resolve, busy } = useTranslatedHits(payload.results, lang);
   return (
     <div className="saved-detail">
       {payload.pubmed_query && (
@@ -104,9 +119,23 @@ export function ResultDetail({ payload }: { payload: DeepSearchResponse }) {
       {payload.results.length === 0 ? (
         <p className="notice">Aucun article dans cette recherche sauvegardée.</p>
       ) : (
-        payload.results.map((h, i) => (
-          <HitCard key={`${h.pmid}-${i}`} hit={h} rank={i + 1} />
-        ))
+        <>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              justifyContent: "flex-end",
+              margin: "4px 0 12px",
+            }}
+          >
+            <span className="meta">Langue d&apos;affichage</span>
+            <LanguageToggle lang={lang} onChange={setLang} busy={busy} />
+          </div>
+          {payload.results.map((h, i) => (
+            <HitCard key={`${h.pmid}-${i}`} hit={h} rank={i + 1} display={resolve(h)} />
+          ))}
+        </>
       )}
     </div>
   );

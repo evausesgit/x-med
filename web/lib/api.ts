@@ -54,6 +54,7 @@ export interface DeepHit {
   reason: string | null;
   abstract: string | null; // abstract original (EN)
   abstract_fr: string | null; // traduction FR (cache ou streamée)
+  title_fr?: string | null; // titre traduit FR (cache ou streamé)
 }
 
 export interface DeepSearchResponse {
@@ -240,6 +241,32 @@ export async function translateAbstract(
     throw new Error(`Erreur API (${res.status})`);
   }
   return res.json();
+}
+
+// Traduit FR un lot d'articles en un seul appel (bascule d'une vue en français).
+// Sert le cache côté API et ne traduit que ce qui manque. La map renvoyée est
+// indexée par PMID (string) ; un PMID sans traduction possible y est simplement absent.
+export interface TranslateBatchItem {
+  pmid: number;
+  title?: string | null;
+  abstract?: string | null;
+}
+
+export async function translateBatch(
+  items: TranslateBatchItem[],
+): Promise<Record<string, TranslationResult>> {
+  const res = await fetch(`${API_BASE}/translate/batch`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ items }),
+  });
+  if (!res.ok) {
+    if (res.status === 429)
+      throw new Error("Limite d'usage GPT-5.4 atteinte — réessayez plus tard.");
+    throw new Error(`Erreur API (${res.status})`);
+  }
+  const data = await res.json();
+  return data.translations ?? {};
 }
 
 export interface SearchParams {

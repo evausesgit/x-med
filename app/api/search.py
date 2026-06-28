@@ -418,6 +418,7 @@ class DeepHit(BaseModel):
     reason: str | None = None
     abstract: str | None = None  # abstract original (EN), toujours fourni si dispo
     abstract_fr: str | None = None  # traduction FR (cache ou streamée), si dispo
+    title_fr: str | None = None  # titre traduit FR (cache ou streamé), si dispo
 
 
 class DeepSearchResponse(BaseModel):
@@ -646,6 +647,7 @@ def _run_deep_search(
         tr = cached_fr.get(h.pmid)
         if tr:
             h.abstract_fr = tr.abstract_fr
+            h.title_fr = tr.title_fr or None
 
     emit("done", f"✅ {len(hits)} articles retenus")
 
@@ -784,6 +786,7 @@ def _run_deep_more(
         tr = cached_fr.get(h.pmid)
         if tr:
             h.abstract_fr = tr.abstract_fr
+            h.title_fr = tr.title_fr or None
 
     emit("done", f"✅ {len(hits)} articles retenus dans ce lot")
     return DeepMoreResponse(
@@ -942,6 +945,102 @@ def translate_one(req: TranslateRequest, session: Session = Depends(get_session)
     if not tr:
         raise HTTPException(502, "Traduction indisponible pour cet article.")
     return TranslateResponse(pmid=req.pmid, title_fr=tr.title_fr, abstract_fr=tr.abstract_fr)
+
+
+class TranslateBatchItem(BaseModel):
+    pmid: int
+    title: str | None = None
+    abstract: str | None = None  # abstract EN déjà affiché (évite un aller-retour NCBI)
+
+
+class TranslateBatchRequest(BaseModel):
+    items: list[TranslateBatchItem]
+
+
+class TranslateBatchResponse(BaseModel):
+    # {pmid(str): {title_fr, abstract_fr}} pour les articles traduisibles ; les PMID
+    # sans abstract exploitable sont simplement absents de la map.
+    translations: dict[str, TranslateResponse]
+
+
+# On borne le lot pour qu'un seul appel codex tienne (argv + contexte) ; au-delà le
+# front rappelle l'endpoint. Aligné sur le cap de traduction du flux de recherche.
+MAX_TRANSLATE_BATCH = 50
+
+
+@router.post("/translate/batch", response_model=TranslateBatchResponse)
+def translate_batch(req: TranslateBatchRequest, session: Session = Depends(get_session)):
+    """Traduit FR un lot d'articles en **un seul appel codex** (basculer une vue en
+    français). Sert le cache `article_fr` pour les PMID déjà connus et ne traduit que
+    le reste — d'où un coût ≈ 1 appel quel que soit le nombre d'articles déjà vus.
+
+    L'abstract de chaque article peut être fourni par le front (déjà affiché) ; à
+    défaut on le résout dans la base locale puis, en dernier recours, via efetch NCBI.
+    Utilisé par la recherche ET la recherche sauvegardée (le cache est global par PMID).
+    """
+    from app.services import pubmed_eutils as eut
+    from app.services.query_builder import is_usage_limit
+    from app.services.translate import TranslateError, get_cached, translate_abstracts
+
+    items = req.items[:MAX_TRANSLATE_BATCH]
+    if not items:
+        return TranslateBatchResponse(translations={})
+
+    out: dict[str, TranslateResponse] = {}
+
+    # 1. Cache d'abord — instantané, aucun appel codex.
+    cached = get_cached(session, [it.pmid for it in items])
+    for it in items:
+        tr = cached.get(it.pmid)
+        if tr:
+            out[str(it.pmid)] = TranslateResponse(
+                pmid=it.pmid, title_fr=tr.title_fr, abstract_fr=tr.abstract_fr
+            )
+
+    # 2. Pour le reste, résoudre l'abstract (front → base locale → efetch).
+    need = [it for it in items if str(it.pmid) not in out]
+    to_translate: list[dict] = []
+    missing_pmids: list[int] = []
+    for it in need:
+        abstract = (it.abstract or "").strip()
+        title = it.title
+        if not abstract:
+            art = session.get(Article, it.pmid)
+            if art and art.abstract:
+                abstract = art.abstract
+                title = title or art.title
+            else:
+                missing_pmids.append(it.pmid)
+                continue
+        to_translate.append({"pmid": it.pmid, "title": title or "", "abstract": abstract})
+
+    if missing_pmids:
+        try:
+            ext = eut.efetch_abstracts(missing_pmids)
+        except Exception:
+            ext = {}
+        for it in need:
+            if it.pmid in missing_pmids:
+                ab = (ext.get(it.pmid) or "").strip()
+                if ab:
+                    to_translate.append(
+                        {"pmid": it.pmid, "title": it.title or "", "abstract": ab}
+                    )
+
+    # 3. Un seul appel codex pour tout le lot non caché.
+    if to_translate:
+        try:
+            fr, _ = translate_abstracts(to_translate, session)
+        except TranslateError as e:
+            if is_usage_limit(str(e)):
+                raise HTTPException(429, "Limite d'usage GPT-5.4 atteinte — réessayez plus tard.")
+            raise HTTPException(502, f"Traduction indisponible : {e}")
+        for pmid, tr in fr.items():
+            out[str(pmid)] = TranslateResponse(
+                pmid=pmid, title_fr=tr.title_fr, abstract_fr=tr.abstract_fr
+            )
+
+    return TranslateBatchResponse(translations=out)
 
 
 @router.get("/search/pubmed/deep/stream")

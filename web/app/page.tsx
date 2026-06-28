@@ -17,11 +17,11 @@ import {
   searchPubmedDeepStream,
   searchSemantic,
   SearchResponse,
-  translateAbstract,
 } from "@/lib/api";
 import type { DeepHit } from "@/lib/api";
 import Link from "next/link";
 import XMedResult, { type Relevance } from "./XMedResult";
+import { LanguageToggle, useDisplayLang, useTranslatedHits } from "./lang";
 
 const PAGE = 20;
 
@@ -301,77 +301,25 @@ function SaveSearchBar({
   );
 }
 
-// Abstract d'un résultat v2 avec choix de langue (FR / EN) et traduction à la
-// demande. Rendu en `children` de la carte (zone repliée).
+// Abstract d'un résultat v2 affiché dans la langue choisie au niveau de la vue
+// (sélecteur global). Rendu en `children` de la carte (zone repliée) : ici on ne
+// fait qu'afficher le texte déjà résolu (FR traduit ou EN d'origine).
 function DeepAbstract({
-  hit,
-  onTranslated,
+  abstract,
+  translated,
 }: {
-  hit: DeepHit;
-  onTranslated: (pmid: number, abstractFr: string) => void;
+  abstract: string | null;
+  translated: boolean;
 }) {
-  const [lang, setLang] = useState<"fr" | "en">(hit.abstract_fr ? "fr" : "en");
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const touched = useRef(false);
-
-  useEffect(() => {
-    if (!touched.current && hit.abstract_fr) setLang("fr");
-  }, [hit.abstract_fr]);
-
-  if (!hit.abstract && !hit.abstract_fr) return null;
-
-  async function choose(next: "fr" | "en") {
-    touched.current = true;
-    setErr(null);
-    if (next === "fr" && !hit.abstract_fr) {
-      setBusy(true);
-      try {
-        const r = await translateAbstract(hit.pmid, hit.title, hit.abstract);
-        if (r.abstract_fr) {
-          onTranslated(hit.pmid, r.abstract_fr);
-          setLang("fr");
-        } else {
-          setErr("Traduction indisponible pour cet article.");
-        }
-      } catch (e) {
-        setErr(e instanceof Error ? e.message : "Échec de la traduction.");
-      } finally {
-        setBusy(false);
-      }
-      return;
-    }
-    setLang(next);
-  }
-
-  const text = lang === "fr" && hit.abstract_fr ? hit.abstract_fr : hit.abstract;
-
+  if (!abstract) return null;
   return (
     <div>
-      <div className="xmr-langtoggle" style={{ marginBottom: 12 }}>
-        <button
-          type="button"
-          className={lang === "fr" ? "on" : ""}
-          disabled={busy}
-          onClick={() => choose("fr")}
-        >
-          {busy ? "Traduction…" : "Français"}
-        </button>
-        <button
-          type="button"
-          className={lang === "en" ? "on" : ""}
-          disabled={busy}
-          onClick={() => choose("en")}
-        >
-          English
-        </button>
-      </div>
-      {err && (
-        <span className="error" style={{ margin: 0 }}>
-          {err}
-        </span>
+      {translated && (
+        <div className="abstract-fr-label" style={{ marginBottom: 8 }}>
+          📄 Résumé (traduit en français)
+        </div>
       )}
-      {text}
+      {abstract}
     </div>
   );
 }
@@ -427,17 +375,13 @@ export default function Home() {
     [],
   );
 
-  const markTranslated = (pmid: number, abstractFr: string) =>
-    setDeep((prev) =>
-      prev
-        ? {
-            ...prev,
-            results: prev.results.map((r) =>
-              r.pmid === pmid ? { ...r, abstract_fr: abstractFr } : r,
-            ),
-          }
-        : prev,
-    );
+  // Langue d'affichage (préférence persistante) + traduction à la demande des
+  // résultats quand on bascule en français (un seul appel par lot, cache global).
+  const [lang, setLang] = useDisplayLang();
+  const { resolve: resolveLang, busy: translating } = useTranslatedHits(
+    deep?.results ?? [],
+    lang,
+  );
 
   // Classement identique au backend : score décroissant (non jugé en dernier),
   // niveau de preuve croissant, puis année décroissante.
@@ -496,7 +440,11 @@ export default function Home() {
                 ...prev,
                 results: prev.results.map((r) =>
                   fr[String(r.pmid)]
-                    ? { ...r, abstract_fr: fr[String(r.pmid)].abstract_fr }
+                    ? {
+                        ...r,
+                        abstract_fr: fr[String(r.pmid)].abstract_fr,
+                        title_fr: fr[String(r.pmid)].title_fr || r.title_fr,
+                      }
                     : r,
                 ),
               }
@@ -650,7 +598,11 @@ export default function Home() {
                       ...prev,
                       results: prev.results.map((r) =>
                         fr[String(r.pmid)]
-                          ? { ...r, abstract_fr: fr[String(r.pmid)].abstract_fr }
+                          ? {
+                              ...r,
+                              abstract_fr: fr[String(r.pmid)].abstract_fr,
+                              title_fr: fr[String(r.pmid)].title_fr || r.title_fr,
+                            }
                           : r,
                       ),
                     }
@@ -1047,32 +999,50 @@ export default function Home() {
             <p className="xm-banner warn">Aucun article jugé pertinent pour cette recherche.</p>
           )}
 
+          {deep.results.length > 0 && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                justifyContent: "flex-end",
+                margin: "4px 0 12px",
+              }}
+            >
+              <span className="meta">Langue d&apos;affichage</span>
+              <LanguageToggle lang={lang} onChange={setLang} busy={translating} />
+            </div>
+          )}
+
           <div>
-            {deep.results.map((r, i) => (
-              <XMedResult
-                key={`deep-${r.pmid}`}
-                rank={i + 1}
-                title={r.title}
-                journal={r.journal}
-                year={r.pub_year}
-                level={r.evidence_level}
-                relevance={r.score != null ? deepRelevance(r.score) : undefined}
-                stand={r.reason}
-                sourceTag={
-                  r.source === "both"
-                    ? "A · PubMed + B · local"
-                    : r.source === "pubmed"
-                      ? "A · PubMed"
-                      : "B · local"
-                }
-                pubmedUrl={r.pubmed_url}
-                spoken={r.abstract_fr ?? r.reason ?? undefined}
-              >
-                {r.abstract || r.abstract_fr ? (
-                  <DeepAbstract hit={r} onTranslated={markTranslated} />
-                ) : undefined}
-              </XMedResult>
-            ))}
+            {deep.results.map((r, i) => {
+              const d = resolveLang(r);
+              return (
+                <XMedResult
+                  key={`deep-${r.pmid}`}
+                  rank={i + 1}
+                  title={d.title}
+                  journal={r.journal}
+                  year={r.pub_year}
+                  level={r.evidence_level}
+                  relevance={r.score != null ? deepRelevance(r.score) : undefined}
+                  stand={r.reason}
+                  sourceTag={
+                    r.source === "both"
+                      ? "A · PubMed + B · local"
+                      : r.source === "pubmed"
+                        ? "A · PubMed"
+                        : "B · local"
+                  }
+                  pubmedUrl={r.pubmed_url}
+                  spoken={d.abstract ?? r.reason ?? undefined}
+                >
+                  {d.abstract ? (
+                    <DeepAbstract abstract={d.abstract} translated={d.translated} />
+                  ) : undefined}
+                </XMedResult>
+              );
+            })}
           </div>
 
           {deep.judge === "codex" && (deep.remaining?.length ?? 0) > 0 && (
