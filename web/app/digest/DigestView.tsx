@@ -62,7 +62,7 @@ function DigestCard({
       year={a.year}
       level={a.level}
       relevance={digestRelevance(a.match)}
-      stand={t.stand}
+      contribution={t.stand}
       sourceTitle={a.en.title}
       readTime={a.read}
       ringCaption="Pertinence pour votre profil"

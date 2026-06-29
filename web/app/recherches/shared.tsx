@@ -51,7 +51,6 @@ export function HitCard({
         hit.score != null ? deepRelevance(hit.score, hit.relevance_pct) : undefined
       }
       contribution={hit.reason}
-      why={hit.reason ? [hit.reason] : undefined}
       sourceTag={
         hit.source === "both"
           ? "A · PubMed + B · local"
