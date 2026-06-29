@@ -1082,7 +1082,6 @@ export default function Home() {
                       : undefined
                   }
                   contribution={r.reason}
-                  why={r.reason ? [r.reason] : undefined}
                   extraActions={
                     <SelectButton
                       selected={selected.includes(r.pmid)}

@@ -35,10 +35,8 @@ export interface XMedResultProps {
   year?: number | null;
   level?: number | null;
   relevance?: Relevance;
-  /** chapô / justification (texte court sous le titre) */
-  stand?: string | null;
-  /** « apport » de l'article (ce qu'il apporte au lecteur). Quand présent, il
-      devient la ligne héros de la carte et le titre passe en référence secondaire. */
+  /** « apport » de l'article (ce qu'il apporte au lecteur). Affiché en ligne
+      surlignée sous le journal, sans rétrograder le titre (qui reste le héros). */
   contribution?: string | null;
   /** actions supplémentaires injectées dans la barre d'action (ex. « Analyse
       critique »). Rendues avant les actions standard. */
@@ -191,7 +189,6 @@ export default function XMedResult({
   year,
   level,
   relevance,
-  stand,
   contribution,
   extraActions,
   sourceTag,
@@ -263,10 +260,7 @@ export default function XMedResult({
             )}
             {ev && <span className={`xmr-ev ${ev.cls}`}>{ev.label}</span>}
           </div>
-          {contribution ? (
-            <p className="xmr-contribution">{contribution}</p>
-          ) : null}
-          <h3 className={`xmr-title ${contribution ? "secondary" : ""}`}>
+          <h3 className="xmr-title">
             <a href={pubmedUrl} target="_blank" rel="noreferrer">
               {title}
             </a>
@@ -276,7 +270,12 @@ export default function XMedResult({
             {year ? ` · ${year}` : ""}
             {sourceTag ? ` · ${sourceTag}` : ""}
           </div>
-          {stand ? <p className="xmr-stand">{stand}</p> : null}
+          {contribution ? (
+            <p className="xmr-contribution">
+              <span className="xmr-contribution-label">Apport</span>
+              {contribution}
+            </p>
+          ) : null}
         </div>
 
         {relevance && (
