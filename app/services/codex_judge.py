@@ -97,7 +97,7 @@ def _render_articles(articles: list[dict]) -> str:
 
 
 def judge_articles(
-    prm: str, articles: list[dict], timeout: int = 300
+    prm: str, articles: list[dict], timeout: int = 420
 ) -> tuple[dict[int, Judgement], CodexUsage]:
     """Score chaque article (par PMID) de 0 à 3 vis-à-vis de `PRM`.
 

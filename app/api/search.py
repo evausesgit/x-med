@@ -1118,7 +1118,7 @@ def search_pubmed_deep_stream(
         Thread(target=produce, daemon=True).start()
         while True:
             try:
-                event = events.get(timeout=15)
+                event = events.get(timeout=10)
             except Empty:
                 yield ": keep-alive\n\n"
                 continue
@@ -1183,7 +1183,7 @@ def search_pubmed_deep_more_stream(
         Thread(target=produce, daemon=True).start()
         while True:
             try:
-                event = events.get(timeout=15)
+                event = events.get(timeout=10)
             except Empty:
                 yield ": keep-alive\n\n"
                 continue
@@ -1383,7 +1383,7 @@ def analyze_compare_stream(
         Thread(target=produce, daemon=True).start()
         while True:
             try:
-                event = events.get(timeout=15)
+                event = events.get(timeout=10)
             except Empty:
                 yield ": keep-alive\n\n"
                 continue

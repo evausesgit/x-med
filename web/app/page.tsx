@@ -27,6 +27,18 @@ import { LanguageToggle, useDisplayLang, useTranslatedHits } from "./lang";
 
 const PAGE = 20;
 
+// Durée d'une recherche PubMed + IA (jugement codex). En pratique 30–90 s ; le
+// backend laisse beaucoup plus avant d'abandonner (timeouts codex : 180 s pour
+// la requête + 420 s pour le jugement, cf. app/services/codex_*). On affiche un
+// chrono et ces repères pour que l'utilisateur sache combien patienter plutôt
+// que de se demander si « ça a planté ».
+const DEEP_TYPICAL_TXT = "30 à 90 secondes";
+const DEEP_TYPICAL_S = 90; // au-delà : « un peu plus long que d'habitude »
+const DEEP_LONG_S = 180; // au-delà : on prévient que c'est une recherche longue
+// Format chrono lisible : « 12s », puis « 1 min 05s ».
+const fmtElapsed = (s: number) =>
+  s < 60 ? `${s}s` : `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, "0")}s`;
+
 // Seuils de pertinence pour la recherche par sens (similarité cosinus bge-m3).
 // ⚠ Provisoires : à caler sur le gold set annoté par les médecins (/annotate).
 const SEM_RELEVANT = 0.5; // en-dessous : on prévient que rien n'est vraiment pertinent
@@ -172,18 +184,42 @@ function LiveEvents({
     return () => clearInterval(t);
   }, [isPubmed]);
 
+  // Chrono « la recherche tourne depuis… » : repart de zéro à chaque lancement et
+  // se fige quand la recherche se termine (running repasse à false).
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (!running) return;
+    setElapsed(0);
+    const start = Date.now();
+    const t = setInterval(
+      () => setElapsed(Math.round((Date.now() - start) / 1000)),
+      1000,
+    );
+    return () => clearInterval(t);
+  }, [running]);
+
   const title =
     variant === "pubmed"
       ? "Pré-filtre local puis jugement par codex"
       : "Recherche en cours";
   const queryLog = logs.find((l) => l.pubmed_query);
 
+  // Message de patience adapté au temps écoulé : l'utilisateur sait à quoi
+  // s'attendre et n'a pas l'impression que « ça a planté ».
+  const waitHint =
+    elapsed < DEEP_TYPICAL_S
+      ? `⏳ Une recherche prend en général ${DEEP_TYPICAL_TXT}. Le déroulé s'affiche au fur et à mesure — inutile de relancer.`
+      : elapsed < DEEP_LONG_S
+        ? `⏳ Un peu plus long que d'habitude (sujet large) — l'IA lit et juge les articles, on continue.`
+        : `⏳ Recherche longue : on patiente encore un peu, elle s'arrêtera d'elle-même si elle dépasse quelques minutes.`;
+
   return (
     <div className={`xm-live ${running ? "running" : ""}`}>
       <div className="xm-live-head">
         <span className="xm-live-dot" />
         <span className="xm-live-title">
-          Déroulé de la recherche{running ? " — en direct" : ""}
+          Déroulé de la recherche
+          {running ? ` — en direct · ${fmtElapsed(elapsed)}` : ""}
         </span>
         {running && <span className="xm-live-spin" />}
       </div>
@@ -199,6 +235,7 @@ function LiveEvents({
             {queryLog?.pubmed_query && (
               <pre className="xm-live-query">{queryLog.pubmed_query}</pre>
             )}
+            {running && <div className="xm-live-hint">{waitHint}</div>}
           </>
         ) : (
           <>
