@@ -228,32 +228,39 @@ FONCTION analyser_plus(PRM, pmids = remaining[0:50]):
 
 ---
 
-## Variante « hybride re-classé » (mode de tri optionnel)
+## Variante v2 : fusion RRF pour la sélection (le tri reste Codex)
 
-⚠️ Nomenclature : la méthode décrite ci-dessus s'appelle historiquement « v2 » dans le
-code (par opposition à l'ancienne « v1 lots d'abstracts » supprimée). Le **mode de tri**
-ci-dessous est un **réglage à l'intérieur de cette méthode**, exposé dans l'UI sous
-« TRI : v1 · score IA » (défaut) vs « v2 · PubMed ». Ne pas confondre.
+⚠️ Nomenclature : la méthode ci-dessus s'appelle historiquement « v2 » dans le code
+(vs l'ancienne « v1 lots d'abstracts » supprimée). Le **réglage** ci-dessous est un
+mode *à l'intérieur* de cette méthode, exposé dans l'UI « TRI : v1 · score IA (défaut) /
+v2 · fusion RRF ». Ne pas confondre.
 
-Activé par `rank_by_pubmed=True` (flag sur `DeepSearchRequest`, param `rank_by_pubmed`
-de l'endpoint stream) + `k_pubmed` élevé (100). **Même vivier A∪B, même jugement.** Seuls
-changent :
+**Principe (règle produit) : la pertinence affichée est TOUJOURS celle de Codex.**
+PubMed Best Match ne sert jamais à classer ce que voit le médecin — seulement à
+**choisir** les candidats à faire juger. Justification : ~**39 %** des articles jugés
+pertinents viennent du **local seul** (mesuré sur les recherches sauvegardées) → il ne
+faut pas laisser PubMed monopoliser le lot de jugement.
 
-- **`k_pubmed` 20 → 100** : on tire un « head » PubMed plus large pour que le classement
-  Best Match ait de la matière (le local reste le filet pour les niches où PubMed = 0).
-- **Tri final** : au lieu de `score IA → evidence_level → année`, on classe par
-  **rang PubMed Best Match** (articles de A d'abord, dans l'ordre de l'esearch), puis les
-  **locaux-seuls** ensuite (départagés par le score IA). Le filtre `min_score` s'applique
-  toujours (on ne garde que les jugés ≥ 2).
+Activé par `rrf=True` + `k_pubmed` élevé (100). Change **seulement la sélection** :
 
-```
-if rank_by_pubmed:                          # v2 « hybride re-classé »
-    rang = {pmid: i pour i, pmid dans a_pmids}   # ordre esearch = Best Match
-    trier par (rang.get(pmid, +∞), −score, −relevance_pct)
-else:                                        # v1 historique
-    trier par (−score, −relevance_pct, evidence_level, −année)
-```
+- **`k_pubmed` 20 → 100** : head PubMed plus large.
+- **Fusion RRF** (rang réciproque) du vivier au lieu de « PubMed d'abord » :
+  ```
+  K = 60
+  pour chaque liste L dans (PubMed Best Match, local lexical) :
+      pour rang, pmid dans L :  rrf[pmid] += 1 / (K + rang)
+  vivier trié par rrf décroissant        # bien classé dans l'une OU l'autre → remonte
+  ```
+  N'utilise que les **rangs** (pas les scores → pas de problème d'échelles).
+- **Plancher local** (`local_floor`, curseur) : on garantit au moins N articles
+  locaux-seuls dans le lot jugé, sinon PubMed peut tout remplir.
+- **Taille de lot** (`judge_batch`, curseur, 20–100) : combien Codex juge par lot.
+- **Tri final : TOUJOURS Codex** (`score → % → evidence_level → année`), en v1 comme en v2.
 
-But : A/B tester si le classement PubMed Best Match (généraliste, entraîné sur les clics)
-donne de meilleurs résultats que notre tri par score IA (spécifique à la question).
-`v1` reste strictement inchangé quand `rank_by_pubmed=False`.
+Curseurs UI (mode v2) : « Analysés par lot » = `judge_batch`, « Minimum local garanti »
+= `local_floor`. Récap de provenance affiché au-dessus des résultats (`counts.kept_pubmed`
+/ `kept_local` / `kept_both`).
+
+But : A/B tester si nourrir Codex avec un vivier **fusionné RRF** (PubMed + local) donne
+de meilleurs résultats que le « PubMed d'abord + local en filet » du v1. `v1` inchangé
+quand `rrf=False`.

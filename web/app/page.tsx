@@ -367,6 +367,10 @@ export default function Home() {
   // périmée dans runSearch au moment où on bascule.
   const [algo, setAlgo] = useState<"v1" | "v2">("v1");
   const algoRef = useRef(algo);
+  // Curseurs v2 : total analysé par lot (judge_batch) et minimum d'articles locaux
+  // garantis dans le lot (local_floor). N'ont d'effet qu'en v2 (fusion RRF).
+  const [judgeBatch, setJudgeBatch] = useState(50);
+  const [localFloor, setLocalFloor] = useState(0);
 
   const [data, setData] = useState<SearchResponse | null>(null);
   const [deep, setDeep] = useState<DeepSearchResponse | null>(null);
@@ -693,7 +697,11 @@ export default function Home() {
                   : prev,
               ),
           },
-          algoRef.current === "v2",
+          {
+            rrf: algoRef.current === "v2",
+            judgeBatch,
+            localFloor: algoRef.current === "v2" ? localFloor : 0,
+          },
         );
         return; // `loading` reste vrai jusqu'à onResult/onError
       }
@@ -825,11 +833,51 @@ export default function Home() {
               className={`xm-chip ${algo === "v2" ? "on" : ""}`}
               onClick={() => switchAlgo("v2")}
             >
-              v2 · PubMed
+              v2 · fusion RRF
             </button>
           </div>
         )}
       </div>
+
+      {/* Curseurs v2 : total analysé par lot + minimum local garanti dans le lot. */}
+      {isPubmed && algo === "v2" && (
+        <div className="xm-sliders">
+          <label className="xm-slider">
+            <span>
+              Analysés par lot : <strong>{judgeBatch}</strong>
+            </span>
+            <input
+              type="range"
+              min={20}
+              max={100}
+              step={10}
+              value={judgeBatch}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                setJudgeBatch(v);
+                setLocalFloor((f) => Math.min(f, v));
+              }}
+            />
+          </label>
+          <label className="xm-slider">
+            <span>
+              Minimum local garanti : <strong>{localFloor}</strong>
+            </span>
+            <input
+              type="range"
+              min={0}
+              max={judgeBatch}
+              step={5}
+              value={localFloor}
+              onChange={(e) => setLocalFloor(Number(e.target.value))}
+            />
+          </label>
+          <span className="xm-slider-hint">
+            RRF choisit les candidats · le tri reste par score Codex · appliqué à la
+            prochaine recherche
+          </span>
+        </div>
+      )}
 
       {/* PubMed + IA : note de fonctionnement (méthode unique). */}
       {isPubmed && (
@@ -1042,6 +1090,19 @@ export default function Home() {
             <span className="xm-results-count">
               {deep.counts.kept ?? 0} retenu(s) · {deep.counts.judged ?? 0} jugés codex ·{" "}
               {deep.counts.merged ?? 0} fusionnés
+              {deep.counts.kept_local != null && (
+                <>
+                  {" · "}
+                  <span className="xm-src pm">
+                    {deep.counts.kept_pubmed ?? 0} PubMed
+                  </span>
+                  {" · "}
+                  <span className="xm-src lo">{deep.counts.kept_local ?? 0} local</span>
+                  {(deep.counts.kept_both ?? 0) > 0 && (
+                    <> · {deep.counts.kept_both} les deux</>
+                  )}
+                </>
+              )}
             </span>
             <CopyLinkButton />
           </div>

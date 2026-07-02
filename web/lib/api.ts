@@ -121,13 +121,16 @@ export function searchPubmedDeepStream(
       fr: Record<string, { title_fr: string; abstract_fr: string }>,
     ) => void;
   },
-  // Algo v2 « hybride re-classé » : tri final par pertinence PubMed Best Match.
-  rankByPubmed = false,
+  // Algo v2 : fusion RRF pour la sélection des candidats (tri final = score Codex).
+  // `judgeBatch` = total analysé par lot · `localFloor` = minimum local garanti.
+  opts: { rrf?: boolean; judgeBatch?: number; localFloor?: number } = {},
 ): EventSource {
   const sp = new URLSearchParams({ query, k_pubmed: String(k) });
   if (dateFrom) sp.set("date_from", dateFrom);
   if (dateTo) sp.set("date_to", dateTo);
-  if (rankByPubmed) sp.set("rank_by_pubmed", "true");
+  if (opts.rrf) sp.set("rrf", "true");
+  if (opts.judgeBatch) sp.set("judge_batch", String(opts.judgeBatch));
+  if (opts.localFloor) sp.set("local_floor", String(opts.localFloor));
   const es = new EventSource(`${API_BASE}/search/pubmed/deep/stream?${sp.toString()}`);
   es.addEventListener("log", (e) => {
     try {

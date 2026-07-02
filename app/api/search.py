@@ -402,10 +402,14 @@ class DeepSearchRequest(BaseModel):
     max_local: int = 200  # candidats locaux (filtre FTS+MeSH) — vivier large, jugé par lots
     judge_batch: int = 50  # nombre d'abstracts jugés par codex à chaque lot (« 50 de plus »)
     min_score: int = 2  # seuil de conservation (0-3)
-    # Algo v2 « hybride re-classé » : même vivier A∪B, mais tri final par pertinence
-    # PubMed Best Match (A d'abord, dans l'ordre esearch ; locaux-seuls ensuite) au
-    # lieu du tri par score IA. False = comportement v1 strictement inchangé.
-    rank_by_pubmed: bool = False
+    # Algo v2 : fusion RRF (rang réciproque) des deux listes — PubMed Best Match +
+    # local lexical — pour CHOISIR les candidats à juger (au lieu de « PubMed d'abord »),
+    # afin de ne pas enterrer le local (~39 % des résultats pertinents en viennent).
+    # Le tri FINAL reste toujours le score Codex. False = comportement v1 inchangé.
+    rrf: bool = False
+    # Minimum d'articles LOCAUX-seuls garantis dans le lot jugé (curseur UI). 0 = RRF
+    # pur ; > 0 = on réserve ce nombre de places aux meilleurs candidats locaux.
+    local_floor: int = 0
 
 
 class DeepHit(BaseModel):
@@ -563,6 +567,17 @@ def _run_deep_search(
     # --- Rassembler les candidats (A ∪ B) + récupérer titres/abstracts ---
     a_set, local_set = set(a_pmids), set(local_pmids)
     candidate_pmids = list(dict.fromkeys([*a_pmids, *local_pmids]))  # dédup, ordre stable
+    if req.rrf:
+        # Fusion par rang réciproque (RRF) : score = Σ 1/(K + rang) sur les deux listes
+        # (PubMed Best Match + local lexical). Bien classé par l'une OU l'autre → remonte ;
+        # par les deux → remonte le plus. N'utilise que les RANGS (pas les scores, donc
+        # pas de problème d'échelles). Sert à CHOISIR qui Codex juge, jamais à classer.
+        K_RRF = 60
+        rrf_score: dict[int, float] = {}
+        for lst in (a_pmids, local_pmids):
+            for rank, p in enumerate(lst):
+                rrf_score[p] = rrf_score.get(p, 0.0) + 1.0 / (K_RRF + rank)
+        candidate_pmids.sort(key=lambda p: -rrf_score.get(p, 0.0))
     db = _fetch_articles(session, candidate_pmids)
 
     # Enrichissement des articles de A absents de la base : best-effort. Un hoquet
@@ -591,8 +606,23 @@ def _run_deep_search(
     # On ne juge que le PREMIER lot (`judge_batch`) ; le reste (`remaining`) est
     # renvoyé au front, qui peut demander « 50 de plus » via le flux /more.
     judgeable = [p for p in candidate_pmids if (_abstract(p) or "").strip()]
-    first_batch = judgeable[: req.judge_batch]
-    rest = judgeable[req.judge_batch :]
+    # Lot jugé = les `judge_batch` premiers du vivier (ordre RRF en v2), MAIS on garantit
+    # au moins `local_floor` articles locaux-seuls : sinon PubMed peut monopoliser le lot
+    # et enterrer le local (curseur UI ; 0 = pas de plancher).
+    batch_n = req.judge_batch
+    floor = min(req.local_floor, batch_n)
+    first_batch = judgeable[:batch_n]
+    if floor > 0 and sum(1 for p in first_batch if p not in a_set) < floor:
+        reserved = [p for p in judgeable if p not in a_set][:floor]  # meilleurs locaux
+        keep = set(reserved)
+        for p in judgeable:  # complète avec le reste du vivier, dans l'ordre
+            if len(keep) >= batch_n:
+                break
+            keep.add(p)
+        order = {p: i for i, p in enumerate(judgeable)}
+        first_batch = sorted(keep, key=lambda p: order[p])  # garde l'ordre du vivier
+    picked = set(first_batch)
+    rest = [p for p in judgeable if p not in picked]
     emit("judge", f"🧬 GPT-5.4 lit et juge {len(first_batch)} abstracts "
                   f"(sur {len(judgeable)} jugeables)…")
 
@@ -637,25 +667,15 @@ def _run_deep_search(
             abstract=_abstract(p),
         ))
 
-    if req.rank_by_pubmed:
-        # v2 « hybride re-classé » : ordre PubMed Best Match (A d'abord, dans l'ordre
-        # de l'esearch) ; les articles locaux-seuls (absents de A) passent après,
-        # départagés par le score IA. Le filtre min_score s'applique déjà plus haut.
-        pubmed_rank = {p: i for i, p in enumerate(a_pmids)}
-        _BIG = 10**9
-        hits.sort(key=lambda h: (
-            pubmed_rank.get(h.pmid, _BIG),
-            -(h.score if h.score is not None else -1),
-            -(h.relevance_pct if h.relevance_pct is not None else -1),
-        ))
-    else:
-        # v1 : pertinence (score desc) → qualité (evidence_level asc) → récence (année desc)
-        hits.sort(key=lambda h: (
-            -(h.score if h.score is not None else -1),
-            -(h.relevance_pct if h.relevance_pct is not None else -1),
-            h.evidence_level if h.evidence_level is not None else 99,
-            -(h.pub_year or 0),
-        ))
+    # Tri final : TOUJOURS la pertinence évaluée par Codex (score → % → niveau de preuve
+    # → récence), quel que soit l'algo. RRF ne sert qu'à CHOISIR les candidats à juger ;
+    # il ne classe jamais ce que voit le médecin.
+    hits.sort(key=lambda h: (
+        -(h.score if h.score is not None else -1),
+        -(h.relevance_pct if h.relevance_pct is not None else -1),
+        h.evidence_level if h.evidence_level is not None else 99,
+        -(h.pub_year or 0),
+    ))
 
     # Traductions FR déjà en cache (instantané) — le reste est traduit en
     # streaming (voir l'endpoint stream), ce qui enrichit le cache au fil des
@@ -686,6 +706,10 @@ def _run_deep_search(
             "judgeable": len(judgeable),
             "judged": len(scores),
             "kept": len(hits),
+            # Provenance des articles RETENUS (pour le récap « X PubMed · Y local »).
+            "kept_pubmed": sum(1 for h in hits if h.source == "pubmed"),
+            "kept_both": sum(1 for h in hits if h.source == "both"),
+            "kept_local": sum(1 for h in hits if h.source == "local"),
         },
         results=hits,
         remaining=rest,
@@ -1071,13 +1095,17 @@ def search_pubmed_deep_stream(
     date_to: str | None = Query(default=None),
     k_pubmed: int = Query(default=20, ge=1, le=200),
     max_local: int = Query(default=200, ge=1, le=400),
-    rank_by_pubmed: bool = Query(default=False),
+    rrf: bool = Query(default=False),
+    judge_batch: int = Query(default=50, ge=10, le=100),
+    local_floor: int = Query(default=0, ge=0, le=100),
 ):
     """Identique à /search/pubmed/deep mais en SSE : émet le déroulé en direct
     (les keep-alives empêchent le proxy de couper les requêtes longues) puis un
     événement `result` avec le payload final (forme DeepSearchResponse).
 
-    `rank_by_pubmed=True` (+ `k_pubmed` élevé) = algo v2 « hybride re-classé »."""
+    `rrf=True` (+ `k_pubmed` élevé) = algo v2 : fusion RRF pour la sélection des
+    candidats, tri final toujours par score Codex. `judge_batch`/`local_floor` =
+    curseurs (total analysé par lot / minimum d'articles locaux garantis)."""
 
     def sse(event: str, data: dict) -> str:
         return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
@@ -1102,7 +1130,7 @@ def search_pubmed_deep_stream(
                         DeepSearchRequest(
                             query=query, date_from=date_from, date_to=date_to,
                             k_pubmed=k_pubmed, max_local=max_local,
-                            rank_by_pubmed=rank_by_pubmed,
+                            rrf=rrf, judge_batch=judge_batch, local_floor=local_floor,
                         ),
                         worker_session,
                         progress,
