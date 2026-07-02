@@ -1,13 +1,29 @@
-# Algorithme de recherche — PubMed + IA (méthode « v2 »)
+# Algorithmes de recherche X-Med
 
-Pseudo-code de référence de la **seule** méthode de recherche en service (« PubMed +
-codex »). Fidèle au code : `app/api/search.py` (`_run_deep_search`, `_run_deep_more`),
-`app/services/query_builder.py`, `app/services/codex_judge.py`,
-`app/services/pubmed_eutils.py`. Garder ce document synchronisé avec le code.
+Ce document décrit **toutes les méthodes de recherche** de X-Med, avec le pseudo-code
+détaillé de la principale (PubMed + IA). Fidèle au code : `app/api/search.py`,
+`app/services/{query_builder,codex_judge,pubmed_eutils,embeddings}.py`. Garder ce
+document synchronisé avec le code.
 
-> Les termes techniques sont glosés au fil du texte (FTS, MeSH, ts_rank…).
+> Termes techniques glosés au fil du texte (FTS, MeSH, ts_rank, embeddings, RRF…).
+
+## Les méthodes disponibles (barre « MÉTHODE » de l'UI)
+
+| Méthode | Libellé UI | Endpoint | Principe en une phrase |
+|---|---|---|---|
+| **PubMed + IA** | « PubMed + IA » | `/search/pubmed/deep/stream` | requête experte (codex) → vivier PubMed + base locale → **Codex lit et juge** chaque abstract |
+| **Sémantique** | « Par sens » | `/search/semantic` | embedding bge-m3 de la question → plus proches voisins (cosinus pgvector) |
+| **Mots-clés / MeSH** | « Mots-clés / MeSH » | `/search/mesh` | tags MeSH (ET/OU) + plein-texte optionnel + filtres |
+| *(Plein-texte)* | — | `/search` | Postgres FTS classé par `ts_rank` (brique interne) |
+| *(Hybride)* | — | `/search/hybrid` | **fusion RRF** plein-texte + sémantique (interne/expérimental) |
+
+La **PubMed + IA** est la méthode principale et la plus riche (elle seule fait *lire* les
+articles par l'IA) ; les autres sont plus directes et instantanées. Détail de chacune
+ci-dessous — la principale d'abord, les autres en fin de document.
 
 ---
+
+# 1. PubMed + IA (méthode principale)
 
 ## Vue d'ensemble — la recherche se fait en 3 temps
 
@@ -264,3 +280,63 @@ Curseurs UI (mode v2) : « Analysés par lot » = `judge_batch`, « Minimum loca
 But : A/B tester si nourrir Codex avec un vivier **fusionné RRF** (PubMed + local) donne
 de meilleurs résultats que le « PubMed d'abord + local en filet » du v1. `v1` inchangé
 quand `rrf=False`.
+
+---
+
+# 2. Sémantique (« Par sens ») — `/search/semantic`
+
+Recherche **par le sens**, pas par les mots. On transforme la question en **vecteur**
+(embedding) avec le modèle **bge-m3**, puis on cherche les articles dont le vecteur est
+le plus proche (distance **cosinus**, opérateur pgvector `<=>`, index HNSW).
+
+```
+FONCTION semantique(question, modèle = bge_m3, k = 20):
+    v = embed(modèle, question)                  # la question devient un vecteur
+    voisins = SELECT pmid, 1 - (v_article <=> v) AS similarité
+              FROM embeddings_<modèle>
+              ORDER BY v_article <=> v            # le plus proche d'abord
+              LIMIT k
+    RETOURNER voisins (avec leur similarité 0–1)
+```
+
+- **Force** : rattrape synonymes cliniques, franco-anglais, reformulations (« crise
+  cardiaque » ≈ « infarctus du myocarde ») là où le lexical échoue.
+- **Limite** : ne couvre que les articles **déjà embeddés** (l'embedding est lent,
+  ~1 doc/s → pas tout le corpus). Seuils de pertinence provisoires (à caler sur le gold
+  set annoté par les médecins).
+- **Pas d'appel IA → instantané.**
+
+# 3. Mots-clés / MeSH — `/search/mesh`
+
+Recherche experte par **descripteurs MeSH** (le thésaurus médical de PubMed) et/ou
+plein-texte, avec filtres.
+
+```
+FONCTION mesh(tags[], mode = ET|OU, q_texte, année_min, année_max, preuve_max):
+    conditions = []
+    si tags   : (mesh_article ⊇ tags) si ET, sinon (mesh_article ∩ tags ≠ ∅)
+    si q_texte: FTS(q_texte)
+    + filtres année / niveau de preuve
+    trier par ts_rank si q_texte, sinon par année décroissante
+```
+
+- **ET** = tous les tags (précision) · **OU** = au moins un (rappel).
+- Autocomplétion des tags via `/mesh/autocomplete`. **Pas d'IA → instantané.**
+
+# 4. Hybride (interne) — `/search/hybrid`
+
+Fusionne **plein-texte** (ts_rank) et **sémantique** (pgvector) par **RRF** (rang
+réciproque, K=60) — la même technique que la sélection de candidats du v2 PubMed+IA :
+chaque méthode fournit un pool, un article bien classé par l'une OU l'autre remonte.
+Sert de brique d'évaluation ; pas exposé dans l'UI grand public.
+
+---
+
+## Note de cohérence documentaire
+
+`PIPELINE_EMBEDDINGS.md` décrit un **pré-filtre par embeddings/pgvector** en amont du
+scoring. Ce n'est **pas** ce qu'implémente la recherche PubMed + IA en service : le
+pré-filtre y est **lexical + MeSH**, puis **jugement Codex** ; les embeddings ne sont
+**pas** sur ce chemin critique (jugés peu cohérents pour le pré-tri, cf. `codex_judge.py`).
+Ce fichier (`ALGO_RECHERCHE.md`) décrit l'algorithme **réel**. En cas de divergence, le
+**code + ce document** font foi.
