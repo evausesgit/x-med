@@ -121,10 +121,13 @@ export function searchPubmedDeepStream(
       fr: Record<string, { title_fr: string; abstract_fr: string }>,
     ) => void;
   },
+  // Algo v2 « hybride re-classé » : tri final par pertinence PubMed Best Match.
+  rankByPubmed = false,
 ): EventSource {
   const sp = new URLSearchParams({ query, k_pubmed: String(k) });
   if (dateFrom) sp.set("date_from", dateFrom);
   if (dateTo) sp.set("date_to", dateTo);
+  if (rankByPubmed) sp.set("rank_by_pubmed", "true");
   const es = new EventSource(`${API_BASE}/search/pubmed/deep/stream?${sp.toString()}`);
   es.addEventListener("log", (e) => {
     try {

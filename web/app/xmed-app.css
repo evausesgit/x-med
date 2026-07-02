@@ -248,6 +248,11 @@
   border-color: var(--text);
   font-weight: 600;
 }
+.xm-algo-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
 .xm-daterange {
   margin-left: auto;
   display: inline-flex;

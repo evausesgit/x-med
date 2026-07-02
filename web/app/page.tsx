@@ -362,6 +362,12 @@ export default function Home() {
   // de jugement (méthode unique).
   const isPubmed = mode === "pubmed_v2";
 
+  // Algo PubMed : v1 (tri par score IA) ou v2 « hybride re-classé » (tri par
+  // pertinence PubMed Best Match + k_pubmed élevé). Ref pour éviter une lecture
+  // périmée dans runSearch au moment où on bascule.
+  const [algo, setAlgo] = useState<"v1" | "v2">("v1");
+  const algoRef = useRef(algo);
+
   const [data, setData] = useState<SearchResponse | null>(null);
   const [deep, setDeep] = useState<DeepSearchResponse | null>(null);
   const [savedHit, setSavedHit] = useState<{ id: string; created_at: string } | null>(null);
@@ -565,6 +571,16 @@ export default function Home() {
     else selectMode(method);
   }
 
+  // Bascule algo v1/v2 : on met la ref à jour AVANT de relancer (setAlgo est
+  // asynchrone) pour que runSearch lise bien la nouvelle valeur. Relance à chaud
+  // pour comparer les deux tris sur la même requête.
+  function switchAlgo(v: "v1" | "v2") {
+    if (v === algo) return;
+    algoRef.current = v;
+    setAlgo(v);
+    if (isPubmed && q.trim()) runSearch(0, { force: true });
+  }
+
   const autorun = useRef(false);
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
@@ -641,7 +657,7 @@ export default function Home() {
           q.trim(),
           dateFrom || undefined,
           dateTo || undefined,
-          12,
+          algoRef.current === "v2" ? 100 : 12,
           {
             onLog: (log) => {
               setLogs((prev) => [...prev, log]);
@@ -677,6 +693,7 @@ export default function Home() {
                   : prev,
               ),
           },
+          algoRef.current === "v2",
         );
         return; // `loading` reste vrai jusqu'à onResult/onError
       }
@@ -787,6 +804,29 @@ export default function Home() {
             <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
             <span className="sep">→</span>
             <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+          </div>
+        )}
+
+        {isPubmed && (
+          <div
+            className="xm-algo-toggle"
+            title="v1 = tri par score IA · v2 = tri par pertinence PubMed (Best Match) + vivier PubMed élargi"
+          >
+            <span className="xm-method-label">TRI</span>
+            <button
+              type="button"
+              className={`xm-chip ${algo === "v1" ? "on" : ""}`}
+              onClick={() => switchAlgo("v1")}
+            >
+              v1 · score IA
+            </button>
+            <button
+              type="button"
+              className={`xm-chip ${algo === "v2" ? "on" : ""}`}
+              onClick={() => switchAlgo("v2")}
+            >
+              v2 · PubMed
+            </button>
           </div>
         )}
       </div>

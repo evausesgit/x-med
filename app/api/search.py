@@ -402,6 +402,10 @@ class DeepSearchRequest(BaseModel):
     max_local: int = 200  # candidats locaux (filtre FTS+MeSH) — vivier large, jugé par lots
     judge_batch: int = 50  # nombre d'abstracts jugés par codex à chaque lot (« 50 de plus »)
     min_score: int = 2  # seuil de conservation (0-3)
+    # Algo v2 « hybride re-classé » : même vivier A∪B, mais tri final par pertinence
+    # PubMed Best Match (A d'abord, dans l'ordre esearch ; locaux-seuls ensuite) au
+    # lieu du tri par score IA. False = comportement v1 strictement inchangé.
+    rank_by_pubmed: bool = False
 
 
 class DeepHit(BaseModel):
@@ -633,13 +637,25 @@ def _run_deep_search(
             abstract=_abstract(p),
         ))
 
-    # tri : pertinence (score desc) → qualité (evidence_level asc) → récence (année desc)
-    hits.sort(key=lambda h: (
-        -(h.score if h.score is not None else -1),
-        -(h.relevance_pct if h.relevance_pct is not None else -1),
-        h.evidence_level if h.evidence_level is not None else 99,
-        -(h.pub_year or 0),
-    ))
+    if req.rank_by_pubmed:
+        # v2 « hybride re-classé » : ordre PubMed Best Match (A d'abord, dans l'ordre
+        # de l'esearch) ; les articles locaux-seuls (absents de A) passent après,
+        # départagés par le score IA. Le filtre min_score s'applique déjà plus haut.
+        pubmed_rank = {p: i for i, p in enumerate(a_pmids)}
+        _BIG = 10**9
+        hits.sort(key=lambda h: (
+            pubmed_rank.get(h.pmid, _BIG),
+            -(h.score if h.score is not None else -1),
+            -(h.relevance_pct if h.relevance_pct is not None else -1),
+        ))
+    else:
+        # v1 : pertinence (score desc) → qualité (evidence_level asc) → récence (année desc)
+        hits.sort(key=lambda h: (
+            -(h.score if h.score is not None else -1),
+            -(h.relevance_pct if h.relevance_pct is not None else -1),
+            h.evidence_level if h.evidence_level is not None else 99,
+            -(h.pub_year or 0),
+        ))
 
     # Traductions FR déjà en cache (instantané) — le reste est traduit en
     # streaming (voir l'endpoint stream), ce qui enrichit le cache au fil des
@@ -1053,12 +1069,15 @@ def search_pubmed_deep_stream(
     query: str = Query(..., min_length=1),
     date_from: str | None = Query(default=None),
     date_to: str | None = Query(default=None),
-    k_pubmed: int = Query(default=20, ge=1, le=50),
+    k_pubmed: int = Query(default=20, ge=1, le=200),
     max_local: int = Query(default=200, ge=1, le=400),
+    rank_by_pubmed: bool = Query(default=False),
 ):
     """Identique à /search/pubmed/deep mais en SSE : émet le déroulé en direct
     (les keep-alives empêchent le proxy de couper les requêtes longues) puis un
-    événement `result` avec le payload final (forme DeepSearchResponse)."""
+    événement `result` avec le payload final (forme DeepSearchResponse).
+
+    `rank_by_pubmed=True` (+ `k_pubmed` élevé) = algo v2 « hybride re-classé »."""
 
     def sse(event: str, data: dict) -> str:
         return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
@@ -1083,6 +1102,7 @@ def search_pubmed_deep_stream(
                         DeepSearchRequest(
                             query=query, date_from=date_from, date_to=date_to,
                             k_pubmed=k_pubmed, max_local=max_local,
+                            rank_by_pubmed=rank_by_pubmed,
                         ),
                         worker_session,
                         progress,

@@ -225,3 +225,35 @@ FONCTION analyser_plus(PRM, pmids = remaining[0:50]):
    les résultats sortent en ordre lexical brut. Cohérent ?
 6. **`k_pubmed = 20`** seulement → fenêtre PubMed étroite. L'élargir augmente le vivier
    mais pas le nombre jugé (toujours 50).
+
+---
+
+## Variante « hybride re-classé » (mode de tri optionnel)
+
+⚠️ Nomenclature : la méthode décrite ci-dessus s'appelle historiquement « v2 » dans le
+code (par opposition à l'ancienne « v1 lots d'abstracts » supprimée). Le **mode de tri**
+ci-dessous est un **réglage à l'intérieur de cette méthode**, exposé dans l'UI sous
+« TRI : v1 · score IA » (défaut) vs « v2 · PubMed ». Ne pas confondre.
+
+Activé par `rank_by_pubmed=True` (flag sur `DeepSearchRequest`, param `rank_by_pubmed`
+de l'endpoint stream) + `k_pubmed` élevé (100). **Même vivier A∪B, même jugement.** Seuls
+changent :
+
+- **`k_pubmed` 20 → 100** : on tire un « head » PubMed plus large pour que le classement
+  Best Match ait de la matière (le local reste le filet pour les niches où PubMed = 0).
+- **Tri final** : au lieu de `score IA → evidence_level → année`, on classe par
+  **rang PubMed Best Match** (articles de A d'abord, dans l'ordre de l'esearch), puis les
+  **locaux-seuls** ensuite (départagés par le score IA). Le filtre `min_score` s'applique
+  toujours (on ne garde que les jugés ≥ 2).
+
+```
+if rank_by_pubmed:                          # v2 « hybride re-classé »
+    rang = {pmid: i pour i, pmid dans a_pmids}   # ordre esearch = Best Match
+    trier par (rang.get(pmid, +∞), −score, −relevance_pct)
+else:                                        # v1 historique
+    trier par (−score, −relevance_pct, evidence_level, −année)
+```
+
+But : A/B tester si le classement PubMed Best Match (généraliste, entraîné sur les clics)
+donne de meilleurs résultats que notre tri par score IA (spécifique à la question).
+`v1` reste strictement inchangé quand `rank_by_pubmed=False`.
