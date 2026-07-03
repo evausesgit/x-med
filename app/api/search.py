@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select, text as sql_text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -24,6 +25,12 @@ from app.services.explainability import explain_article
 router = APIRouter()
 
 DEFAULT_MODEL = settings.embedding_model_list[0] if settings.embedding_model_list else "bge_m3"
+
+# Garde-fou latence du pré-filtre local : la base miroir compte ~25 M articles ;
+# sur un sujet à termes courants, le filtre FTS+MeSH matche des millions de lignes
+# et le tri ts_rank peut prendre plusieurs minutes. Au-delà de ce délai, on renonce
+# au vivier local (repli PubMed) plutôt que de faire attendre le médecin.
+LOCAL_SEARCH_TIMEOUT_MS = 8000
 
 
 def _vec_literal(vec) -> str:
@@ -542,27 +549,55 @@ def _run_deep_search(
         raise HTTPException(502, f"PubMed indisponible : {e}")
     emit("esearch_done", f"📚 {len(a_pmids)} articles PubMed récupérés")
 
-    # --- Étape 2 : même requête sur la base locale (FTS + MeSH) → B ---
+    # --- Étape 2 : même requête sur la base locale (FTS) → B ---
+    # La base locale miroir de PubMed compte désormais ~25 M d'articles : on signale
+    # l'étape AVANT de lancer la requête (et pas seulement après) pour que le médecin
+    # voie qu'on fouille le fonds documentaire, plutôt qu'un écran figé.
+    emit("filter_start",
+         "🗄️ Recherche dans la base locale PubMed (~25 M d'articles)…")
     ts = " OR ".join(keywords) if keywords else req.query
     tsq = func.websearch_to_tsquery("english", ts)
+    # Pré-filtre = FTS seul (index GIN + tri ts_rank) : ~0,4 s sur 25 M lignes.
+    # /!\ On N'AJOUTE PLUS `OR mesh_terms && ARRAY[...]` : un descripteur MeSH courant
+    # (ex. « Heart Failure ») matche des millions d'articles que ts_rank doit tous
+    # trier → la MÊME requête passait de 0,4 s à ~206 s. Les mots-clés EN de codex sont
+    # déjà exhaustifs (synonymes cliniques + noms de molécules) et codex re-juge ensuite,
+    # donc le gain de rappel du MeSH était marginal pour un coût prohibitif. `mesh` reste
+    # utilisé pour la requête PubMed (esearch), pas pour le vivier local.
     cond = Article.fts.op("@@")(tsq)
-    if mesh:
-        cond = cond | Article.mesh_terms.overlap(mesh)
     conditions = [cond]
     yf, yt = _year(req.date_from), _year(req.date_to)
     if yf is not None:
         conditions.append(Article.pub_year >= yf)
     if yt is not None:
         conditions.append(Article.pub_year <= yt)
-    local_pmids = list(
-        session.scalars(
-            select(Article.pmid)
-            .where(*conditions)
-            .order_by(func.ts_rank(Article.fts, tsq).desc())
-            .limit(req.max_local)
-        ).all()
-    )
-    emit("filter", f"🧮 {len(local_pmids)} candidats locaux (filtre lexical + MeSH)")
+    # SET LOCAL est borné au SAVEPOINT (begin_nested) : si la requête locale dépasse
+    # LOCAL_SEARCH_TIMEOUT_MS, Postgres l'annule, on rollback au savepoint (le reste de
+    # la transaction — fetch abstracts, cache de traduction — reste intact) et on
+    # continue sans vivier local.
+    local_pmids: list[int] = []
+    local_timed_out = False
+    try:
+        with session.begin_nested():
+            session.execute(
+                sql_text(f"SET LOCAL statement_timeout = '{LOCAL_SEARCH_TIMEOUT_MS}ms'")
+            )
+            local_pmids = list(
+                session.scalars(
+                    select(Article.pmid)
+                    .where(*conditions)
+                    .order_by(func.ts_rank(Article.fts, tsq).desc())
+                    .limit(req.max_local)
+                ).all()
+            )
+    except OperationalError:
+        local_timed_out = True
+    if local_timed_out:
+        emit("filter_timeout",
+             "⏱️ Sujet trop large pour la base locale (25 M articles) — on s'appuie "
+             "sur les résultats PubMed pour cette recherche.")
+    else:
+        emit("filter", f"🧮 {len(local_pmids)} candidats locaux (filtre lexical FTS)")
 
     # --- Rassembler les candidats (A ∪ B) + récupérer titres/abstracts ---
     a_set, local_set = set(a_pmids), set(local_pmids)

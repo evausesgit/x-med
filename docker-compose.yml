@@ -6,6 +6,26 @@ services:
     # parallèles / gros tris de Postgres sur la table `articles` (26 M+ lignes), d'où des
     # « could not resize shared memory segment: No space left on device ». 1 Go = large.
     shm_size: "1gb"
+    # Tuning pour une base de 63 Go / 25 M articles sur un hôte à 62 Go de RAM.
+    # Les défauts Postgres (shared_buffers=128 Mo, work_mem=4 Mo) sont dérisoires :
+    # l'index plein-texte pèse 5,7 Go à lui seul, d'où des requêtes locales à ~13 s
+    # à froid (0,8 s à chaud). On garde davantage en cache Postgres + on hint le
+    # planificateur sur le cache OS. Valeurs volontairement modérées : l'hôte fait
+    # aussi tourner d'autres conteneurs (Coolify, etc.).
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=8GB"
+      - "-c"
+      - "effective_cache_size=24GB"
+      - "-c"
+      - "work_mem=64MB"
+      - "-c"
+      - "maintenance_work_mem=1GB"
+      - "-c"
+      - "random_page_cost=1.1"      # stockage SSD/NVMe : accès aléatoire ~ séquentiel
+      - "-c"
+      - "shared_preload_libraries=pg_prewarm"  # précharge l'index FTS au démarrage
     environment:
       POSTGRES_USER: xmed
       POSTGRES_PASSWORD: xmed
