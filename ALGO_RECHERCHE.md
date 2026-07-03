@@ -49,6 +49,31 @@ Idée-clé : **l'IA ne note jamais 4 000 articles**. On pré-filtre vite et gros
 (mots-clés), puis l'IA lit en profondeur un **petit lot** (50). Les embeddings/pgvector
 **ne sont pas** sur ce chemin (jugés peu cohérents).
 
+## Les DEUX sources d'une recherche (A et B) — rôles, tailles, limites
+
+Une recherche interroge **deux fonds en parallèle**, puis les fusionne. Ils sont
+complémentaires : A apporte la **fraîcheur** (le monde entier, y compris ce qu'on n'a pas
+encore en base), B apporte la **rapidité et le plein-texte** (résumés déjà chez nous, pas
+d'aller-retour réseau). ~39 % des articles finalement jugés pertinents viennent du **local
+seul** → les deux comptent.
+
+| | **A — PubMed en direct** | **B — Base locale** |
+|---|---|---|
+| **Ce que c'est** | API NCBI E-utilities (`esearch`) | Notre miroir Postgres de PubMed |
+| **Couverture** | Le monde entier, temps réel | ~**25 M articles / 63 Go** (miroir ~complet) |
+| **Comment on cherche** | Requête experte Codex, tri « Best Match » PubMed | Plein-texte (FTS, index GIN) trié par `ts_rank` |
+| **Combien on prend** | `k_pubmed` = **20** (fenêtre étroite) | `max_local` = **≤ 200** |
+| **Vitesse typique** | ~0,5–1 s (réseau NCBI) | ~**0,4–0,5 s** (index préchargé) |
+| **Limite de temps** | dépendant de NCBI ; échec `esearch` → **502**, stoppe tout | **8 s** (`statement_timeout`) → si dépassé, B = ∅, on continue sur A |
+| **Texte des résumés** | à récupérer (`esummary`/`efetch`, best-effort) | déjà en base (instantané) |
+| **Filtre date** | `pdat` dans `[date_from, date_to]` | `pub_year` dans les mêmes bornes |
+
+**Pourquoi B peut être lente (et le garde-fou 8 s).** À 25 M lignes, le coût du FTS
+dépend de la **fréquence des mots**, pas du nombre de résultats : des mots courants
+(« bleeding », « heart »…) ont des listes d'index énormes à parcourir et à trier. La
+plupart des requêtes cliniques (termes précis) reviennent en ~0,5 s ; les sujets très
+larges sont coupés à 8 s et basculent sur PubMed seul.
+
 ---
 
 ## Paramètres (valeurs par défaut réelles)
@@ -104,20 +129,34 @@ FONCTION recherche(PRM, date_from, date_to):
 ### TEMPS 2 — Vivier local + fusion + récupération du texte
 
 ```
-  # ---- 2a. Source B = notre base locale (filtre lexical + MeSH) ----
+  # ---- 2a. Source B = notre base locale (filtre plein-texte FTS) ----
   # "FTS" = full-text search = recherche plein-texte Postgres sur titre+résumé.
-  # On cherche les articles dont le texte matche les mots-clés anglais (en OU),
-  # OU qui portent au moins un des tags MeSH demandés ("overlap" = intersection
-  # non vide entre les MeSH de l'article et mesh_terms).
+  # La base est un miroir ~complet de PubMed : ~25 M articles / 63 Go.
+  # On cherche les articles dont le TEXTE matche les mots-clés anglais (en OU).
+  #
+  # ⚠️ On n'ajoute PLUS de condition MeSH ici (avant : « OR mesh_article ∩ mesh_terms »).
+  # À l'échelle de 25 M lignes, un descripteur MeSH courant (ex. « Heart Failure »)
+  # matche des MILLIONS d'articles que le tri ts_rank doit tous parcourir → la MÊME
+  # requête passait de 0,4 s (FTS seul) à ~206 s (FTS OR MeSH). Les keywords_en de Codex
+  # sont déjà exhaustifs (synonymes cliniques + molécules) et Codex re-juge derrière,
+  # donc le gain de rappel du MeSH était marginal. mesh_terms ne sert donc qu'à la
+  # requête PubMed (1a/1b), PAS au vivier local.
   texte_recherché = keywords_en joints par " OR "   (sinon PRM brut)
 
-  B_pmids = SELECT pmid FROM articles
-            WHERE  ( texte matche texte_recherché          # FTS
-                     OR  mesh_de_l_article ∩ mesh_terms ≠ ∅ )  # MeSH
-              AND  pub_year ≥ année(date_from)              # filtres date
-              AND  pub_year ≤ année(date_to)
-            ORDER BY pertinence_lexicale DESC               # "ts_rank"
-            LIMIT max_local                                 # ≤ 200
+  # Garde-fou latence (LOCAL_SEARCH_TIMEOUT_MS = 8 s) : sur un sujet à mots ultra-
+  # courants (« bleeding », « stroke »…), même le FTS seul peut prendre des minutes.
+  # La requête est donc bornée à 8 s (statement_timeout Postgres, isolé dans un
+  # savepoint). Si dépassé → on ABANDONNE le vivier local (B = ∅) et on continue
+  # sur PubMed seul, plutôt que de faire attendre le médecin.
+  ESSAYER (statement_timeout = 8 s):
+      B_pmids = SELECT pmid FROM articles
+                WHERE  texte matche texte_recherché         # FTS (index GIN)
+                  AND  pub_year ≥ année(date_from)           # filtres date
+                  AND  pub_year ≤ année(date_to)
+                ORDER BY pertinence_lexicale DESC            # "ts_rank"
+                LIMIT max_local                              # ≤ 200
+  SINON (timeout 8 s dépassé):
+      B_pmids = []                                           # repli : PubMed seul
 
   # ---- 2b. Fusion A ∪ B ----
   # On concatène A PUIS B et on déduplique en gardant le 1er vu.
@@ -217,11 +256,28 @@ FONCTION analyser_plus(PRM, pmids = remaining[0:50]):
 
 - **Streaming SSE** : `/search/pubmed/deep/stream` émet le déroulé en direct (chaque
   étape avec son chrono) puis un événement `result`. Un **keep-alive toutes les 10 s**
-  empêche un proxy de couper pendant le silence du jugement (~50 s).
-- **Timeouts codex** : construction de requête 180 s ; jugement 420 s.
-- **Abstract tronqué** à 1200 caractères avant d'être envoyé au juge (tient dans un
-  seul appel).
-- **Coût** : 2 appels codex par recherche initiale (1 requête + 1 jugement de 50) ;
+  empêche un proxy de couper pendant le silence du jugement (~50 s). Étapes émises :
+  `codex` → `codex_done` → `esearch` → `esearch_done` → `filter_start` → (`filter` |
+  `filter_timeout`) → `judge` → `judge_done` → `done` → `translate` → `translate_done`.
+  `filter_start` est émis **avant** la requête locale (sinon l'UI resterait figée sur la
+  ligne PubMed pendant la recherche en base) ; `filter_timeout` remplace `filter` quand
+  le garde-fou 8 s se déclenche.
+- **Récap des timeouts / limites, par étape** :
+  | Étape | Limite | Au-delà |
+  |---|---|---|
+  | Construction requête (Codex) | **180 s** | repli « requête brute » (`builder=fallback`) |
+  | `esearch` PubMed (source A) | dépend de NCBI | **502**, stoppe tout |
+  | Requête base locale (source B) | **8 s** (`statement_timeout`) | B = ∅, repli PubMed (`filter_timeout`) |
+  | `esummary`/`efetch` (résumés manquants) | best-effort | on dégrade (titre/résumé absents), pas de 500 |
+  | Jugement (Codex) | **420 s** | repli `judge_mode=skipped` (pas de score, tri lexical) |
+- **Tailles / seuils** : `k_pubmed`=20 (A) · `max_local`≤200 (B) · `judge_batch`=50
+  (lus par lot) · `min_score`=2 (garde ≥ pertinent) · abstract **tronqué à 1200 car.**
+  avant envoi au juge.
+- **Infra Postgres (indispensable à l'échelle 25 M)** : base de 63 Go, index FTS de
+  5,7 Go. Config custom (`docker-compose.yml`) : `shared_buffers`=8 Go, `work_mem`=64 Mo,
+  `effective_cache_size`=24 Go, `random_page_cost`=1.1, index FTS **préchauffé**
+  (`pg_prewarm`). Sans ce réglage, une requête locale coûte ~13 s à froid (vs 0,4 s).
+- **Coût** : 2 appels Codex par recherche initiale (1 requête + 1 jugement de 50) ;
   chaque « 50 de plus » = 1 appel jugement supplémentaire.
 
 ---
@@ -336,7 +392,8 @@ Sert de brique d'évaluation ; pas exposé dans l'UI grand public.
 
 `PIPELINE_EMBEDDINGS.md` décrit un **pré-filtre par embeddings/pgvector** en amont du
 scoring. Ce n'est **pas** ce qu'implémente la recherche PubMed + IA en service : le
-pré-filtre y est **lexical + MeSH**, puis **jugement Codex** ; les embeddings ne sont
+pré-filtre y est **plein-texte (FTS) seul** sur la base locale, puis **jugement Codex** ;
+les embeddings ne sont
 **pas** sur ce chemin critique (jugés peu cohérents pour le pré-tri, cf. `codex_judge.py`).
 Ce fichier (`ALGO_RECHERCHE.md`) décrit l'algorithme **réel**. En cas de divergence, le
 **code + ce document** font foi.
