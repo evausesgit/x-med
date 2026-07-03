@@ -2,6 +2,10 @@ services:
   db:
     image: pgvector/pgvector:pg16
     restart: always
+    # /dev/shm du conteneur : 64 Mo par défaut chez Docker → trop peu pour les workers
+    # parallèles / gros tris de Postgres sur la table `articles` (26 M+ lignes), d'où des
+    # « could not resize shared memory segment: No space left on device ». 1 Go = large.
+    shm_size: "1gb"
     environment:
       POSTGRES_USER: xmed
       POSTGRES_PASSWORD: xmed
