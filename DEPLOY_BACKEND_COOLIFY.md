@@ -25,6 +25,29 @@ interrompus. Un backend managé supprime cette classe de pannes.
   global** dans `~/.npm-global/bin`) pour la recherche. Dans un conteneur, il faut
   l'**installer au build** ET gérer son **authentification** (voir §5).
 
+### 1.a Provenance réelle des conteneurs (relevé 2026-07)
+
+Docker est **rootful** : démon `dockerd` en **root**, socket `/var/run/docker.sock` en
+`root:docker` (0660). L'utilisateur `geekette` (uid 1001) est dans `sudo` mais **pas dans
+le groupe `docker`** → il ne pilote Docker qu'en `sudo`. (Reco confort : `sudo usermod
+-aG docker geekette`.)
+
+Trois conteneurs Postgres distincts coexistent sur l'hôte :
+
+| Conteneur | Base | Géré par |
+|---|---|---|
+| `docker-3daeda…` | `legiradar` | autre projet |
+| `docker-98508e…` | `coolify` | **Postgres interne de Coolify** (son propre état) |
+| `docker-ead35a9…` | **`xmed`** (publié `:5432`) | **`docker compose` à la main (dev_up.sh), en root — PAS Coolify** |
+
+⇒ Constat clé : le `db` (et le `redis`) X-Med sont des conteneurs **compose artisanaux,
+hors radar de Coolify** — Coolify ne les redémarre pas, ne les surveille pas, ne les
+soigne pas. C'est **la cause racine** de la fragilité (à chaque restart de l'hôte,
+personne ne relève proprement le `db` → crash/recovery). Coolify, lui, tourne et est
+sain (`/data/coolify`, uid 9999) : il gère sa propre base, son proxy Traefik et le
+**front** déployé, mais **ni `db`, ni `redis`, ni l'API X-Med**. → Il peut tout à fait
+**adopter ces services comme ressources managées** (cible §2).
+
 ## 2. Cible
 
 Tout en services Coolify, sur un réseau interne :
