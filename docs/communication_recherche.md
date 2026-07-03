@@ -1,45 +1,73 @@
 # Communication — Comment fonctionne la recherche X-Med
 
-Deux messages prêts à l'emploi expliquant le fonctionnement de la recherche PubMed + IA,
-et en particulier ses **deux sources** (PubMed en direct + base locale). Détail technique
-complet et fidèle au code : voir [`ALGO_RECHERCHE.md`](../ALGO_RECHERCHE.md).
+Deux messages prêts à l'emploi. Ils expliquent d'abord les **deux types de recherche**
+proposés au médecin (barre « MÉTHODE »), puis, pour la recherche PubMed + IA, ses **deux
+sources** (PubMed en direct + base locale). Détail technique complet et fidèle au code :
+voir [`ALGO_RECHERCHE.md`](../ALGO_RECHERCHE.md).
+
+> Rappel des méthodes de l'UI : **PubMed + IA** et **Par sens** sont les deux types
+> principaux ; **Mots-clés / MeSH** est une option experte (recherche manuelle par tags),
+> mentionnée en fin de message.
 
 ---
 
 ## 1. Message pour les médecins (non technique)
 
-**Comment X-Med cherche vos articles**
+**Les deux façons de chercher dans X-Med**
 
-Quand vous lancez une recherche, X-Med interroge **deux bibliothèques en même temps** :
+Vous choisissez votre méthode en haut de la page (« MÉTHODE ») :
 
-1. **PubMed en direct** — la base mondiale de référence, en temps réel. On y capte les
-   toutes dernières publications, où qu'elles soient.
-2. **Notre bibliothèque interne** — une copie de PubMed hébergée chez nous,
-   **~25 millions d'articles**, que l'on interroge en une fraction de seconde.
+**① PubMed + IA — la recherche approfondie (~1 minute)**
+Vous posez votre question en français. X-Med interroge **deux bibliothèques en même
+temps** :
+- **PubMed en direct** — la base mondiale de référence, en temps réel (les toutes
+  dernières publications, où qu'elles soient) ;
+- **notre bibliothèque interne** — une copie de PubMed hébergée chez nous,
+  **~25 millions d'articles**, interrogée en une fraction de seconde.
 
 On **réunit les résultats des deux**, puis une **IA lit réellement le résumé de chaque
-article** et note sa pertinence par rapport à votre question (de « hors sujet » à « très
-pertinent »). Vous ne voyez que les articles jugés pertinents, du plus au moins.
+article** et note sa pertinence (de « hors sujet » à « très pertinent »). Vous ne voyez
+que les articles pertinents, du plus au moins. C'est la méthode la plus complète : la
+seule où l'IA *lit* vraiment les articles.
 
-Deux choses à savoir :
+**② Par sens — la recherche instantanée**
+X-Med comprend le **sens** de votre question plutôt que les mots exacts, et retrouve
+immédiatement les articles proches — même formulés autrement (« crise cardiaque » retrouve
+« infarctus du myocarde »). **Pas d'attente**, mais elle cherche uniquement dans notre
+bibliothèque interne (pas de lecture par l'IA, pas de PubMed en direct). Idéale pour
+explorer vite ou quand vous ne connaissez pas le terme médical exact.
 
-- Une recherche prend **~1 minute** : l'essentiel du temps, c'est l'IA qui *lit* les
-  articles (pas une simple liste de mots-clés).
-- Sur un **sujet très large** (ex. « saignements »), notre bibliothèque interne renverrait
-  des centaines de milliers d'articles : dans ce cas on privilégie PubMed en direct pour
-  rester rapide. Pour un sujet **précis**, les deux sources sont exploitées à fond.
+**En résumé :** *PubMed + IA* quand vous voulez le **meilleur tri, exhaustif et à jour**
+(vous avez ~1 min) ; *Par sens* quand vous voulez une **réponse immédiate** par proximité
+de sens.
 
-Résultat : la **fraîcheur** de PubMed + la **rapidité** de notre base + un **tri par une IA
-qui a vraiment lu** les articles.
+*(Une troisième option, « Mots-clés / MeSH », permet une recherche manuelle par
+mots-clés et étiquettes médicales officielles, pour les usages experts.)*
+
+**Bon à savoir (PubMed + IA) :** sur un sujet **très large** (ex. « saignements »), notre
+bibliothèque interne renverrait des centaines de milliers d'articles ; dans ce cas on
+privilégie PubMed en direct pour rester rapide. Sur un sujet **précis**, les deux sources
+sont exploitées à fond.
 
 ---
 
 ## 2. Message pour l'associé (technique)
 
-**Recherche PubMed + IA — les deux sources et leurs limites**
+X-Med expose **deux types de recherche principaux** (+ une recherche MeSH manuelle) :
 
-Une recherche (`/search/pubmed/deep`) tourne en 3 temps et interroge **2 sources en
-parallèle** avant un jugement Codex.
+### Type 1 — Recherche sémantique (« Par sens ») · `/search/semantic`
+- **Un seul appel, instantané, pas d'IA générative.** On encode la question en vecteur
+  (**embeddings bge-m3**), puis plus proches voisins par **distance cosinus** (pgvector
+  `<=>`, index **HNSW**).
+- **Périmètre = base locale uniquement** (table `embeddings_<modèle>`), pas de PubMed live.
+- **Limite** : ne couvre que les articles **déjà embeddés** (embedding ~1 doc/s → pas tout
+  le corpus ; bge-m3 couvre 2025-2026). Seuils de pertinence provisoires (à caler sur le
+  gold set annoté).
+- **Force** : rattrape synonymes cliniques, franco-anglais, reformulations là où le
+  lexical échoue.
+
+### Type 2 — Recherche PubMed + IA (« deep ») · `/search/pubmed/deep`
+3 temps, **2 sources en parallèle**, puis jugement Codex.
 
 **Temps 1 — requête + 2 viviers**
 - Codex (GPT-5.4) traduit la question FR en requête PubMed experte (MeSH + synonymes +
@@ -71,9 +99,13 @@ best-effort).
 **Mesuré, e2e :** SGLT2/HFpEF → local 0,5 s, 150 candidats ; sujet large → coupé à ~9 s,
 repli PubMed, 14 articles retenus.
 
+### Type 3 (expert) — Mots-clés / MeSH · `/search/mesh`
+Recherche manuelle par descripteurs MeSH (ET/OU) + plein-texte optionnel + filtres
+(année, niveau de preuve). Instantané, pas d'IA.
+
 **Question de fond ouverte** (à trancher ensemble) : pour accélérer *aussi* les sujets
-larges sans garde-fou → **RUM index** (FTS classé par l'index, garde la sémantique lexicale)
-vs **pgvector/HNSW** (sémantique, l'archi cible de `PIPELINE_EMBEDDINGS.md`, mais embeddings
-à compléter sur 25 M docs et qualité à valider).
+larges de la recherche PubMed + IA sans garde-fou → **RUM index** (FTS classé par l'index,
+garde la sémantique lexicale) vs **pgvector/HNSW** (sémantique, l'archi cible de
+`PIPELINE_EMBEDDINGS.md`, mais embeddings à compléter sur 25 M docs et qualité à valider).
 
 Détail complet fidèle au code : `ALGO_RECHERCHE.md`. Commits : `0fabd6b` (code), `62fdd0c` (doc).
