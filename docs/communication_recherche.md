@@ -1,111 +1,97 @@
-# Communication — Comment fonctionne la recherche X-Med
+# Communication — La recherche PubMed + IA (v1 / v2)
 
-Deux messages prêts à l'emploi. Ils expliquent d'abord les **deux types de recherche**
-proposés au médecin (barre « MÉTHODE »), puis, pour la recherche PubMed + IA, ses **deux
-sources** (PubMed en direct + base locale). Détail technique complet et fidèle au code :
-voir [`ALGO_RECHERCHE.md`](../ALGO_RECHERCHE.md).
-
-> Rappel des méthodes de l'UI : **PubMed + IA** et **Par sens** sont les deux types
-> principaux ; **Mots-clés / MeSH** est une option experte (recherche manuelle par tags),
-> mentionnée en fin de message.
+Deux messages prêts à l'emploi sur **la recherche PubMed + IA** (la méthode où l'IA *lit*
+et note chaque article). Elle existe en **deux versions**, choisies via le sélecteur
+« TRI » : **v1 · score IA** (défaut) et **v2 · fusion RRF**. Détail fidèle au code :
+[`ALGO_RECHERCHE.md`](../ALGO_RECHERCHE.md).
 
 ---
 
 ## 1. Message pour les médecins (non technique)
 
-**Les deux façons de chercher dans X-Med**
+**Comment fonctionne la recherche PubMed + IA**
 
-Vous choisissez votre méthode en haut de la page (« MÉTHODE ») :
-
-**① PubMed + IA — la recherche approfondie (~1 minute)**
 Vous posez votre question en français. X-Med interroge **deux bibliothèques en même
-temps** :
-- **PubMed en direct** — la base mondiale de référence, en temps réel (les toutes
-  dernières publications, où qu'elles soient) ;
-- **notre bibliothèque interne** — une copie de PubMed hébergée chez nous,
-  **~25 millions d'articles**, interrogée en une fraction de seconde.
+temps** — **PubMed en direct** (la base mondiale, temps réel) et **notre copie locale**
+(~25 millions d'articles, très rapide) — puis une **IA lit réellement le résumé de chaque
+article** et note sa pertinence (« hors sujet » → « très pertinent »). Vous ne voyez que
+les articles pertinents, classés du plus au moins. Comptez **~30 à 90 secondes** : le
+temps que l'IA *lise* les articles.
 
-On **réunit les résultats des deux**, puis une **IA lit réellement le résumé de chaque
-article** et note sa pertinence (de « hors sujet » à « très pertinent »). Vous ne voyez
-que les articles pertinents, du plus au moins. C'est la méthode la plus complète : la
-seule où l'IA *lit* vraiment les articles.
+**Deux versions, selon ce que vous cherchez :**
 
-**② Par sens — la recherche instantanée**
-X-Med comprend le **sens** de votre question plutôt que les mots exacts, et retrouve
-immédiatement les articles proches — même formulés autrement (« crise cardiaque » retrouve
-« infarctus du myocarde »). **Pas d'attente**, mais elle cherche uniquement dans notre
-bibliothèque interne (pas de lecture par l'IA, pas de PubMed en direct). Idéale pour
-explorer vite ou quand vous ne connaissez pas le terme médical exact.
+- **v1 — « score IA » (par défaut)** : rapide et ciblée. On prend une **petite tête de
+  liste PubMed** (les plus pertinents) complétée par notre base, et l'IA note. Idéale au
+  quotidien.
+- **v2 — « fusion équilibrée »** : plus large. On élargit à **~100 articles PubMed** et on
+  **mélange équitablement** PubMed et notre base, pour ne pas passer à côté d'un bon
+  article présent uniquement chez nous (près de **4 sur 10** des articles pertinents en
+  viennent). Un curseur permet de garantir un minimum d'articles issus de notre base. À
+  privilégier pour une recherche **exhaustive**.
 
-**En résumé :** *PubMed + IA* quand vous voulez le **meilleur tri, exhaustif et à jour**
-(vous avez ~1 min) ; *Par sens* quand vous voulez une **réponse immédiate** par proximité
-de sens.
-
-*(Une troisième option, « Mots-clés / MeSH », permet une recherche manuelle par
-mots-clés et étiquettes médicales officielles, pour les usages experts.)*
-
-**Bon à savoir (PubMed + IA) :** sur un sujet **très large** (ex. « saignements »), notre
-bibliothèque interne renverrait des centaines de milliers d'articles ; dans ce cas on
-privilégie PubMed en direct pour rester rapide. Sur un sujet **précis**, les deux sources
-sont exploitées à fond.
+Dans les deux cas, **le classement final est celui de l'IA** (sa note de pertinence). Si
+vous voulez plus de résultats, le bouton **« Analyser 50 de plus »** fait lire un lot
+supplémentaire à l'IA.
 
 ---
 
 ## 2. Message pour l'associé (technique)
 
-X-Med expose **deux types de recherche principaux** (+ une recherche MeSH manuelle) :
+**Recherche PubMed + IA — `/search/pubmed/deep` — v1 vs v2, contraintes**
 
-### Type 1 — Recherche sémantique (« Par sens ») · `/search/semantic`
-- **Un seul appel, instantané, pas d'IA générative.** On encode la question en vecteur
-  (**embeddings bge-m3**), puis plus proches voisins par **distance cosinus** (pgvector
-  `<=>`, index **HNSW**).
-- **Périmètre = base locale uniquement** (table `embeddings_<modèle>`), pas de PubMed live.
-- **Limite** : ne couvre que les articles **déjà embeddés** (embedding ~1 doc/s → pas tout
-  le corpus ; bge-m3 couvre 2025-2026). Seuils de pertinence provisoires (à caler sur le
-  gold set annoté).
-- **Force** : rattrape synonymes cliniques, franco-anglais, reformulations là où le
-  lexical échoue.
+Pipeline en 3 temps, **2 sources en parallèle** (A = PubMed live E-utilities · B = base
+locale Postgres, **~25 M articles / 63 Go**), puis jugement Codex. Les deux versions ne
+changent QUE la **sélection des candidats à faire juger** ; le **tri final est toujours le
+score Codex**.
 
-### Type 2 — Recherche PubMed + IA (« deep ») · `/search/pubmed/deep`
-3 temps, **2 sources en parallèle**, puis jugement Codex.
+### Nombre d'articles à chaque étape
 
-**Temps 1 — requête + 2 viviers**
-- Codex (GPT-5.4) traduit la question FR en requête PubMed experte (MeSH + synonymes +
-  molécules). *Timeout 180 s*, sinon repli sur la question brute.
-- **Source A = PubMed live** (E-utilities `esearch`, tri Best Match, filtre `pdat`).
-  `k_pubmed = 20`. Échec esearch = **502** (seul cas qui stoppe tout).
-- **Source B = base locale** = notre miroir Postgres, **~25 M articles / 63 Go**.
-  Pré-filtre **plein-texte FTS** (index GIN, tri `ts_rank`), `max_local ≤ 200`.
+| Étape | v1 · score IA (défaut) | v2 · fusion RRF |
+|---|---|---|
+| **A — PubMed live** (`k_pubmed`) | **12** | **100** |
+| **B — base locale** (`max_local`) | ≤ **200** | ≤ **200** |
+| **Fusion des candidats** | A **puis** B (PubMed d'abord, local en filet) | **RRF** (rang réciproque) des 2 listes → le local n'est pas enterré |
+| **Plancher local garanti** (`local_floor`) | 0 | **réglable** (curseur, 0 par défaut) |
+| **Lus/notés par l'IA / lot** (`judge_batch`) | **50** (fixe) | **50**, réglable **20–100** (curseur) |
+| **Seuil de conservation** (`min_score`) | ≥ **2** / 3 | ≥ **2** / 3 |
+| **« Analyser 50 de plus »** | +1 lot de 50 | +1 lot de `judge_batch` |
 
-**Temps 2 — fusion A∪B**, dédup, récupération des résumés manquants (`esummary`/`efetch`,
-best-effort).
+> Rappel : ~**39 %** des articles jugés pertinents viennent du **local seul** → d'où la
+> fusion RRF de v2 pour ne pas laisser PubMed monopoliser le lot des 50 jugés.
 
-**Temps 3 — jugement** : Codex lit `judge_batch = 50` résumés (tronqués à 1200 car.), note
-0–3, on garde `≥ min_score = 2`, tri final **toujours par score Codex**. *Timeout jugement
-420 s* → sinon `skipped` (tri lexical, pas de score).
+### Temps & timeouts
 
-**Ce qu'on vient de corriger (base passée de 2,3 M à 25 M) :**
-- Le pré-filtre local combinait `FTS OR mesh_terms && ARRAY[...]`. Un descripteur MeSH
-  courant (« Heart Failure ») matche des millions de lignes → tri `ts_rank` à **206 s** sur
-  la même requête. **Passé en FTS seul → 0,4 s.** (mesh reste utilisé pour la requête PubMed.)
-- **Garde-fou** : requête locale bornée à **8 s** (`statement_timeout` dans un savepoint) ;
-  au-delà (mots ultra-courants, lents même en FTS seul → mesuré jusqu'à ~493 s), on
-  abandonne le vivier local et on continue sur PubMed. Message `filter_timeout`.
-- **Tuning Postgres** (`docker-compose.yml`) : `shared_buffers` 128 Mo → **8 Go**,
+| Poste | Valeur | Au-delà |
+|---|---|---|
+| **Durée typique d'une recherche** | **30–90 s** (souvent ~1 min) | UI : « un peu plus long » > 90 s, « recherche longue » > 180 s |
+| Construction requête (Codex GPT-5.4) | timeout **180 s** | repli « requête brute » |
+| `esearch` PubMed (source A) | dépend de NCBI | échec → **502** (stoppe tout) |
+| **Requête base locale (source B)** | **≤ 8 s** (`statement_timeout`) | B = ∅, repli PubMed (`filter_timeout`) |
+| `esummary`/`efetch` (résumés manquants) | best-effort | dégrade (titre/résumé absents), pas de 500 |
+| Jugement (Codex) | timeout **420 s** | repli `skipped` (pas de score, tri lexical) |
+| Keep-alive SSE | toutes les **10 s** | évite la coupure proxy pendant le silence du jugement |
+| Base locale (perf) | **~0,4–0,5 s** (requête normale) | 25 M lignes ; ~13 s à froid sans le tuning Postgres |
+
+### Contraintes techniques
+
+- **2 appels Codex** par recherche initiale (1 requête + 1 jugement de 50) ; chaque
+  « 50 de plus » = **+1 appel** jugement. Prompt profil mis en cache.
+- **Abstract tronqué à 1200 caractères** avant envoi au juge (tient dans un seul appel).
+- **Source B = FTS seul** (index GIN, tri `ts_rank`). Le `OR mesh_terms && ARRAY[...]` a
+  été retiré : un descripteur MeSH courant (« Heart Failure ») faisait passer la même
+  requête de 0,4 s à **206 s**. `mesh_terms` ne sert plus qu'à la requête PubMed.
+- **Garde-fou local 8 s** (mesuré jusqu'à ~493 s sur mots ultra-courants même en FTS seul).
+- **Infra Postgres** (indispensable à l'échelle) : `shared_buffers` 128 Mo → **8 Go**,
   `work_mem` 64 Mo, `effective_cache_size` 24 Go, `random_page_cost` 1.1, index FTS (5,7 Go)
-  préchauffé via `pg_prewarm`. Requête étroite : **13 s à froid → 0,4 s**.
-- Message `filter_start` émis **avant** la requête locale (plus d'écran figé).
+  préchauffé (`pg_prewarm`).
+- **Streaming SSE** (`/search/pubmed/deep/stream`) : déroulé en direct (`codex` →
+  `esearch` → `filter_start` → `filter`|`filter_timeout` → `judge` → `done` → `translate`).
 
-**Mesuré, e2e :** SGLT2/HFpEF → local 0,5 s, 150 candidats ; sujet large → coupé à ~9 s,
-repli PubMed, 14 articles retenus.
+**Mesuré, e2e :** SGLT2/HFpEF → local 0,5 s, 150 candidats, 15 retenus ; sujet large →
+coupé à ~9 s, repli PubMed, 14 retenus.
 
-### Type 3 (expert) — Mots-clés / MeSH · `/search/mesh`
-Recherche manuelle par descripteurs MeSH (ET/OU) + plein-texte optionnel + filtres
-(année, niveau de preuve). Instantané, pas d'IA.
-
-**Question de fond ouverte** (à trancher ensemble) : pour accélérer *aussi* les sujets
-larges de la recherche PubMed + IA sans garde-fou → **RUM index** (FTS classé par l'index,
-garde la sémantique lexicale) vs **pgvector/HNSW** (sémantique, l'archi cible de
-`PIPELINE_EMBEDDINGS.md`, mais embeddings à compléter sur 25 M docs et qualité à valider).
+**Question de fond ouverte** : accélérer *aussi* les sujets larges sans garde-fou →
+**RUM index** (FTS classé par l'index) vs **pgvector/HNSW** (sémantique, archi cible de
+`PIPELINE_EMBEDDINGS.md`, embeddings à compléter sur 25 M docs).
 
 Détail complet fidèle au code : `ALGO_RECHERCHE.md`. Commits : `0fabd6b` (code), `62fdd0c` (doc).
