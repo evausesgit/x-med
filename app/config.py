@@ -27,6 +27,12 @@ class Settings(BaseSettings):
     codex_model: str = "gpt-5.4"
     codex_abstract_timeout: int = 900
 
+    # Garde-fou du pré-filtre local (FTS sur ~25 M d'articles) : au-delà de ce
+    # délai, Postgres annule la requête et la recherche continue avec PubMed seul.
+    # Monté à 2 min pour l'essai « mesurer le vrai temps » (base censée être chaude
+    # via pg_prewarm) ; le bouton stop du front couvre le cas « ça traîne trop ».
+    local_search_timeout_ms: int = 120_000
+
     # Notification Hermes/Telegram lorsqu'une recherche PubMed/Codex est lancée.
     # `telegram` cible le home channel Hermes, donc le DM Eva par défaut sur cette machine.
     search_notify_enabled: bool = True

@@ -18,6 +18,7 @@ import {
   searchPubmedDeepStream,
   searchSemantic,
   SearchResponse,
+  stopLocalSearch,
 } from "@/lib/api";
 import type { CompareResult, DeepHit } from "@/lib/api";
 import Link from "next/link";
@@ -171,10 +172,15 @@ function LiveEvents({
   running,
   variant,
   logs,
+  stopLocal,
 }: {
   running: boolean;
   variant: "pubmed" | "other";
   logs: PubmedLog[];
+  // Bouton « arrêter la recherche locale » : fourni uniquement pendant que la
+  // requête FTS locale tourne (annulable côté Postgres, la recherche continue
+  // ensuite avec PubMed seul).
+  stopLocal?: { stopping: boolean; onStop: () => void } | null;
 }) {
   const [i, setI] = useState(0);
   const isPubmed = variant === "pubmed";
@@ -232,6 +238,18 @@ function LiveEvents({
                 {l.msg}
               </div>
             ))}
+            {stopLocal && (
+              <button
+                type="button"
+                className="xm-live-stop"
+                onClick={stopLocal.onStop}
+                disabled={stopLocal.stopping}
+              >
+                {stopLocal.stopping
+                  ? "Arrêt de la recherche locale…"
+                  : "⏹ Arrêter la recherche locale (continuer avec PubMed seul)"}
+              </button>
+            )}
             {queryLog?.pubmed_query && (
               <pre className="xm-live-query">{queryLog.pubmed_query}</pre>
             )}
@@ -384,6 +402,10 @@ export default function Home() {
   const [codexLimit, setCodexLimit] = useState(false);
   const esRef = useRef<EventSource | null>(null);
   const moreRef = useRef<EventSource | null>(null);
+  // Bouton stop de la requête locale (FTS) : jeton propre à chaque recherche,
+  // passé au stream pour que le backend sache quelle requête Postgres annuler.
+  const localTokenRef = useRef<string>("");
+  const [stoppingLocal, setStoppingLocal] = useState(false);
 
   // Analyse critique comparative : PMID sélectionnés (≤ MAX_COMPARE), résultat,
   // déroulé et état de l'appel codex.
@@ -634,6 +656,11 @@ export default function Home() {
         clearSelection();
         esRef.current?.close();
         moreRef.current?.close();
+        localTokenRef.current =
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        setStoppingLocal(false);
         // Recherche PubMed + IA : streaming SSE (déroulé en direct) pour ne pas
         // se faire couper par le proxy sur les requêtes longues.
         // Avant tout appel codex (coûteux), on regarde si une recherche identique
@@ -701,6 +728,7 @@ export default function Home() {
             rrf: algoRef.current === "v2",
             judgeBatch,
             localFloor: algoRef.current === "v2" ? localFloor : 0,
+            localToken: localTokenRef.current,
           },
         );
         return; // `loading` reste vrai jusqu'à onResult/onError
@@ -740,6 +768,20 @@ export default function Home() {
     if (!mesh.includes(term)) setMesh([...mesh, term]);
     setMeshInput("");
     setSuggestions([]);
+  }
+
+  // La requête FTS locale tourne si le dernier événement du déroulé est
+  // `filter_start` : l'événement suivant (filter / filter_timeout / filter_stopped)
+  // la clôt et fait disparaître le bouton stop de lui-même.
+  const localSearching =
+    loading && logs.length > 0 && logs[logs.length - 1].phase === "filter_start";
+
+  async function handleStopLocal() {
+    setStoppingLocal(true);
+    const ok = await stopLocalSearch(localTokenRef.current);
+    // Rien n'était à annuler (requête déjà terminée) : on réactive le bouton,
+    // le log de clôture qui arrive le fera disparaître de toute façon.
+    if (!ok) setStoppingLocal(false);
   }
 
   const selectedModel = models.find((m) => m.name === model);
@@ -1009,6 +1051,11 @@ export default function Home() {
           running={loading || loadingMore}
           variant={isPubmed ? "pubmed" : "other"}
           logs={logs}
+          stopLocal={
+            localSearching
+              ? { stopping: stoppingLocal, onStop: handleStopLocal }
+              : null
+          }
         />
       )}
 
