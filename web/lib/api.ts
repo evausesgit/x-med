@@ -122,8 +122,14 @@ export function searchPubmedDeepStream(
     ) => void;
   },
   // Algo v2 : fusion RRF pour la sélection des candidats (tri final = score Codex).
-  // `judgeBatch` = total analysé par lot · `localFloor` = minimum local garanti.
-  opts: { rrf?: boolean; judgeBatch?: number; localFloor?: number } = {},
+  // `judgeBatch` = total analysé par lot · `localFloor` = minimum local garanti ·
+  // `localToken` = jeton d'annulation de la requête locale (bouton stop).
+  opts: {
+    rrf?: boolean;
+    judgeBatch?: number;
+    localFloor?: number;
+    localToken?: string;
+  } = {},
 ): EventSource {
   const sp = new URLSearchParams({ query, k_pubmed: String(k) });
   if (dateFrom) sp.set("date_from", dateFrom);
@@ -131,6 +137,7 @@ export function searchPubmedDeepStream(
   if (opts.rrf) sp.set("rrf", "true");
   if (opts.judgeBatch) sp.set("judge_batch", String(opts.judgeBatch));
   if (opts.localFloor) sp.set("local_floor", String(opts.localFloor));
+  if (opts.localToken) sp.set("local_token", opts.localToken);
   const es = new EventSource(`${API_BASE}/search/pubmed/deep/stream?${sp.toString()}`);
   es.addEventListener("log", (e) => {
     try {
@@ -167,6 +174,22 @@ export function searchPubmedDeepStream(
     es.close();
   });
   return es;
+}
+
+// Bouton stop : annule la requête FTS locale en cours (identifiée par le jeton
+// passé au stream). La recherche continue avec les seuls résultats PubMed.
+// Best-effort : renvoie false (sans jeter) si rien n'était à annuler.
+export async function stopLocalSearch(token: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/search/local/stop/${encodeURIComponent(token)}`, {
+      method: "POST",
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    return !!data.stopped;
+  } catch {
+    return false;
+  }
 }
 
 // « Analyser N de plus » : juge un lot supplémentaire de PMID (issus de
