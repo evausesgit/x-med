@@ -406,7 +406,7 @@ class DeepSearchRequest(BaseModel):
     date_from: str | None = None  # st (YYYY-MM-DD ou YYYY)
     date_to: str | None = None  # ed
     k_pubmed: int = 20  # taille de A (esearch)
-    max_local: int = 200  # candidats locaux (filtre FTS+MeSH) — vivier large, jugé par lots
+    max_local: int = 200  # candidats locaux (filtre FTS seul — MeSH retiré car trop coûteux en lexical) — vivier large, jugé par lots
     judge_batch: int = 50  # nombre d'abstracts jugés par codex à chaque lot (« 50 de plus »)
     min_score: int = 2  # seuil de conservation (0-3)
     # Algo v2 : fusion RRF (rang réciproque) des deux listes — PubMed Best Match +
