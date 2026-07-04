@@ -1,0 +1,1612 @@
+{
+  "generated_at": "2026-07-04 11:52",
+  "window": {
+    "from": "2025-01-01",
+    "to": "2026-07-04"
+  },
+  "note": "garde-fou local relevé à 60s (vs 8s en prod) pour exercer le vivier local",
+  "versions": {
+    "v1": {
+      "k_pubmed": 12,
+      "rrf": false,
+      "judge_batch": 50,
+      "local_floor": 0,
+      "max_local": 200
+    },
+    "v2": {
+      "k_pubmed": 100,
+      "rrf": true,
+      "judge_batch": 50,
+      "local_floor": 0,
+      "max_local": 200
+    }
+  },
+  "queries": [
+    {
+      "query": "Anticoagulation et risque hémorragique dans la fibrillation atriale",
+      "v1": {
+        "version": "v1",
+        "params": {
+          "k_pubmed": 12,
+          "rrf": false,
+          "judge_batch": 50,
+          "local_floor": 0,
+          "max_local": 200
+        },
+        "total_s": 102.42,
+        "local_timed_out": true,
+        "builder": "codex",
+        "judge": "codex",
+        "pubmed_query": "((\"Atrial Fibrillation\"[MeSH] OR \"atrial fibrillation\"[tiab] OR AF[tiab]) AND (\"Anticoagulants\"[MeSH] OR \"Anticoagulation\"[tiab] OR anticoagula*[tiab] OR \"oral anticoagulant*\"[tiab] OR \"vitamin K antagonist*\"[tiab] OR warfarin[tiab] OR coumadin[tiab] OR acenocoumarol[tiab] OR fluindione[tiab] OR phenprocoumon[tiab] OR \"direct oral anticoagulant*\"[tiab] OR DOAC[tiab] OR DOACs[tiab] OR NOAC[tiab] OR NOACs[tiab] OR dabigatran[tiab] OR \"BIBR 1048\"[tiab] OR rivaroxaban[tiab] OR \"BAY 59-7939\"[tiab] OR apixaban[tiab] OR \"BMS-562247\"[tiab] OR edoxaban[tiab] OR \"DU-176b\"[tiab])) AND (\"Hemorrhage\"[MeSH] OR \"Bleeding\"[tiab] OR bleed*[tiab] OR hemorrhag*[tiab] OR haemorrhag*[tiab] OR \"major bleeding\"[tiab] OR \"bleeding risk\"[tiab] OR \"Hemorrhagic Risk\"[tiab])",
+        "mesh_terms": [
+          "Atrial Fibrillation",
+          "Anticoagulants",
+          "Hemorrhage"
+        ],
+        "keywords_en": [
+          "atrial fibrillation",
+          "anticoagulation",
+          "oral anticoagulants",
+          "vitamin K antagonists",
+          "warfarin",
+          "acenocoumarol",
+          "fluindione",
+          "phenprocoumon",
+          "direct oral anticoagulants",
+          "DOAC",
+          "NOAC",
+          "dabigatran",
+          "BIBR 1048",
+          "rivaroxaban",
+          "BAY 59-7939",
+          "apixaban",
+          "BMS-562247",
+          "edoxaban",
+          "DU-176b",
+          "bleeding risk",
+          "major bleeding",
+          "hemorrhage"
+        ],
+        "counts": {
+          "pubmed": 12,
+          "local": 0,
+          "merged": 12,
+          "judgeable": 12,
+          "judged": 12,
+          "kept": 11,
+          "kept_pubmed": 11,
+          "kept_both": 0,
+          "kept_local": 0
+        },
+        "codex_tokens": {
+          "query": 26999,
+          "judge": 31640,
+          "total": 58639
+        },
+        "phases": [
+          {
+            "phase": "codex",
+            "elapsed_s": 0.04,
+            "msg": "🚀 Construction de la requête PubMed (GPT-5.4)…"
+          },
+          {
+            "phase": "codex_done",
+            "elapsed_s": 15.06,
+            "msg": "🧠 Requête PubMed construite · 26 999 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "esearch",
+            "elapsed_s": 15.06,
+            "msg": "🔎 Interrogation de PubMed (esearch)…"
+          },
+          {
+            "phase": "esearch_done",
+            "elapsed_s": 15.76,
+            "msg": "📚 12 articles PubMed récupérés"
+          },
+          {
+            "phase": "filter_start",
+            "elapsed_s": 15.76,
+            "msg": "🗄️ Recherche dans la base locale PubMed (~25 M d'articles)…"
+          },
+          {
+            "phase": "filter_timeout",
+            "elapsed_s": 75.88,
+            "msg": "⏱️ Sujet trop large pour la base locale (25 M articles) — on s'appuie sur les résultats PubMed pour cette recherche."
+          },
+          {
+            "phase": "judge",
+            "elapsed_s": 75.89,
+            "msg": "🧬 GPT-5.4 lit et juge 12 abstracts (sur 12 jugeables)…"
+          },
+          {
+            "phase": "judge_done",
+            "elapsed_s": 102.42,
+            "msg": "🧠 Jugement terminé · 31 640 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "done",
+            "elapsed_s": 102.42,
+            "msg": "✅ 11 articles retenus"
+          }
+        ],
+        "results": [
+          {
+            "pmid": 39225267,
+            "score": 3,
+            "relevance_pct": 95,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Asundexian versus Apixaban in Patients with Atrial Fibrillation."
+          },
+          {
+            "pmid": 40023176,
+            "score": 3,
+            "relevance_pct": 93,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Direct oral anticoagulants versus no anticoagulation for the prevention of stroke in survivors of intracerebral haemorrhage with atrial fibrillation (PRESTIGE-AF): a multicentre, open-label, randomised, phase 3 trial."
+          },
+          {
+            "pmid": 39842011,
+            "score": 3,
+            "relevance_pct": 92,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Abelacimab versus Rivaroxaban in Patients with Atrial Fibrillation."
+          },
+          {
+            "pmid": 39918465,
+            "score": 3,
+            "relevance_pct": 88,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Anticoagulation and Antiplatelet Therapy for Atrial Fibrillation and Stable Coronary Disease: Meta-Analysis of Randomized Trials."
+          },
+          {
+            "pmid": 41211917,
+            "score": 3,
+            "relevance_pct": 87,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Therapy for Atrial Fibrillation in Patients with Drug-Eluting Stents."
+          },
+          {
+            "pmid": 41849741,
+            "score": 3,
+            "relevance_pct": 84,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 1,
+            "title": "Left Atrial Appendage Closure or Medical Therapy in Atrial Fibrillation."
+          },
+          {
+            "pmid": 40570866,
+            "score": 2,
+            "relevance_pct": 76,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Collaboration on the optimal timing of anticoagulation after ischaemic stroke and atrial fibrillation: a systematic review and prospective individual participant data meta-analysis of randomised controlled trials (CATALYST)."
+          },
+          {
+            "pmid": 41051787,
+            "score": 2,
+            "relevance_pct": 74,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Optimal Antithrombotics for Ischemic Stroke and Concurrent Atrial Fibrillation and Atherosclerosis: A Randomized Clinical Trial."
+          },
+          {
+            "pmid": 39555822,
+            "score": 2,
+            "relevance_pct": 72,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Left Atrial Appendage Closure after Ablation for Atrial Fibrillation."
+          },
+          {
+            "pmid": 40886309,
+            "score": 2,
+            "relevance_pct": 68,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Long-Term Anticoagulation Discontinuation After Catheter Ablation for Atrial Fibrillation: The ALONE-AF Randomized Clinical Trial."
+          },
+          {
+            "pmid": 41211931,
+            "score": 2,
+            "relevance_pct": 66,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 2,
+            "title": "Antithrombotic Therapy after Successful Catheter Ablation for Atrial Fibrillation."
+          }
+        ]
+      },
+      "v2": {
+        "version": "v2",
+        "params": {
+          "k_pubmed": 100,
+          "rrf": true,
+          "judge_batch": 50,
+          "local_floor": 0,
+          "max_local": 200
+        },
+        "total_s": 136.84,
+        "local_timed_out": true,
+        "builder": "codex",
+        "judge": "codex",
+        "pubmed_query": "((\"Atrial Fibrillation\"[MeSH] OR \"atrial fibrillation\"[tiab] OR AF[tiab]) AND (\"Anticoagulants\"[MeSH] OR \"Anticoagulation\"[tiab] OR anticoagulan*[tiab] OR \"oral anticoagulant*\"[tiab] OR warfarin[tiab] OR \"vitamin K antagonist*\"[tiab] OR VKA[tiab] OR coumadin[tiab] OR acenocoumarol[tiab] OR fluindione[tiab] OR phenprocoumon[tiab] OR dabigatran[tiab] OR \"BIBR 1048\"[tiab] OR rivaroxaban[tiab] OR \"BAY 59-7939\"[tiab] OR apixaban[tiab] OR \"BMS-562247\"[tiab] OR edoxaban[tiab] OR DU-176b[tiab] OR DOAC[tiab] OR DOACs[tiab] OR NOAC[tiab] OR NOACs[tiab] OR \"direct oral anticoagulant*\"[tiab] OR \"non-vitamin K antagonist oral anticoagulant*\"[tiab]) AND (\"Hemorrhage\"[MeSH] OR \"Bleeding\"[tiab] OR hemorrhag*[tiab] OR haemorrhag*[tiab] OR \"bleeding risk\"[tiab] OR \"major bleeding\"[tiab] OR \"intracranial hemorrhage\"[tiab] OR \"gastrointestinal bleeding\"[tiab]))",
+        "mesh_terms": [
+          "Atrial Fibrillation",
+          "Anticoagulants",
+          "Hemorrhage"
+        ],
+        "keywords_en": [
+          "atrial fibrillation",
+          "anticoagulation",
+          "anticoagulants",
+          "oral anticoagulants",
+          "warfarin",
+          "vitamin K antagonists",
+          "acenocoumarol",
+          "fluindione",
+          "phenprocoumon",
+          "dabigatran",
+          "BIBR 1048",
+          "rivaroxaban",
+          "BAY 59-7939",
+          "apixaban",
+          "BMS-562247",
+          "edoxaban",
+          "DU-176b",
+          "DOAC",
+          "NOAC",
+          "direct oral anticoagulants",
+          "bleeding",
+          "hemorrhage",
+          "haemorrhage",
+          "bleeding risk",
+          "major bleeding",
+          "intracranial hemorrhage",
+          "gastrointestinal bleeding"
+        ],
+        "counts": {
+          "pubmed": 100,
+          "local": 0,
+          "merged": 100,
+          "judgeable": 99,
+          "judged": 50,
+          "kept": 44,
+          "kept_pubmed": 44,
+          "kept_both": 0,
+          "kept_local": 0
+        },
+        "codex_tokens": {
+          "query": 27071,
+          "judge": 45118,
+          "total": 72189
+        },
+        "phases": [
+          {
+            "phase": "codex",
+            "elapsed_s": 0.0,
+            "msg": "🚀 Construction de la requête PubMed (GPT-5.4)…"
+          },
+          {
+            "phase": "codex_done",
+            "elapsed_s": 14.88,
+            "msg": "🧠 Requête PubMed construite · 27 071 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "esearch",
+            "elapsed_s": 14.88,
+            "msg": "🔎 Interrogation de PubMed (esearch)…"
+          },
+          {
+            "phase": "esearch_done",
+            "elapsed_s": 15.7,
+            "msg": "📚 100 articles PubMed récupérés"
+          },
+          {
+            "phase": "filter_start",
+            "elapsed_s": 15.7,
+            "msg": "🗄️ Recherche dans la base locale PubMed (~25 M d'articles)…"
+          },
+          {
+            "phase": "filter_timeout",
+            "elapsed_s": 75.79,
+            "msg": "⏱️ Sujet trop large pour la base locale (25 M articles) — on s'appuie sur les résultats PubMed pour cette recherche."
+          },
+          {
+            "phase": "judge",
+            "elapsed_s": 75.84,
+            "msg": "🧬 GPT-5.4 lit et juge 50 abstracts (sur 99 jugeables)…"
+          },
+          {
+            "phase": "judge_done",
+            "elapsed_s": 136.84,
+            "msg": "🧠 Jugement terminé · 45 118 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "done",
+            "elapsed_s": 136.84,
+            "msg": "✅ 44 articles retenus"
+          }
+        ],
+        "results": [
+          {
+            "pmid": 39842011,
+            "score": 3,
+            "relevance_pct": 95,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Abelacimab versus Rivaroxaban in Patients with Atrial Fibrillation."
+          },
+          {
+            "pmid": 39225267,
+            "score": 3,
+            "relevance_pct": 94,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Asundexian versus Apixaban in Patients with Atrial Fibrillation."
+          },
+          {
+            "pmid": 40023176,
+            "score": 3,
+            "relevance_pct": 92,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Direct oral anticoagulants versus no anticoagulation for the prevention of stroke in survivors of intracerebral haemorrhage with atrial fibrillation (PRESTIGE-AF): a multicentre, open-label, randomised, phase 3 trial."
+          },
+          {
+            "pmid": 41910347,
+            "score": 3,
+            "relevance_pct": 91,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 1,
+            "title": "Left Atrial Appendage Closure or Anticoagulation for Atrial Fibrillation."
+          },
+          {
+            "pmid": 41849741,
+            "score": 3,
+            "relevance_pct": 90,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 1,
+            "title": "Left Atrial Appendage Closure or Medical Therapy in Atrial Fibrillation."
+          },
+          {
+            "pmid": 41730211,
+            "score": 3,
+            "relevance_pct": 90,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 2,
+            "title": "The Risk for Bleeding in Patients With Atrial Fibrillation From Concomitant Use of Apixaban or Rivaroxaban With Diltiazem Compared With Metoprolol."
+          },
+          {
+            "pmid": 39555822,
+            "score": 3,
+            "relevance_pct": 90,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Left Atrial Appendage Closure after Ablation for Atrial Fibrillation."
+          },
+          {
+            "pmid": 39918465,
+            "score": 3,
+            "relevance_pct": 89,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Anticoagulation and Antiplatelet Therapy for Atrial Fibrillation and Stable Coronary Disease: Meta-Analysis of Randomized Trials."
+          },
+          {
+            "pmid": 40546068,
+            "score": 3,
+            "relevance_pct": 89,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Abelacimab Versus Rivaroxaban in Patients With Atrial Fibrillation on Antiplatelet Therapy: A Prespecified Analysis of the AZALEA-TIMI 71 Trial."
+          },
+          {
+            "pmid": 41051787,
+            "score": 3,
+            "relevance_pct": 88,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Optimal Antithrombotics for Ischemic Stroke and Concurrent Atrial Fibrillation and Atherosclerosis: A Randomized Clinical Trial."
+          },
+          {
+            "pmid": 40924421,
+            "score": 3,
+            "relevance_pct": 87,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Left Atrial Appendage Occlusion vs Anticoagulants in Dialysis With Atrial Fibrillation."
+          },
+          {
+            "pmid": 41211917,
+            "score": 3,
+            "relevance_pct": 87,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Therapy for Atrial Fibrillation in Patients with Drug-Eluting Stents."
+          },
+          {
+            "pmid": 40886309,
+            "score": 3,
+            "relevance_pct": 86,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Long-Term Anticoagulation Discontinuation After Catheter Ablation for Atrial Fibrillation: The ALONE-AF Randomized Clinical Trial."
+          },
+          {
+            "pmid": 39442621,
+            "score": 3,
+            "relevance_pct": 86,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Comparative effectiveness and safety of rivaroxaban with other oral anticoagulants in older adults with nonvalvular atrial fibrillation: population-based analysis in response to updated Beers Criteria."
+          },
+          {
+            "pmid": 40754231,
+            "score": 3,
+            "relevance_pct": 85,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Left atrial appendage closure vs oral anticoagulation for stroke prevention in atrial fibrillation: Long-term outcomes from 4 randomized trials."
+          },
+          {
+            "pmid": 41211931,
+            "score": 3,
+            "relevance_pct": 84,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 2,
+            "title": "Antithrombotic Therapy after Successful Catheter Ablation for Atrial Fibrillation."
+          },
+          {
+            "pmid": 40116829,
+            "score": 3,
+            "relevance_pct": 84,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Discontinuation of Oral Anticoagulation After Successful Atrial Fibrillation Ablation."
+          },
+          {
+            "pmid": 41554390,
+            "score": 3,
+            "relevance_pct": 83,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 2,
+            "title": "Effectiveness and Safety of Apixaban Versus Warfarin in Atrial Fibrillation Patients With Malignancy: A Propensity-Matched Analysis."
+          },
+          {
+            "pmid": 41758696,
+            "score": 3,
+            "relevance_pct": 83,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 4,
+            "title": "Switching from warfarin to direct oral anticoagulants in frail elderly Asian patients with atrial fibrillation: a Korean nationwide study."
+          },
+          {
+            "pmid": 40769671,
+            "score": 3,
+            "relevance_pct": 82,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Outcomes in Older Patients After Switching to a Newer Anticoagulant or Remaining on Warfarin: The COMBINE-AF Substudy."
+          },
+          {
+            "pmid": 40311503,
+            "score": 3,
+            "relevance_pct": 81,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Comparative effectiveness and safety of direct oral anticoagulants in atrial fibrillation patients with dementia."
+          },
+          {
+            "pmid": 41845167,
+            "score": 3,
+            "relevance_pct": 80,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 1,
+            "title": "Efficacy and Safety of DOACs in Patients with Atrial Fibrillation and History of Falls or Risk of Falls: The Liverpool AF-Falls Project. A Systematic Review and Bayesian Network Meta-analysis."
+          },
+          {
+            "pmid": 42187550,
+            "score": 3,
+            "relevance_pct": 80,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 4,
+            "title": "Patient-Centered Evaluation of Anticoagulation in Atrial Fibrillation."
+          },
+          {
+            "pmid": 40551307,
+            "score": 2,
+            "relevance_pct": 74,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Anticoagulation Therapy for Atrial Fibrillation After Transcatheter Aortic Valve Replacement: National Database Insights."
+          },
+          {
+            "pmid": 40371611,
+            "score": 2,
+            "relevance_pct": 72,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Comparing Major Gastrointestinal Bleeding in Patients Receiving Edoxaban Versus Warfarin After Transcatheter Aortic Valve Replacement: Results From the Randomized ENVISAGE-TAVI AF Trial."
+          },
+          {
+            "pmid": 40570866,
+            "score": 2,
+            "relevance_pct": 71,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Collaboration on the optimal timing of anticoagulation after ischaemic stroke and atrial fibrillation: a systematic review and prospective individual participant data meta-analysis of randomised controlled trials (CATALYST)."
+          },
+          {
+            "pmid": 40136309,
+            "score": 2,
+            "relevance_pct": 70,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Asundexian or Apixaban in Patients With Atrial Fibrillation According to Prior Oral Anticoagulant Use: A Subgroup Analysis of the OCEANIC-AF Randomized Clinical Trial."
+          },
+          {
+            "pmid": 40965377,
+            "score": 2,
+            "relevance_pct": 68,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Left Atrial Appendage Occlusion in Patients With Prior Intracranial Hemorrhage."
+          },
+          {
+            "pmid": 40401653,
+            "score": 2,
+            "relevance_pct": 66,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Oral Anticoagulation following intracranial haemorrhage in patients with atrial fibrillation."
+          },
+          {
+            "pmid": 41139402,
+            "score": 2,
+            "relevance_pct": 63,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Short-Term Anticoagulation Versus Dual Antiplatelet Therapy for Preventing Device Thrombosis Following Left Atrial Appendage Closure: The ANDES Randomized Clinical Trial."
+          },
+          {
+            "pmid": 41496618,
+            "score": 2,
+            "relevance_pct": 63,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 2,
+            "title": "Influence of renal function and dose of non-vitamin K antagonist oral anticoagulants on left atrial thrombus risk in patients with atrial fibrillation. Results from the multicenter LATTEE study."
+          },
+          {
+            "pmid": 39680399,
+            "score": 2,
+            "relevance_pct": 62,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Atrial Fibrillation: A Review."
+          },
+          {
+            "pmid": 39557062,
+            "score": 2,
+            "relevance_pct": 61,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Direct Oral Anticoagulants: Quick Primer on When to Use and When to Avoid."
+          },
+          {
+            "pmid": 39862882,
+            "score": 2,
+            "relevance_pct": 60,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Apixaban versus aspirin for stroke prevention in people with subclinical atrial fibrillation and a history of stroke or transient ischaemic attack: subgroup analysis of the ARTESiA randomised controlled trial."
+          },
+          {
+            "pmid": 41615279,
+            "score": 2,
+            "relevance_pct": 59,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 4,
+            "title": "Guideline commentary on the ESC/EACTS 2024 guidelines for atrial fibrillation: a focus on managing AF in the older population."
+          },
+          {
+            "pmid": 41581095,
+            "score": 2,
+            "relevance_pct": 58,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 4,
+            "title": "Targeting Factor XI for Safer Anticoagulation: Emerging Data and Future Directions."
+          },
+          {
+            "pmid": 40752875,
+            "score": 2,
+            "relevance_pct": 58,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Apixaban for stroke prevention in subclinical atrial fibrillation detected by an implantable cardiac monitor: A subgroup analysis of ARTESiA."
+          },
+          {
+            "pmid": 39719823,
+            "score": 2,
+            "relevance_pct": 57,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Ischemic stroke prevention in patients with atrial fibrillation and a recent ischemic stroke, TIA, or intracranial hemorrhage: A World Stroke Organization (WSO) scientific statement."
+          },
+          {
+            "pmid": 40314955,
+            "score": 2,
+            "relevance_pct": 57,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Net Benefit of Anticoagulation in Subclinical Device-Detected Atrial Fibrillation."
+          },
+          {
+            "pmid": 42161443,
+            "score": 2,
+            "relevance_pct": 56,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 4,
+            "title": "Managing Bleeding Risk in Older Adults: Antithrombotics and Anticoagulants."
+          },
+          {
+            "pmid": 40617502,
+            "score": 2,
+            "relevance_pct": 56,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Population pharmacokinetics of edoxaban in geriatric patients with atrial fibrillation."
+          },
+          {
+            "pmid": 41505758,
+            "score": 2,
+            "relevance_pct": 55,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 4,
+            "title": "Abnormal Uterine Bleeding Among Oral Anticoagulant Users."
+          },
+          {
+            "pmid": 41082504,
+            "score": 2,
+            "relevance_pct": 55,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Adherence to oral thromboprophylaxis in atrial fibrillation: an overview for clinicians."
+          },
+          {
+            "pmid": 40540081,
+            "score": 2,
+            "relevance_pct": 52,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Direct Oral Anticoagulants in Valvular Diseases and Prosthetic Valves: Why Not?"
+          }
+        ]
+      }
+    },
+    {
+      "query": "Efficacité du sémaglutide oral dans le diabète de type 2",
+      "v1": {
+        "version": "v1",
+        "params": {
+          "k_pubmed": 12,
+          "rrf": false,
+          "judge_batch": 50,
+          "local_floor": 0,
+          "max_local": 200
+        },
+        "total_s": 99.37,
+        "local_timed_out": true,
+        "builder": "codex",
+        "judge": "codex",
+        "pubmed_query": "((\"Semaglutide\"[MeSH] OR semaglutide[tiab] OR \"oral semaglutide\"[tiab] OR Rybelsus[tiab] OR NN9924[tiab] OR \"NN-9924\"[tiab]) AND (\"Diabetes Mellitus, Type 2\"[MeSH] OR \"type 2 diabetes\"[tiab] OR \"type 2 diabetes mellitus\"[tiab] OR T2DM[tiab]) AND (\"Administration, Oral\"[MeSH] OR oral[tiab] OR tablet*[tiab]) AND (\"Treatment Outcome\"[MeSH] OR efficac*[tiab] OR effectiveness[tiab] OR \"glycemic control\"[tiab] OR HbA1c[tiab] OR \"hemoglobin A1c\"[tiab]))",
+        "mesh_terms": [
+          "Semaglutide",
+          "Diabetes Mellitus, Type 2",
+          "Administration, Oral",
+          "Treatment Outcome"
+        ],
+        "keywords_en": [
+          "semaglutide",
+          "oral semaglutide",
+          "Rybelsus",
+          "NN9924",
+          "NN-9924",
+          "type 2 diabetes",
+          "type 2 diabetes mellitus",
+          "T2DM",
+          "oral",
+          "tablet",
+          "efficacy",
+          "effectiveness",
+          "glycemic control",
+          "HbA1c",
+          "hemoglobin A1c"
+        ],
+        "counts": {
+          "pubmed": 12,
+          "local": 0,
+          "merged": 12,
+          "judgeable": 12,
+          "judged": 12,
+          "kept": 4,
+          "kept_pubmed": 4,
+          "kept_both": 0,
+          "kept_local": 0
+        },
+        "codex_tokens": {
+          "query": 27165,
+          "judge": 31368,
+          "total": 58533
+        },
+        "phases": [
+          {
+            "phase": "codex",
+            "elapsed_s": 0.0,
+            "msg": "🚀 Construction de la requête PubMed (GPT-5.4)…"
+          },
+          {
+            "phase": "codex_done",
+            "elapsed_s": 18.98,
+            "msg": "🧠 Requête PubMed construite · 27 165 tokens (dont 2 432 en cache)"
+          },
+          {
+            "phase": "esearch",
+            "elapsed_s": 18.98,
+            "msg": "🔎 Interrogation de PubMed (esearch)…"
+          },
+          {
+            "phase": "esearch_done",
+            "elapsed_s": 19.54,
+            "msg": "📚 12 articles PubMed récupérés"
+          },
+          {
+            "phase": "filter_start",
+            "elapsed_s": 19.54,
+            "msg": "🗄️ Recherche dans la base locale PubMed (~25 M d'articles)…"
+          },
+          {
+            "phase": "filter_timeout",
+            "elapsed_s": 79.61,
+            "msg": "⏱️ Sujet trop large pour la base locale (25 M articles) — on s'appuie sur les résultats PubMed pour cette recherche."
+          },
+          {
+            "phase": "judge",
+            "elapsed_s": 79.61,
+            "msg": "🧬 GPT-5.4 lit et juge 12 abstracts (sur 12 jugeables)…"
+          },
+          {
+            "phase": "judge_done",
+            "elapsed_s": 99.37,
+            "msg": "🧠 Jugement terminé · 31 368 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "done",
+            "elapsed_s": 99.37,
+            "msg": "✅ 4 articles retenus"
+          }
+        ],
+        "results": [
+          {
+            "pmid": 41765029,
+            "score": 3,
+            "relevance_pct": 97,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 1,
+            "title": "Efficacy and safety of once-daily oral orforglipron compared with oral semaglutide in adults with type 2 diabetes (ACHIEVE-3): a multinational, multicentre, non-inferiority, open-label, randomised, phase 3 trial."
+          },
+          {
+            "pmid": 40162642,
+            "score": 3,
+            "relevance_pct": 94,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Oral Semaglutide and Cardiovascular Outcomes in High-Risk Type 2 Diabetes."
+          },
+          {
+            "pmid": 40156843,
+            "score": 3,
+            "relevance_pct": 91,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Oral Semaglutide and Cardiovascular Outcomes in People With Type 2 Diabetes, According to SGLT2i Use: Prespecified Analyses of the SOUL Randomized Trial."
+          },
+          {
+            "pmid": 40620322,
+            "score": 2,
+            "relevance_pct": 71,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "The expanding role of semaglutide: beyond glycemic control."
+          }
+        ]
+      },
+      "v2": {
+        "version": "v2",
+        "params": {
+          "k_pubmed": 100,
+          "rrf": true,
+          "judge_batch": 50,
+          "local_floor": 0,
+          "max_local": 200
+        },
+        "total_s": 134.07,
+        "local_timed_out": true,
+        "builder": "codex",
+        "judge": "codex",
+        "pubmed_query": "((\"Diabetes Mellitus, Type 2\"[MeSH] OR \"type 2 diabetes\"[tiab] OR T2D[tiab] OR T2DM[tiab])) AND ((\"Semaglutide\"[MeSH] OR semaglutide[tiab] OR Rybelsus[tiab])) AND ((oral[tiab] OR orally[tiab] OR tablet*[tiab])) AND ((efficacy[tiab] OR effective*[tiab] OR \"glycemic control\"[tiab] OR HbA1c[tiab] OR \"hemoglobin A1c\"[tiab] OR \"glucose lowering\"[tiab]))",
+        "mesh_terms": [
+          "Diabetes Mellitus, Type 2",
+          "Semaglutide"
+        ],
+        "keywords_en": [
+          "type 2 diabetes",
+          "T2D",
+          "T2DM",
+          "semaglutide",
+          "Rybelsus",
+          "oral semaglutide",
+          "oral",
+          "orally",
+          "tablet",
+          "efficacy",
+          "glycemic control",
+          "HbA1c",
+          "hemoglobin A1c",
+          "glucose lowering"
+        ],
+        "counts": {
+          "pubmed": 100,
+          "local": 0,
+          "merged": 100,
+          "judgeable": 97,
+          "judged": 50,
+          "kept": 14,
+          "kept_pubmed": 14,
+          "kept_both": 0,
+          "kept_local": 0
+        },
+        "codex_tokens": {
+          "query": 27074,
+          "judge": 45469,
+          "total": 72543
+        },
+        "phases": [
+          {
+            "phase": "codex",
+            "elapsed_s": 0.0,
+            "msg": "🚀 Construction de la requête PubMed (GPT-5.4)…"
+          },
+          {
+            "phase": "codex_done",
+            "elapsed_s": 15.08,
+            "msg": "🧠 Requête PubMed construite · 27 074 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "esearch",
+            "elapsed_s": 15.08,
+            "msg": "🔎 Interrogation de PubMed (esearch)…"
+          },
+          {
+            "phase": "esearch_done",
+            "elapsed_s": 15.75,
+            "msg": "📚 100 articles PubMed récupérés"
+          },
+          {
+            "phase": "filter_start",
+            "elapsed_s": 15.75,
+            "msg": "🗄️ Recherche dans la base locale PubMed (~25 M d'articles)…"
+          },
+          {
+            "phase": "filter_timeout",
+            "elapsed_s": 75.83,
+            "msg": "⏱️ Sujet trop large pour la base locale (25 M articles) — on s'appuie sur les résultats PubMed pour cette recherche."
+          },
+          {
+            "phase": "judge",
+            "elapsed_s": 76.73,
+            "msg": "🧬 GPT-5.4 lit et juge 50 abstracts (sur 97 jugeables)…"
+          },
+          {
+            "phase": "judge_done",
+            "elapsed_s": 134.07,
+            "msg": "🧠 Jugement terminé · 45 469 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "done",
+            "elapsed_s": 134.07,
+            "msg": "✅ 14 articles retenus"
+          }
+        ],
+        "results": [
+          {
+            "pmid": 40162642,
+            "score": 3,
+            "relevance_pct": 91,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Oral Semaglutide and Cardiovascular Outcomes in High-Risk Type 2 Diabetes."
+          },
+          {
+            "pmid": 40843773,
+            "score": 3,
+            "relevance_pct": 90,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Efficacy and safety of oral semaglutide in Chinese participants with type 2 diabetes: Subgroup analyses by baseline characteristics in the PIONEER 11 and 12 randomised controlled trials."
+          },
+          {
+            "pmid": 40573252,
+            "score": 3,
+            "relevance_pct": 88,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Real-World Analysis of Short-Term Effectiveness of Oral Semaglutide: Impact on Glycometabolic Control and Cardiovascular Risk."
+          },
+          {
+            "pmid": 40732973,
+            "score": 3,
+            "relevance_pct": 86,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Clinical Effectiveness of Oral Semaglutide in Women with Type 2 Diabetes: A Nationwide, Multicentre, Retrospective, Observational Study (Women_ENDO2S-RWD Substudy)."
+          },
+          {
+            "pmid": 41117588,
+            "score": 3,
+            "relevance_pct": 84,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Assessment of noninferiority of oral vs subcutaneous semaglutide: a systematic review and meta-analysis."
+          },
+          {
+            "pmid": 41555812,
+            "score": 3,
+            "relevance_pct": 82,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 2,
+            "title": "Retrospective comparison of the clinical effects of oral semaglutide and SGLT2 inhibitors treatment in patients with type 2 diabetes."
+          },
+          {
+            "pmid": 41370018,
+            "score": 2,
+            "relevance_pct": 76,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "The impact of oral semaglutide on cardiovascular events in patients with type 2 diabetes: review of results from the SOUL trial."
+          },
+          {
+            "pmid": 41765029,
+            "score": 2,
+            "relevance_pct": 74,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 1,
+            "title": "Efficacy and safety of once-daily oral orforglipron compared with oral semaglutide in adults with type 2 diabetes (ACHIEVE-3): a multinational, multicentre, non-inferiority, open-label, randomised, phase 3 trial."
+          },
+          {
+            "pmid": 40752805,
+            "score": 2,
+            "relevance_pct": 72,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Effects of oral semaglutide on cardiovascular outcomes: A systematic review and meta-analysis."
+          },
+          {
+            "pmid": 39680131,
+            "score": 2,
+            "relevance_pct": 70,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Comparing medication persistence with oral and subcutaneous semaglutide in a real-world setting."
+          },
+          {
+            "pmid": 40212008,
+            "score": 2,
+            "relevance_pct": 68,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Comparative efficacy and tolerability of currently approved incretin mimetics: A systematic analysis of placebo-controlled clinical trials."
+          },
+          {
+            "pmid": 40996853,
+            "score": 2,
+            "relevance_pct": 66,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 4,
+            "title": "GLP1R and OCT1 variants modulate semaglutide and metformin response in type 2 diabetes."
+          },
+          {
+            "pmid": 40620322,
+            "score": 2,
+            "relevance_pct": 63,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "The expanding role of semaglutide: beyond glycemic control."
+          },
+          {
+            "pmid": 41188987,
+            "score": 2,
+            "relevance_pct": 61,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Semaglutide reduces cardiovascular events in type 2 diabetes: a systematic review and meta-analysis highlighting enhanced benefits in chronic kidney disease."
+          }
+        ]
+      }
+    },
+    {
+      "query": "Antibiothérapie de la pneumonie aiguë communautaire de l'adulte",
+      "v1": {
+        "version": "v1",
+        "params": {
+          "k_pubmed": 12,
+          "rrf": false,
+          "judge_batch": 50,
+          "local_floor": 0,
+          "max_local": 200
+        },
+        "total_s": 101.87,
+        "local_timed_out": true,
+        "builder": "codex",
+        "judge": "codex",
+        "pubmed_query": "((\"Pneumonia\"[MeSH] OR pneumonia[tiab] OR \"community-acquired pneumonia\"[tiab] OR CAP[tiab]) AND (\"Community-Acquired Infections\"[MeSH] OR \"community-acquired\"[tiab] OR \"community acquired\"[tiab] OR outpatient-acquired[tiab]) AND (\"Anti-Bacterial Agents\"[MeSH] OR antibiotic*[tiab] OR antibacter*[tiab] OR antimicrobial*[tiab] OR \"anti-infective agents\"[tiab] OR beta-lactam*[tiab] OR amoxicillin[tiab] OR \"amoxicillin-clavulanate\"[tiab] OR amoxiclav[tiab] OR clavulanate[tiab] OR \"ampicillin-sulbactam\"[tiab] OR macrolide*[tiab] OR azithromycin[tiab] OR clarithromycin[tiab] OR doxycycline[tiab] OR tetracycline*[tiab] OR fluoroquinolone*[tiab] OR \"respiratory fluoroquinolone*\"[tiab] OR levofloxacin[tiab] OR moxifloxacin[tiab] OR ceftriaxone[tiab] OR cefotaxime[tiab]) AND (\"Adult\"[MeSH] OR adult*[tiab]))",
+        "mesh_terms": [
+          "Pneumonia",
+          "Community-Acquired Infections",
+          "Anti-Bacterial Agents",
+          "Adult"
+        ],
+        "keywords_en": [
+          "community-acquired pneumonia",
+          "CAP",
+          "pneumonia",
+          "antibiotic therapy",
+          "antibacterial agents",
+          "antimicrobial therapy",
+          "beta-lactams",
+          "amoxicillin",
+          "amoxicillin-clavulanate",
+          "amoxiclav",
+          "ampicillin-sulbactam",
+          "macrolides",
+          "azithromycin",
+          "clarithromycin",
+          "doxycycline",
+          "fluoroquinolones",
+          "respiratory fluoroquinolones",
+          "levofloxacin",
+          "moxifloxacin",
+          "ceftriaxone",
+          "cefotaxime",
+          "adults"
+        ],
+        "counts": {
+          "pubmed": 12,
+          "local": 0,
+          "merged": 12,
+          "judgeable": 12,
+          "judged": 12,
+          "kept": 9,
+          "kept_pubmed": 9,
+          "kept_both": 0,
+          "kept_local": 0
+        },
+        "codex_tokens": {
+          "query": 27459,
+          "judge": 30465,
+          "total": 57924
+        },
+        "phases": [
+          {
+            "phase": "codex",
+            "elapsed_s": 0.0,
+            "msg": "🚀 Construction de la requête PubMed (GPT-5.4)…"
+          },
+          {
+            "phase": "codex_done",
+            "elapsed_s": 23.04,
+            "msg": "🧠 Requête PubMed construite · 27 459 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "esearch",
+            "elapsed_s": 23.04,
+            "msg": "🔎 Interrogation de PubMed (esearch)…"
+          },
+          {
+            "phase": "esearch_done",
+            "elapsed_s": 23.81,
+            "msg": "📚 12 articles PubMed récupérés"
+          },
+          {
+            "phase": "filter_start",
+            "elapsed_s": 23.81,
+            "msg": "🗄️ Recherche dans la base locale PubMed (~25 M d'articles)…"
+          },
+          {
+            "phase": "filter_timeout",
+            "elapsed_s": 83.96,
+            "msg": "⏱️ Sujet trop large pour la base locale (25 M articles) — on s'appuie sur les résultats PubMed pour cette recherche."
+          },
+          {
+            "phase": "judge",
+            "elapsed_s": 84.63,
+            "msg": "🧬 GPT-5.4 lit et juge 12 abstracts (sur 12 jugeables)…"
+          },
+          {
+            "phase": "judge_done",
+            "elapsed_s": 101.87,
+            "msg": "🧠 Jugement terminé · 30 465 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "done",
+            "elapsed_s": 101.87,
+            "msg": "✅ 9 articles retenus"
+          }
+        ],
+        "results": [
+          {
+            "pmid": 40679934,
+            "score": 3,
+            "relevance_pct": 96,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Diagnosis and Management of Community-acquired Pneumonia. An Official American Thoracic Society Clinical Practice Guideline."
+          },
+          {
+            "pmid": 40602496,
+            "score": 3,
+            "relevance_pct": 95,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Empiric antibiotic therapy for moderate-to-severe community-acquired pneumonia: a systematic review and network meta-analysis."
+          },
+          {
+            "pmid": 40378193,
+            "score": 3,
+            "relevance_pct": 88,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Comparative effectiveness of azithromycin versus doxycycline in hospitalized patients with community acquired pneumonia treated with beta-lactams: A multicenter matched cohort study."
+          },
+          {
+            "pmid": 39718980,
+            "score": 3,
+            "relevance_pct": 86,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Addition of Macrolide Antibiotics for Hospital Treatment of Community-Acquired Pneumonia."
+          },
+          {
+            "pmid": 40134633,
+            "score": 3,
+            "relevance_pct": 84,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Effectiveness of Ampicillin-Sulbactam Versus Ceftriaxone for the Initial Treatment of Community-Acquired Pneumonia in Older Adults: A Target Trial Emulation Study."
+          },
+          {
+            "pmid": 41288422,
+            "score": 2,
+            "relevance_pct": 72,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Community-Acquired Pneumonia in Adults."
+          },
+          {
+            "pmid": 40107661,
+            "score": 2,
+            "relevance_pct": 69,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Risk factors for drug-resistant pathogens in community-acquired pneumonia: systematic review and meta-analysis."
+          },
+          {
+            "pmid": 39881797,
+            "score": 2,
+            "relevance_pct": 66,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Antibiotic duration for common bacterial infections-a systematic review."
+          },
+          {
+            "pmid": 39917810,
+            "score": 2,
+            "relevance_pct": 58,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Community acquired pneumonia due to antibiotic resistant- Streptococcus pneumoniae : diagnosis, management and prevention."
+          }
+        ]
+      },
+      "v2": {
+        "version": "v2",
+        "params": {
+          "k_pubmed": 100,
+          "rrf": true,
+          "judge_batch": 50,
+          "local_floor": 0,
+          "max_local": 200
+        },
+        "total_s": 123.05,
+        "local_timed_out": true,
+        "builder": "codex",
+        "judge": "codex",
+        "pubmed_query": "((\"Pneumonia\"[MeSH] OR \"Community-Acquired Infections\"[MeSH] OR \"community-acquired pneumonia\"[tiab] OR \"community acquired pneumonia\"[tiab] OR CAP[tiab] OR \"adult pneumonia\"[tiab]) AND (\"Anti-Bacterial Agents\"[MeSH] OR antibiotic*[tiab] OR antibacterial*[tiab] OR antimicrobial*[tiab] OR \"anti-infective agents\"[tiab]) AND (\"Adult\"[MeSH] OR adult*[tiab]))",
+        "mesh_terms": [
+          "Pneumonia",
+          "Community-Acquired Infections",
+          "Anti-Bacterial Agents",
+          "Adult"
+        ],
+        "keywords_en": [
+          "community-acquired pneumonia",
+          "community acquired pneumonia",
+          "CAP",
+          "adult pneumonia",
+          "antibiotic therapy",
+          "antibiotics",
+          "antibacterial agents",
+          "antimicrobial therapy"
+        ],
+        "counts": {
+          "pubmed": 100,
+          "local": 0,
+          "merged": 100,
+          "judgeable": 100,
+          "judged": 50,
+          "kept": 23,
+          "kept_pubmed": 23,
+          "kept_both": 0,
+          "kept_local": 0
+        },
+        "codex_tokens": {
+          "query": 26721,
+          "judge": 43215,
+          "total": 69936
+        },
+        "phases": [
+          {
+            "phase": "codex",
+            "elapsed_s": 0.0,
+            "msg": "🚀 Construction de la requête PubMed (GPT-5.4)…"
+          },
+          {
+            "phase": "codex_done",
+            "elapsed_s": 10.24,
+            "msg": "🧠 Requête PubMed construite · 26 721 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "esearch",
+            "elapsed_s": 10.24,
+            "msg": "🔎 Interrogation de PubMed (esearch)…"
+          },
+          {
+            "phase": "esearch_done",
+            "elapsed_s": 10.81,
+            "msg": "📚 100 articles PubMed récupérés"
+          },
+          {
+            "phase": "filter_start",
+            "elapsed_s": 10.81,
+            "msg": "🗄️ Recherche dans la base locale PubMed (~25 M d'articles)…"
+          },
+          {
+            "phase": "filter_timeout",
+            "elapsed_s": 70.86,
+            "msg": "⏱️ Sujet trop large pour la base locale (25 M articles) — on s'appuie sur les résultats PubMed pour cette recherche."
+          },
+          {
+            "phase": "judge",
+            "elapsed_s": 72.91,
+            "msg": "🧬 GPT-5.4 lit et juge 50 abstracts (sur 100 jugeables)…"
+          },
+          {
+            "phase": "judge_done",
+            "elapsed_s": 123.05,
+            "msg": "🧠 Jugement terminé · 43 215 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "done",
+            "elapsed_s": 123.05,
+            "msg": "✅ 23 articles retenus"
+          }
+        ],
+        "results": [
+          {
+            "pmid": 40037948,
+            "score": 3,
+            "relevance_pct": 96,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Update of guidelines for management of Community Acquired pneumonia in adults by the French Infectious Disease Society (SPILF) and the French-Speaking Society of Respiratory Diseases (SPLF): Endorsed by the French intensive care society (SRLF), the French microbiology society (SFM), the French radiology society (SFR) and the French emergency society (SFMU)."
+          },
+          {
+            "pmid": 40679934,
+            "score": 3,
+            "relevance_pct": 95,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Diagnosis and Management of Community-acquired Pneumonia. An Official American Thoracic Society Clinical Practice Guideline."
+          },
+          {
+            "pmid": 40602496,
+            "score": 3,
+            "relevance_pct": 94,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Empiric antibiotic therapy for moderate-to-severe community-acquired pneumonia: a systematic review and network meta-analysis."
+          },
+          {
+            "pmid": 41974005,
+            "score": 3,
+            "relevance_pct": 93,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 2,
+            "title": "Short Versus Longer Antibiotic Duration for Community-Acquired Pneumonia : A Multicenter Target Trial Emulation."
+          },
+          {
+            "pmid": 40614556,
+            "score": 3,
+            "relevance_pct": 92,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "The JRS guideline for the management of pneumonia in adults 2024."
+          },
+          {
+            "pmid": 40404065,
+            "score": 3,
+            "relevance_pct": 91,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Antibiotic for community-acquired pneumonia in hospitalized adults: A systematic review and Bayesian network meta-analysis."
+          },
+          {
+            "pmid": 40378193,
+            "score": 3,
+            "relevance_pct": 90,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Comparative effectiveness of azithromycin versus doxycycline in hospitalized patients with community acquired pneumonia treated with beta-lactams: A multicenter matched cohort study."
+          },
+          {
+            "pmid": 40749839,
+            "score": 3,
+            "relevance_pct": 89,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Antibiotic combination indications for the treatment of community-acquired acute pneumonia."
+          },
+          {
+            "pmid": 39718980,
+            "score": 3,
+            "relevance_pct": 88,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Addition of Macrolide Antibiotics for Hospital Treatment of Community-Acquired Pneumonia."
+          },
+          {
+            "pmid": 40391860,
+            "score": 3,
+            "relevance_pct": 87,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "[Biomarker guided antibiotic stewardship in community acquired pneumonia]."
+          },
+          {
+            "pmid": 41378862,
+            "score": 3,
+            "relevance_pct": 86,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Associations between antibiotic use and outcomes in patients hospitalized with community-acquired pneumonia and positive respiratory viral assays."
+          },
+          {
+            "pmid": 40492536,
+            "score": 3,
+            "relevance_pct": 84,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Outcomes of ceftriaxone 2 g versus 1 g daily in hospitalized patients with pneumonia: a nationwide retrospective cohort study."
+          },
+          {
+            "pmid": 40094490,
+            "score": 3,
+            "relevance_pct": 82,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Pulmonary Infections in Adults: Community-Acquired Pneumonia."
+          },
+          {
+            "pmid": 39647798,
+            "score": 2,
+            "relevance_pct": 78,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Clarithromycin for improved clinical outcomes in community-acquired pneumonia: A subgroup analysis of the ACCESS trial."
+          },
+          {
+            "pmid": 40601818,
+            "score": 2,
+            "relevance_pct": 76,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Target Trial Emulation of Empiric Antibiotics on Clinical Outcomes in Moderately Immunocompromised Patients Hospitalized with Pneumonia."
+          },
+          {
+            "pmid": 40663137,
+            "score": 2,
+            "relevance_pct": 74,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Combined use of a multiplex PCR and serum procalcitonin to reduce antibiotic exposure in critically ill patients with community-acquired pneumonia: the MULTI-CAP randomized controlled trial."
+          },
+          {
+            "pmid": 40107661,
+            "score": 2,
+            "relevance_pct": 73,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Risk factors for drug-resistant pathogens in community-acquired pneumonia: systematic review and meta-analysis."
+          },
+          {
+            "pmid": 40202602,
+            "score": 2,
+            "relevance_pct": 72,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Antimicrobial stewardship interventions in hospitalized adults with community-acquired pneumonia: a systematic review and meta-analysis."
+          },
+          {
+            "pmid": 39809696,
+            "score": 2,
+            "relevance_pct": 70,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Risk Factors and Outcomes Associated With Polymicrobial Infection in Community-Acquired Pneumonia."
+          },
+          {
+            "pmid": 41288422,
+            "score": 2,
+            "relevance_pct": 68,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Community-Acquired Pneumonia in Adults."
+          },
+          {
+            "pmid": 39917810,
+            "score": 2,
+            "relevance_pct": 65,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Community acquired pneumonia due to antibiotic resistant- Streptococcus pneumoniae : diagnosis, management and prevention."
+          },
+          {
+            "pmid": 40021428,
+            "score": 2,
+            "relevance_pct": 62,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Comprehensive management of pneumonia in older patients."
+          },
+          {
+            "pmid": 39111881,
+            "score": 2,
+            "relevance_pct": 60,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": null,
+            "title": "Management of the Diagnosis and Treatment of Pneumonia in an Aging Society"
+          }
+        ]
+      }
+    }
+  ]
+}

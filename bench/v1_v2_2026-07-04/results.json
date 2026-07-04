@@ -1,0 +1,3779 @@
+{
+  "generated_at": "2026-07-04 11:32",
+  "window": {
+    "from": "2025-01-01",
+    "to": "2026-07-04"
+  },
+  "versions": {
+    "v1": {
+      "k_pubmed": 12,
+      "rrf": false,
+      "judge_batch": 50,
+      "local_floor": 0,
+      "max_local": 200
+    },
+    "v2": {
+      "k_pubmed": 100,
+      "rrf": true,
+      "judge_batch": 50,
+      "local_floor": 0,
+      "max_local": 200
+    }
+  },
+  "queries": [
+    {
+      "query": "Inhibiteurs du SGLT2 dans l'insuffisance cardiaque à fraction d'éjection préservée",
+      "v1": {
+        "version": "v1",
+        "params": {
+          "k_pubmed": 12,
+          "rrf": false,
+          "judge_batch": 50,
+          "local_floor": 0,
+          "max_local": 200
+        },
+        "total_s": 89.39,
+        "local_timed_out": true,
+        "builder": "codex",
+        "judge": "codex",
+        "pubmed_query": "((\"Sodium-Glucose Transporter 2 Inhibitors\"[MeSH] OR \"sodium-glucose cotransporter 2 inhibitor*\"[tiab] OR \"sodium glucose cotransporter 2 inhibitor*\"[tiab] OR \"SGLT2 inhibitor*\"[tiab] OR gliflozin*[tiab] OR empagliflozin[tiab] OR \"BI 10773\"[tiab] OR dapagliflozin[tiab] OR \"BMS-512148\"[tiab] OR canagliflozin[tiab] OR \"JNJ-28431754\"[tiab] OR sotagliflozin[tiab] OR LX4211[tiab] OR ertugliflozin[tiab] OR \"PF-04971729\"[tiab]) AND ((\"Heart Failure, Diastolic\"[MeSH] OR \"Heart Failure\"[MeSH]) OR \"heart failure with preserved ejection fraction\"[tiab] OR HFpEF[tiab] OR \"preserved ejection fraction\"[tiab] OR \"diastolic heart failure\"[tiab]))",
+        "mesh_terms": [
+          "Sodium-Glucose Transporter 2 Inhibitors",
+          "Heart Failure",
+          "Heart Failure, Diastolic"
+        ],
+        "keywords_en": [
+          "sodium-glucose cotransporter 2 inhibitors",
+          "SGLT2 inhibitors",
+          "gliflozins",
+          "empagliflozin",
+          "BI 10773",
+          "dapagliflozin",
+          "BMS-512148",
+          "canagliflozin",
+          "JNJ-28431754",
+          "sotagliflozin",
+          "LX4211",
+          "ertugliflozin",
+          "PF-04971729",
+          "heart failure with preserved ejection fraction",
+          "HFpEF",
+          "diastolic heart failure",
+          "preserved ejection fraction"
+        ],
+        "counts": {
+          "pubmed": 12,
+          "local": 0,
+          "merged": 12,
+          "judgeable": 12,
+          "judged": 12,
+          "kept": 3,
+          "kept_pubmed": 3,
+          "kept_both": 0,
+          "kept_local": 0
+        },
+        "codex_tokens": {
+          "query": 27429,
+          "judge": 31325,
+          "total": 58754
+        },
+        "phases": [
+          {
+            "phase": "codex",
+            "elapsed_s": 1.59,
+            "msg": "🚀 Construction de la requête PubMed (GPT-5.4)…"
+          },
+          {
+            "phase": "codex_done",
+            "elapsed_s": 48.95,
+            "msg": "🧠 Requête PubMed construite · 27 429 tokens (dont 2 432 en cache)"
+          },
+          {
+            "phase": "esearch",
+            "elapsed_s": 48.95,
+            "msg": "🔎 Interrogation de PubMed (esearch)…"
+          },
+          {
+            "phase": "esearch_done",
+            "elapsed_s": 50.55,
+            "msg": "📚 12 articles PubMed récupérés"
+          },
+          {
+            "phase": "filter_start",
+            "elapsed_s": 50.55,
+            "msg": "🗄️ Recherche dans la base locale PubMed (~25 M d'articles)…"
+          },
+          {
+            "phase": "filter_timeout",
+            "elapsed_s": 59.03,
+            "msg": "⏱️ Sujet trop large pour la base locale (25 M articles) — on s'appuie sur les résultats PubMed pour cette recherche."
+          },
+          {
+            "phase": "judge",
+            "elapsed_s": 61.54,
+            "msg": "🧬 GPT-5.4 lit et juge 12 abstracts (sur 12 jugeables)…"
+          },
+          {
+            "phase": "judge_done",
+            "elapsed_s": 89.29,
+            "msg": "🧠 Jugement terminé · 31 325 tokens (dont 2 432 en cache)"
+          },
+          {
+            "phase": "done",
+            "elapsed_s": 89.39,
+            "msg": "✅ 3 articles retenus"
+          }
+        ],
+        "results": [
+          {
+            "pmid": 39844745,
+            "score": 3,
+            "relevance_pct": 93,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "State of precision medicine for heart failure with preserved ejection fraction in a new therapeutic age."
+          },
+          {
+            "pmid": 39815071,
+            "score": 3,
+            "relevance_pct": 88,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Initiation and sequencing of guideline-directed medical therapy for heart failure across the ejection fraction spectrum."
+          },
+          {
+            "pmid": 38806171,
+            "score": 2,
+            "relevance_pct": 72,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": null,
+            "title": "2024 update in heart failure"
+          }
+        ]
+      },
+      "v2": {
+        "version": "v2",
+        "params": {
+          "k_pubmed": 100,
+          "rrf": true,
+          "judge_batch": 50,
+          "local_floor": 0,
+          "max_local": 200
+        },
+        "total_s": 93.01,
+        "local_timed_out": true,
+        "builder": "codex",
+        "judge": "codex",
+        "pubmed_query": "((\"Sodium-Glucose Transporter 2 Inhibitors\"[MeSH] OR SGLT2 inhibitor*[tiab] OR sodium-glucose cotransporter 2 inhibitor*[tiab] OR sodium glucose co-transporter 2 inhibitor*[tiab] OR gliflozin*[tiab] OR empagliflozin[tiab] OR dapagliflozin[tiab] OR canagliflozin[tiab] OR ertugliflozin[tiab] OR sotagliflozin[tiab] OR BI 10773[tiab] OR BMS-512148[tiab] OR TA-7284[tiab] OR PF-04971729[tiab] OR LX4211[tiab])) AND ((\"Heart Failure, Diastolic\"[MeSH] OR \"Heart Failure\"[MeSH] OR heart failure with preserved ejection fraction[tiab] OR HFpEF[tiab] OR preserved ejection fraction heart failure[tiab] OR diastolic heart failure[tiab] OR heart failure with normal ejection fraction[tiab]))",
+        "mesh_terms": [
+          "Sodium-Glucose Transporter 2 Inhibitors",
+          "Heart Failure, Diastolic",
+          "Heart Failure"
+        ],
+        "keywords_en": [
+          "SGLT2 inhibitors",
+          "sodium-glucose cotransporter 2 inhibitors",
+          "gliflozins",
+          "empagliflozin",
+          "dapagliflozin",
+          "canagliflozin",
+          "ertugliflozin",
+          "sotagliflozin",
+          "BI 10773",
+          "BMS-512148",
+          "TA-7284",
+          "PF-04971729",
+          "LX4211",
+          "heart failure with preserved ejection fraction",
+          "HFpEF",
+          "diastolic heart failure",
+          "heart failure with normal ejection fraction"
+        ],
+        "counts": {
+          "pubmed": 100,
+          "local": 0,
+          "merged": 100,
+          "judgeable": 100,
+          "judged": 50,
+          "kept": 13,
+          "kept_pubmed": 13,
+          "kept_both": 0,
+          "kept_local": 0
+        },
+        "codex_tokens": {
+          "query": 26932,
+          "judge": 45124,
+          "total": 72056
+        },
+        "phases": [
+          {
+            "phase": "codex",
+            "elapsed_s": 0.0,
+            "msg": "🚀 Construction de la requête PubMed (GPT-5.4)…"
+          },
+          {
+            "phase": "codex_done",
+            "elapsed_s": 12.26,
+            "msg": "🧠 Requête PubMed construite · 26 932 tokens (dont 2 432 en cache)"
+          },
+          {
+            "phase": "esearch",
+            "elapsed_s": 12.26,
+            "msg": "🔎 Interrogation de PubMed (esearch)…"
+          },
+          {
+            "phase": "esearch_done",
+            "elapsed_s": 12.68,
+            "msg": "📚 100 articles PubMed récupérés"
+          },
+          {
+            "phase": "filter_start",
+            "elapsed_s": 12.68,
+            "msg": "🗄️ Recherche dans la base locale PubMed (~25 M d'articles)…"
+          },
+          {
+            "phase": "filter_timeout",
+            "elapsed_s": 20.69,
+            "msg": "⏱️ Sujet trop large pour la base locale (25 M articles) — on s'appuie sur les résultats PubMed pour cette recherche."
+          },
+          {
+            "phase": "judge",
+            "elapsed_s": 26.67,
+            "msg": "🧬 GPT-5.4 lit et juge 50 abstracts (sur 100 jugeables)…"
+          },
+          {
+            "phase": "judge_done",
+            "elapsed_s": 92.97,
+            "msg": "🧠 Jugement terminé · 45 124 tokens (dont 2 432 en cache)"
+          },
+          {
+            "phase": "done",
+            "elapsed_s": 93.01,
+            "msg": "✅ 13 articles retenus"
+          }
+        ],
+        "results": [
+          {
+            "pmid": 40968746,
+            "score": 3,
+            "relevance_pct": 96,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "SGLT2 inhibitors for the prevention and treatment of heart failure: A scientific statement of the HFA and the HFAI."
+          },
+          {
+            "pmid": 40037646,
+            "score": 3,
+            "relevance_pct": 95,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Empagliflozin in resistant hypertension and heart failure with preserved ejection fraction: the EMPEROR-Preserved trial."
+          },
+          {
+            "pmid": 41638556,
+            "score": 3,
+            "relevance_pct": 94,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 4,
+            "title": "Heart failure with preserved ejection fraction: updated diagnostic and therapeutic strategies. SEMI consensus document."
+          },
+          {
+            "pmid": 39844745,
+            "score": 3,
+            "relevance_pct": 92,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "State of precision medicine for heart failure with preserved ejection fraction in a new therapeutic age."
+          },
+          {
+            "pmid": 39442740,
+            "score": 3,
+            "relevance_pct": 90,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Guidelines for treating heart failure."
+          },
+          {
+            "pmid": 38806171,
+            "score": 3,
+            "relevance_pct": 90,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": null,
+            "title": "2024 update in heart failure"
+          },
+          {
+            "pmid": 39815071,
+            "score": 3,
+            "relevance_pct": 88,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Initiation and sequencing of guideline-directed medical therapy for heart failure across the ejection fraction spectrum."
+          },
+          {
+            "pmid": 41343213,
+            "score": 2,
+            "relevance_pct": 72,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Empagliflozin and Dapagliflozin Outcomes in Heart Failure."
+          },
+          {
+            "pmid": 39340828,
+            "score": 2,
+            "relevance_pct": 70,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Effects of the Nonsteroidal MRA Finerenone With and Without Concomitant SGLT2 Inhibitor Use in Heart Failure."
+          },
+          {
+            "pmid": 40835369,
+            "score": 2,
+            "relevance_pct": 68,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Evidentiary Landscape of Heart Failure Therapies, Regulatory Decisions, and Translation Into Guidelines."
+          },
+          {
+            "pmid": 39745404,
+            "score": 2,
+            "relevance_pct": 65,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Systolic Blood Pressure and Pulse Pressure in Heart Failure: Pooled Participant-Level Analysis of 4 Trials."
+          },
+          {
+            "pmid": 38666776,
+            "score": 2,
+            "relevance_pct": 62,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 4,
+            "title": "SGLT-2 Inhibitors: Focus on Dapagliflozin."
+          },
+          {
+            "pmid": 41136062,
+            "score": 2,
+            "relevance_pct": 60,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Heart Failure Pharmacotherapy."
+          }
+        ]
+      }
+    },
+    {
+      "query": "Efficacité du sémaglutide oral dans le diabète de type 2",
+      "v1": {
+        "version": "v1",
+        "params": {
+          "k_pubmed": 12,
+          "rrf": false,
+          "judge_batch": 50,
+          "local_floor": 0,
+          "max_local": 200
+        },
+        "total_s": 38.92,
+        "local_timed_out": true,
+        "builder": "codex",
+        "judge": "codex",
+        "pubmed_query": "(\"Diabetes Mellitus, Type 2\"[MeSH] OR \"type 2 diabetes\"[tiab] OR T2D[tiab] OR T2DM[tiab]) AND (\"Semaglutide\"[MeSH] OR semaglutide[tiab] OR oral semaglutide[tiab] OR Rybelsus[tiab] OR NN9924[tiab] OR NN-9924[tiab]) AND (efficacy[tiab] OR effective[tiab] OR effectiveness[tiab] OR glycemic control[tiab] OR HbA1c[tiab] OR hemoglobin A1c[tiab])",
+        "mesh_terms": [
+          "Diabetes Mellitus, Type 2[MeSH]",
+          "Semaglutide[MeSH]"
+        ],
+        "keywords_en": [
+          "type 2 diabetes",
+          "T2D",
+          "T2DM",
+          "semaglutide",
+          "oral semaglutide",
+          "Rybelsus",
+          "NN9924",
+          "NN-9924",
+          "efficacy",
+          "effectiveness",
+          "glycemic control",
+          "HbA1c",
+          "hemoglobin A1c"
+        ],
+        "counts": {
+          "pubmed": 12,
+          "local": 0,
+          "merged": 12,
+          "judgeable": 12,
+          "judged": 12,
+          "kept": 1,
+          "kept_pubmed": 1,
+          "kept_both": 0,
+          "kept_local": 0
+        },
+        "codex_tokens": {
+          "query": 26789,
+          "judge": 31026,
+          "total": 57815
+        },
+        "phases": [
+          {
+            "phase": "codex",
+            "elapsed_s": 0.0,
+            "msg": "🚀 Construction de la requête PubMed (GPT-5.4)…"
+          },
+          {
+            "phase": "codex_done",
+            "elapsed_s": 10.75,
+            "msg": "🧠 Requête PubMed construite · 26 789 tokens (dont 2 432 en cache)"
+          },
+          {
+            "phase": "esearch",
+            "elapsed_s": 10.75,
+            "msg": "🔎 Interrogation de PubMed (esearch)…"
+          },
+          {
+            "phase": "esearch_done",
+            "elapsed_s": 11.44,
+            "msg": "📚 12 articles PubMed récupérés"
+          },
+          {
+            "phase": "filter_start",
+            "elapsed_s": 11.44,
+            "msg": "🗄️ Recherche dans la base locale PubMed (~25 M d'articles)…"
+          },
+          {
+            "phase": "filter_timeout",
+            "elapsed_s": 19.47,
+            "msg": "⏱️ Sujet trop large pour la base locale (25 M articles) — on s'appuie sur les résultats PubMed pour cette recherche."
+          },
+          {
+            "phase": "judge",
+            "elapsed_s": 20.9,
+            "msg": "🧬 GPT-5.4 lit et juge 12 abstracts (sur 12 jugeables)…"
+          },
+          {
+            "phase": "judge_done",
+            "elapsed_s": 38.92,
+            "msg": "🧠 Jugement terminé · 31 026 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "done",
+            "elapsed_s": 38.92,
+            "msg": "✅ 1 articles retenus"
+          }
+        ],
+        "results": [
+          {
+            "pmid": 40162642,
+            "score": 3,
+            "relevance_pct": 90,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Oral Semaglutide and Cardiovascular Outcomes in High-Risk Type 2 Diabetes."
+          }
+        ]
+      },
+      "v2": {
+        "version": "v2",
+        "params": {
+          "k_pubmed": 100,
+          "rrf": true,
+          "judge_batch": 50,
+          "local_floor": 0,
+          "max_local": 200
+        },
+        "total_s": 89.26,
+        "local_timed_out": true,
+        "builder": "codex",
+        "judge": "codex",
+        "pubmed_query": "(\"Diabetes Mellitus, Type 2\"[MeSH] OR \"type 2 diabetes\"[tiab] OR T2D[tiab] OR T2DM[tiab]) AND ((\"Semaglutide\"[MeSH] OR semaglutide[tiab] OR oral semaglutide[tiab] OR Rybelsus[tiab] OR NN9924[tiab] OR NN-9924[tiab]) AND (oral[tiab] OR tablet*[tiab])) AND (efficacy[tiab] OR effectiveness[tiab] OR glycemic control[tiab] OR HbA1c[tiab] OR hemoglobin A1c[tiab])",
+        "mesh_terms": [
+          "Diabetes Mellitus, Type 2",
+          "Semaglutide"
+        ],
+        "keywords_en": [
+          "type 2 diabetes",
+          "T2D",
+          "T2DM",
+          "semaglutide",
+          "oral semaglutide",
+          "Rybelsus",
+          "NN9924",
+          "NN-9924",
+          "oral",
+          "tablet",
+          "efficacy",
+          "effectiveness",
+          "glycemic control",
+          "HbA1c",
+          "hemoglobin A1c"
+        ],
+        "counts": {
+          "pubmed": 100,
+          "local": 0,
+          "merged": 100,
+          "judgeable": 98,
+          "judged": 50,
+          "kept": 18,
+          "kept_pubmed": 18,
+          "kept_both": 0,
+          "kept_local": 0
+        },
+        "codex_tokens": {
+          "query": 26830,
+          "judge": 45728,
+          "total": 72558
+        },
+        "phases": [
+          {
+            "phase": "codex",
+            "elapsed_s": 0.0,
+            "msg": "🚀 Construction de la requête PubMed (GPT-5.4)…"
+          },
+          {
+            "phase": "codex_done",
+            "elapsed_s": 11.17,
+            "msg": "🧠 Requête PubMed construite · 26 830 tokens (dont 2 432 en cache)"
+          },
+          {
+            "phase": "esearch",
+            "elapsed_s": 11.17,
+            "msg": "🔎 Interrogation de PubMed (esearch)…"
+          },
+          {
+            "phase": "esearch_done",
+            "elapsed_s": 11.66,
+            "msg": "📚 100 articles PubMed récupérés"
+          },
+          {
+            "phase": "filter_start",
+            "elapsed_s": 11.66,
+            "msg": "🗄️ Recherche dans la base locale PubMed (~25 M d'articles)…"
+          },
+          {
+            "phase": "filter_timeout",
+            "elapsed_s": 19.69,
+            "msg": "⏱️ Sujet trop large pour la base locale (25 M articles) — on s'appuie sur les résultats PubMed pour cette recherche."
+          },
+          {
+            "phase": "judge",
+            "elapsed_s": 25.73,
+            "msg": "🧬 GPT-5.4 lit et juge 50 abstracts (sur 98 jugeables)…"
+          },
+          {
+            "phase": "judge_done",
+            "elapsed_s": 89.26,
+            "msg": "🧠 Jugement terminé · 45 728 tokens (dont 2 432 en cache)"
+          },
+          {
+            "phase": "done",
+            "elapsed_s": 89.26,
+            "msg": "✅ 18 articles retenus"
+          }
+        ],
+        "results": [
+          {
+            "pmid": 40162642,
+            "score": 3,
+            "relevance_pct": 92,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Oral Semaglutide and Cardiovascular Outcomes in High-Risk Type 2 Diabetes."
+          },
+          {
+            "pmid": 40128506,
+            "score": 3,
+            "relevance_pct": 91,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "PIONEER REAL Italy: Real-World Usage of Once-Daily Oral Semaglutide in Adults with Type 2 Diabetes."
+          },
+          {
+            "pmid": 40990044,
+            "score": 3,
+            "relevance_pct": 90,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Effectiveness of oral semaglutide versus empagliflozin for the management of type 2 diabetes. PIONEER-2 trial emulation with real-world data."
+          },
+          {
+            "pmid": 40573252,
+            "score": 3,
+            "relevance_pct": 89,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Real-World Analysis of Short-Term Effectiveness of Oral Semaglutide: Impact on Glycometabolic Control and Cardiovascular Risk."
+          },
+          {
+            "pmid": 41765029,
+            "score": 3,
+            "relevance_pct": 88,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 1,
+            "title": "Efficacy and safety of once-daily oral orforglipron compared with oral semaglutide in adults with type 2 diabetes (ACHIEVE-3): a multinational, multicentre, non-inferiority, open-label, randomised, phase 3 trial."
+          },
+          {
+            "pmid": 40843773,
+            "score": 3,
+            "relevance_pct": 87,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Efficacy and safety of oral semaglutide in Chinese participants with type 2 diabetes: Subgroup analyses by baseline characteristics in the PIONEER 11 and 12 randomised controlled trials."
+          },
+          {
+            "pmid": 40732973,
+            "score": 3,
+            "relevance_pct": 86,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Clinical Effectiveness of Oral Semaglutide in Women with Type 2 Diabetes: A Nationwide, Multicentre, Retrospective, Observational Study (Women_ENDO2S-RWD Substudy)."
+          },
+          {
+            "pmid": 41117588,
+            "score": 2,
+            "relevance_pct": 78,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Assessment of noninferiority of oral vs subcutaneous semaglutide: a systematic review and meta-analysis."
+          },
+          {
+            "pmid": 41555812,
+            "score": 2,
+            "relevance_pct": 76,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 2,
+            "title": "Retrospective comparison of the clinical effects of oral semaglutide and SGLT2 inhibitors treatment in patients with type 2 diabetes."
+          },
+          {
+            "pmid": 39680131,
+            "score": 2,
+            "relevance_pct": 74,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Comparing medication persistence with oral and subcutaneous semaglutide in a real-world setting."
+          },
+          {
+            "pmid": 40212008,
+            "score": 2,
+            "relevance_pct": 72,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Comparative efficacy and tolerability of currently approved incretin mimetics: A systematic analysis of placebo-controlled clinical trials."
+          },
+          {
+            "pmid": 41370018,
+            "score": 2,
+            "relevance_pct": 71,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "The impact of oral semaglutide on cardiovascular events in patients with type 2 diabetes: review of results from the SOUL trial."
+          },
+          {
+            "pmid": 40752805,
+            "score": 2,
+            "relevance_pct": 70,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Effects of oral semaglutide on cardiovascular outcomes: A systematic review and meta-analysis."
+          },
+          {
+            "pmid": 41188987,
+            "score": 2,
+            "relevance_pct": 69,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Semaglutide reduces cardiovascular events in type 2 diabetes: a systematic review and meta-analysis highlighting enhanced benefits in chronic kidney disease."
+          },
+          {
+            "pmid": 40782670,
+            "score": 2,
+            "relevance_pct": 67,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "SOUL searching in GLP-1 therapy: Oral semaglutide confirms cardioprotection in type 2 diabetes."
+          },
+          {
+            "pmid": 40798974,
+            "score": 2,
+            "relevance_pct": 66,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Oral Semaglutide: A Step Forward in Cardiovascular Risk Management for Type 2 Diabetes."
+          },
+          {
+            "pmid": 40248301,
+            "score": 2,
+            "relevance_pct": 63,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "From the SELECT study to SOUL: different administration methods of semaglutide but same efficacy?"
+          },
+          {
+            "pmid": 40800212,
+            "score": 2,
+            "relevance_pct": 60,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Effects of oral semaglutide on kidney outcomes in people with type 2 diabetes: a nationwide, multicentre, retrospective, observational study (Renal_ENDO2S-RWD substudy)."
+          }
+        ]
+      }
+    },
+    {
+      "query": "Dépistage du cancer du col de l'utérus par test HPV",
+      "v1": {
+        "version": "v1",
+        "params": {
+          "k_pubmed": 12,
+          "rrf": false,
+          "judge_batch": 50,
+          "local_floor": 0,
+          "max_local": 200
+        },
+        "total_s": 38.67,
+        "local_timed_out": true,
+        "builder": "codex",
+        "judge": "codex",
+        "pubmed_query": "((\"Uterine Cervical Neoplasms\"[MeSH] OR cervical cancer[tiab] OR cervical neoplas*[tiab] OR cervical carcinoma*[tiab] OR cervical intraepithelial neoplasia[tiab] OR CIN[tiab]) AND (\"Papillomavirus Infections/diagnosis\"[MeSH] OR \"Papillomaviridae\"[MeSH] OR human papillomavirus[tiab] OR HPV[tiab] OR high-risk HPV[tiab] OR hrHPV[tiab]) AND (\"Mass Screening\"[MeSH] OR screening[tiab] OR early detection[tiab] OR primary screening[tiab] OR HPV test*[tiab] OR HPV DNA test*[tiab] OR HPV mRNA test*[tiab]))",
+        "mesh_terms": [
+          "Uterine Cervical Neoplasms",
+          "Papillomavirus Infections/diagnosis",
+          "Papillomaviridae",
+          "Mass Screening"
+        ],
+        "keywords_en": [
+          "cervical cancer",
+          "cervical neoplasms",
+          "cervical carcinoma",
+          "cervical intraepithelial neoplasia",
+          "CIN",
+          "human papillomavirus",
+          "HPV",
+          "high-risk HPV",
+          "hrHPV",
+          "screening",
+          "early detection",
+          "primary screening",
+          "HPV test",
+          "HPV DNA test",
+          "HPV mRNA test"
+        ],
+        "counts": {
+          "pubmed": 12,
+          "local": 0,
+          "merged": 12,
+          "judgeable": 12,
+          "judged": 12,
+          "kept": 9,
+          "kept_pubmed": 9,
+          "kept_both": 0,
+          "kept_local": 0
+        },
+        "codex_tokens": {
+          "query": 26820,
+          "judge": 30617,
+          "total": 57437
+        },
+        "phases": [
+          {
+            "phase": "codex",
+            "elapsed_s": 0.0,
+            "msg": "🚀 Construction de la requête PubMed (GPT-5.4)…"
+          },
+          {
+            "phase": "codex_done",
+            "elapsed_s": 10.32,
+            "msg": "🧠 Requête PubMed construite · 26 820 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "esearch",
+            "elapsed_s": 10.32,
+            "msg": "🔎 Interrogation de PubMed (esearch)…"
+          },
+          {
+            "phase": "esearch_done",
+            "elapsed_s": 10.94,
+            "msg": "📚 12 articles PubMed récupérés"
+          },
+          {
+            "phase": "filter_start",
+            "elapsed_s": 10.94,
+            "msg": "🗄️ Recherche dans la base locale PubMed (~25 M d'articles)…"
+          },
+          {
+            "phase": "filter_timeout",
+            "elapsed_s": 18.95,
+            "msg": "⏱️ Sujet trop large pour la base locale (25 M articles) — on s'appuie sur les résultats PubMed pour cette recherche."
+          },
+          {
+            "phase": "judge",
+            "elapsed_s": 19.48,
+            "msg": "🧬 GPT-5.4 lit et juge 12 abstracts (sur 12 jugeables)…"
+          },
+          {
+            "phase": "judge_done",
+            "elapsed_s": 38.67,
+            "msg": "🧠 Jugement terminé · 30 617 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "done",
+            "elapsed_s": 38.67,
+            "msg": "✅ 9 articles retenus"
+          }
+        ],
+        "results": [
+          {
+            "pmid": 41342729,
+            "score": 3,
+            "relevance_pct": 96,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 4,
+            "title": "Self-collected vaginal specimens for human papillomavirus testing and guidance on screening exit: An update to the American Cancer Society cervical cancer screening guideline."
+          },
+          {
+            "pmid": 39982254,
+            "score": 3,
+            "relevance_pct": 95,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Self-Collected Vaginal Specimens for HPV Testing: Recommendations From the Enduring Consensus Cervical Cancer Screening and Management Guidelines Committee."
+          },
+          {
+            "pmid": 41638692,
+            "score": 3,
+            "relevance_pct": 93,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 4,
+            "title": "Testing menstrual blood for human papillomavirus during cervical cancer screening in China: cross sectional population based study."
+          },
+          {
+            "pmid": 41839104,
+            "score": 3,
+            "relevance_pct": 90,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 4,
+            "title": "Cervical Cancer Screening."
+          },
+          {
+            "pmid": 42024877,
+            "score": 3,
+            "relevance_pct": 89,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 4,
+            "title": "Screening for Cervical Cancer."
+          },
+          {
+            "pmid": 39791481,
+            "score": 3,
+            "relevance_pct": 88,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Applying Results of Extended Genotyping to Management of Positive Cervicovaginal Human Papillomavirus Test Results: Enduring Guidelines."
+          },
+          {
+            "pmid": 41009986,
+            "score": 3,
+            "relevance_pct": 85,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Molecular Screening for Cervical Cancer."
+          },
+          {
+            "pmid": 39402008,
+            "score": 2,
+            "relevance_pct": 68,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Targeting HPV for the prevention, diagnosis, and treatment of cervical cancer."
+          },
+          {
+            "pmid": 40794406,
+            "score": 2,
+            "relevance_pct": 66,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Cervical Cancer Screening, HPV Vaccination, and Cervical Cancer Elimination."
+          }
+        ]
+      },
+      "v2": {
+        "version": "v2",
+        "params": {
+          "k_pubmed": 100,
+          "rrf": true,
+          "judge_batch": 50,
+          "local_floor": 0,
+          "max_local": 200
+        },
+        "total_s": 91.22,
+        "local_timed_out": true,
+        "builder": "codex",
+        "judge": "codex",
+        "pubmed_query": "((\"Uterine Cervical Neoplasms\"[MeSH] OR \"cervical cancer\"[tiab] OR \"cervical neoplas*\"[tiab] OR \"cervical intraepithelial neoplasia\"[tiab] OR CIN2[tiab] OR CIN3[tiab]) AND (\"Mass Screening\"[MeSH] OR screen*[tiab] OR \"primary screening\"[tiab] OR \"cervical screening\"[tiab]) AND (\"Papillomavirus Infections/diagnosis\"[MeSH] OR \"Human papillomavirus\"[tiab] OR HPV[tiab] OR hrHPV[tiab] OR \"high-risk HPV\"[tiab] OR \"HPV test*\"[tiab] OR \"HPV DNA test*\"[tiab] OR \"HPV RNA test*\"[tiab] OR \"HPV-based screening\"[tiab] OR \"primary HPV screening\"[tiab] OR \"cobas HPV\"[tiab] OR \"Hybrid Capture 2\"[tiab] OR HC2[tiab] OR Cervista[tiab] OR Aptima[tiab]))",
+        "mesh_terms": [
+          "Uterine Cervical Neoplasms",
+          "Mass Screening",
+          "Papillomavirus Infections/diagnosis"
+        ],
+        "keywords_en": [
+          "cervical cancer",
+          "cervical neoplasia",
+          "cervical intraepithelial neoplasia",
+          "CIN2",
+          "CIN3",
+          "screening",
+          "primary screening",
+          "cervical screening",
+          "human papillomavirus",
+          "HPV",
+          "hrHPV",
+          "high-risk HPV",
+          "HPV test",
+          "HPV DNA test",
+          "HPV RNA test",
+          "HPV-based screening",
+          "primary HPV screening",
+          "cobas HPV",
+          "Hybrid Capture 2",
+          "HC2",
+          "Cervista",
+          "Aptima"
+        ],
+        "counts": {
+          "pubmed": 100,
+          "local": 0,
+          "merged": 100,
+          "judgeable": 100,
+          "judged": 50,
+          "kept": 34,
+          "kept_pubmed": 34,
+          "kept_both": 0,
+          "kept_local": 0
+        },
+        "codex_tokens": {
+          "query": 96333,
+          "judge": 42757,
+          "total": 139090
+        },
+        "phases": [
+          {
+            "phase": "codex",
+            "elapsed_s": 0.0,
+            "msg": "🚀 Construction de la requête PubMed (GPT-5.4)…"
+          },
+          {
+            "phase": "codex_done",
+            "elapsed_s": 27.9,
+            "msg": "🧠 Requête PubMed construite · 96 333 tokens (dont 85 632 en cache)"
+          },
+          {
+            "phase": "esearch",
+            "elapsed_s": 27.9,
+            "msg": "🔎 Interrogation de PubMed (esearch)…"
+          },
+          {
+            "phase": "esearch_done",
+            "elapsed_s": 28.6,
+            "msg": "📚 100 articles PubMed récupérés"
+          },
+          {
+            "phase": "filter_start",
+            "elapsed_s": 28.6,
+            "msg": "🗄️ Recherche dans la base locale PubMed (~25 M d'articles)…"
+          },
+          {
+            "phase": "filter_timeout",
+            "elapsed_s": 36.62,
+            "msg": "⏱️ Sujet trop large pour la base locale (25 M articles) — on s'appuie sur les résultats PubMed pour cette recherche."
+          },
+          {
+            "phase": "judge",
+            "elapsed_s": 40.78,
+            "msg": "🧬 GPT-5.4 lit et juge 50 abstracts (sur 100 jugeables)…"
+          },
+          {
+            "phase": "judge_done",
+            "elapsed_s": 91.22,
+            "msg": "🧠 Jugement terminé · 42 757 tokens (dont 2 432 en cache)"
+          },
+          {
+            "phase": "done",
+            "elapsed_s": 91.22,
+            "msg": "✅ 34 articles retenus"
+          }
+        ],
+        "results": [
+          {
+            "pmid": 39982254,
+            "score": 3,
+            "relevance_pct": 95,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Self-Collected Vaginal Specimens for HPV Testing: Recommendations From the Enduring Consensus Cervical Cancer Screening and Management Guidelines Committee."
+          },
+          {
+            "pmid": 41342729,
+            "score": 3,
+            "relevance_pct": 94,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 4,
+            "title": "Self-collected vaginal specimens for human papillomavirus testing and guidance on screening exit: An update to the American Cancer Society cervical cancer screening guideline."
+          },
+          {
+            "pmid": 40643571,
+            "score": 3,
+            "relevance_pct": 91,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Accuracy of HPV Self-Collection Compared with Clinician-Collected HPV Testing and Cytology: A Meta-analysis."
+          },
+          {
+            "pmid": 41839104,
+            "score": 3,
+            "relevance_pct": 90,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 4,
+            "title": "Cervical Cancer Screening."
+          },
+          {
+            "pmid": 41455735,
+            "score": 3,
+            "relevance_pct": 89,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Age-specific clinical performance of HPV-based vs. cytology-based cervical cancer screening in China."
+          },
+          {
+            "pmid": 41811316,
+            "score": 3,
+            "relevance_pct": 88,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 4,
+            "title": "HPV, Cytology, and Cotest Cervical Cancer Screening and the Risk of Precancer."
+          },
+          {
+            "pmid": 41009986,
+            "score": 3,
+            "relevance_pct": 88,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Molecular Screening for Cervical Cancer."
+          },
+          {
+            "pmid": 42024877,
+            "score": 3,
+            "relevance_pct": 87,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 4,
+            "title": "Screening for Cervical Cancer."
+          },
+          {
+            "pmid": 39791481,
+            "score": 3,
+            "relevance_pct": 86,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Applying Results of Extended Genotyping to Management of Positive Cervicovaginal Human Papillomavirus Test Results: Enduring Guidelines."
+          },
+          {
+            "pmid": 41638692,
+            "score": 3,
+            "relevance_pct": 84,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 4,
+            "title": "Testing menstrual blood for human papillomavirus during cervical cancer screening in China: cross sectional population based study."
+          },
+          {
+            "pmid": 41025391,
+            "score": 3,
+            "relevance_pct": 83,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Cervical cancer screening: Is self-sampling the answer?"
+          },
+          {
+            "pmid": 41082489,
+            "score": 2,
+            "relevance_pct": 79,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Molecular triage on HPV-positive samples in a cervical screening setting."
+          },
+          {
+            "pmid": 41054958,
+            "score": 2,
+            "relevance_pct": 78,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Evaluation of the multiple HPV-based \"screen and triage\" algorithms in real-world settings of rural China."
+          },
+          {
+            "pmid": 39146489,
+            "score": 2,
+            "relevance_pct": 77,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": null,
+            "title": "Nationwide registry-based trial of risk-stratified cervical screening"
+          },
+          {
+            "pmid": 41032297,
+            "score": 2,
+            "relevance_pct": 76,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Cost-Effectiveness of HPV Self-Testing Options for Cervical Cancer Screening."
+          },
+          {
+            "pmid": 41044173,
+            "score": 2,
+            "relevance_pct": 75,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Short-term repeat HPV testing for triaging HPV-positive women in cervical cancer screening."
+          },
+          {
+            "pmid": 40679417,
+            "score": 2,
+            "relevance_pct": 74,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Urinary detection of high-risk HPV DNA to enhance cervical cancer screening in developing countries."
+          },
+          {
+            "pmid": 41103225,
+            "score": 2,
+            "relevance_pct": 73,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "[HPV self-sampling and cervical cancer screening]."
+          },
+          {
+            "pmid": 41236409,
+            "score": 2,
+            "relevance_pct": 72,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Pooled performance of urinary human papillomavirus (HPV) testing for the presence of cervical HPV."
+          },
+          {
+            "pmid": 40358093,
+            "score": 2,
+            "relevance_pct": 71,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "[HPV screening coverage and cancer]."
+          },
+          {
+            "pmid": 41904490,
+            "score": 2,
+            "relevance_pct": 70,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 1,
+            "title": "Cost-effectiveness studies evaluating HPV self-sampling for cervical cancer screening - a systematic review."
+          },
+          {
+            "pmid": 40432386,
+            "score": 2,
+            "relevance_pct": 70,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Human Papillomavirus Genotyping and Viral Load as a Predictor of Cervical Lesions: A Prospective Study."
+          },
+          {
+            "pmid": 40735948,
+            "score": 2,
+            "relevance_pct": 69,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "SIP 7: Progress in Cervical Cancer Prevention in the UK (2025 Second Edition)."
+          },
+          {
+            "pmid": 40238123,
+            "score": 2,
+            "relevance_pct": 68,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Cytologic DNA methylation for managing minimally abnormal cervical cancer screening results."
+          },
+          {
+            "pmid": 40731006,
+            "score": 2,
+            "relevance_pct": 67,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "High-risk human papillomavirus testing for underscreened populations: cost-effectiveness and affordability in three country settings."
+          },
+          {
+            "pmid": 39402008,
+            "score": 2,
+            "relevance_pct": 66,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Targeting HPV for the prevention, diagnosis, and treatment of cervical cancer."
+          },
+          {
+            "pmid": 41306592,
+            "score": 2,
+            "relevance_pct": 65,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Evolving HPV diagnostics: current practice and future frontiers."
+          },
+          {
+            "pmid": 39611440,
+            "score": 2,
+            "relevance_pct": 63,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Advances in cervical cancer: current insights and future directions."
+          },
+          {
+            "pmid": 39379247,
+            "score": 2,
+            "relevance_pct": 62,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Systematic review of cost-effectiveness studies on cervical cancer screening across Europe."
+          },
+          {
+            "pmid": 40794406,
+            "score": 2,
+            "relevance_pct": 61,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Cervical Cancer Screening, HPV Vaccination, and Cervical Cancer Elimination."
+          },
+          {
+            "pmid": 40908769,
+            "score": 2,
+            "relevance_pct": 60,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Strategic approaches for global cervical cancer elimination: An update review and call for national action."
+          },
+          {
+            "pmid": 41851013,
+            "score": 2,
+            "relevance_pct": 58,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 2,
+            "title": "Cytology and High-Risk Human Papillomavirus Testing Performance for Cervical Cancer Screening in Transmasculine Patients."
+          },
+          {
+            "pmid": 41596450,
+            "score": 2,
+            "relevance_pct": 58,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 4,
+            "title": "HPV-Driven Cervical Carcinogenesis: Genetic and Epigenetic Mechanisms and Diagnostic Approaches."
+          },
+          {
+            "pmid": 40600419,
+            "score": 2,
+            "relevance_pct": 56,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Quality Assurance in Cervical Cancer Screening: Evaluation of Sample Adequacy in HPV DNA Testing."
+          }
+        ]
+      }
+    },
+    {
+      "query": "Prise en charge de la dégénérescence maculaire liée à l'âge néovasculaire",
+      "v1": {
+        "version": "v1",
+        "params": {
+          "k_pubmed": 12,
+          "rrf": false,
+          "judge_batch": 50,
+          "local_floor": 0,
+          "max_local": 200
+        },
+        "total_s": 44.91,
+        "local_timed_out": true,
+        "builder": "codex",
+        "judge": "codex",
+        "pubmed_query": "((\"Macular Degeneration\"[MeSH] OR \"Choroidal Neovascularization\"[MeSH] OR neovascular age-related macular degeneration[tiab] OR nAMD[tiab] OR wet age-related macular degeneration[tiab] OR exudative age-related macular degeneration[tiab] OR age-related macular degeneration[tiab] OR AMD[tiab] OR choroidal neovascularization[tiab] OR CNV[tiab]) AND (\"Therapeutics\"[MeSH] OR \"Drug Therapy\"[MeSH] OR \"Angiogenesis Inhibitors\"[MeSH] OR treatment[tiab] OR management[tiab] OR therapy[tiab] OR anti-VEGF[tiab] OR anti-vascular endothelial growth factor[tiab] OR intravitreal injection*[tiab] OR ranibizumab[tiab] OR lucentis[tiab] OR aflibercept[tiab] OR eylea[tiab] OR bevacizumab[tiab] OR avastin[tiab] OR brolucizumab[tiab] OR beovu[tiab] OR faricimab[tiab] OR vabysmo[tiab] OR pegaptanib[tiab] OR macugen[tiab] OR conbercept[tiab] OR KH902[tiab] OR abicipar[tiab] OR DARPin[tiab]))",
+        "mesh_terms": [
+          "Macular Degeneration",
+          "Choroidal Neovascularization",
+          "Therapeutics",
+          "Drug Therapy",
+          "Angiogenesis Inhibitors"
+        ],
+        "keywords_en": [
+          "neovascular age-related macular degeneration",
+          "nAMD",
+          "wet age-related macular degeneration",
+          "exudative age-related macular degeneration",
+          "choroidal neovascularization",
+          "CNV",
+          "management",
+          "treatment",
+          "therapy",
+          "anti-VEGF",
+          "anti-vascular endothelial growth factor",
+          "intravitreal injection",
+          "ranibizumab",
+          "Lucentis",
+          "aflibercept",
+          "Eylea",
+          "bevacizumab",
+          "Avastin",
+          "brolucizumab",
+          "Beovu",
+          "faricimab",
+          "Vabysmo",
+          "pegaptanib",
+          "Macugen",
+          "conbercept",
+          "KH902",
+          "abicipar",
+          "DARPin"
+        ],
+        "counts": {
+          "pubmed": 12,
+          "local": 0,
+          "merged": 12,
+          "judgeable": 12,
+          "judged": 12,
+          "kept": 9,
+          "kept_pubmed": 9,
+          "kept_both": 0,
+          "kept_local": 0
+        },
+        "codex_tokens": {
+          "query": 27157,
+          "judge": 31429,
+          "total": 58586
+        },
+        "phases": [
+          {
+            "phase": "codex",
+            "elapsed_s": 0.0,
+            "msg": "🚀 Construction de la requête PubMed (GPT-5.4)…"
+          },
+          {
+            "phase": "codex_done",
+            "elapsed_s": 16.45,
+            "msg": "🧠 Requête PubMed construite · 27 157 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "esearch",
+            "elapsed_s": 16.45,
+            "msg": "🔎 Interrogation de PubMed (esearch)…"
+          },
+          {
+            "phase": "esearch_done",
+            "elapsed_s": 17.11,
+            "msg": "📚 12 articles PubMed récupérés"
+          },
+          {
+            "phase": "filter_start",
+            "elapsed_s": 17.11,
+            "msg": "🗄️ Recherche dans la base locale PubMed (~25 M d'articles)…"
+          },
+          {
+            "phase": "filter_timeout",
+            "elapsed_s": 25.14,
+            "msg": "⏱️ Sujet trop large pour la base locale (25 M articles) — on s'appuie sur les résultats PubMed pour cette recherche."
+          },
+          {
+            "phase": "judge",
+            "elapsed_s": 25.57,
+            "msg": "🧬 GPT-5.4 lit et juge 12 abstracts (sur 12 jugeables)…"
+          },
+          {
+            "phase": "judge_done",
+            "elapsed_s": 44.91,
+            "msg": "🧠 Jugement terminé · 31 429 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "done",
+            "elapsed_s": 44.91,
+            "msg": "✅ 9 articles retenus"
+          }
+        ],
+        "results": [
+          {
+            "pmid": 40876598,
+            "score": 3,
+            "relevance_pct": 95,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 1,
+            "title": "Intravitreal Aflibercept 8 mg in Neovascular Age-Related Macular Degeneration: Ninety-Six-Week Results from the Randomized Phase 3 PULSAR Trial."
+          },
+          {
+            "pmid": 39824523,
+            "score": 3,
+            "relevance_pct": 92,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Switching to faricimab from the current anti-VEGF therapy: evidence-based expert recommendations."
+          },
+          {
+            "pmid": 39084554,
+            "score": 3,
+            "relevance_pct": 90,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Real-World 1-Year Outcomes of Treatment-Intensive Neovascular Age-Related Macular Degeneration Switched to Faricimab."
+          },
+          {
+            "pmid": 39617060,
+            "score": 3,
+            "relevance_pct": 89,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Anatomic Outcomes with Faricimab vs Aflibercept in Head-to-Head Dosing Phase of the TENAYA/LUCERNE Trials in Neovascular Age-related Macular Degeneration."
+          },
+          {
+            "pmid": 39937692,
+            "score": 3,
+            "relevance_pct": 84,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Clinical trials and real-world studies examining faricimab and high-dose aflibercept for wet age-related macular degeneration and diabetic macular edema."
+          },
+          {
+            "pmid": 40507802,
+            "score": 2,
+            "relevance_pct": 68,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "VEGF in Diabetic Retinopathy and Age-Related Macular Degeneration."
+          },
+          {
+            "pmid": 39379521,
+            "score": 2,
+            "relevance_pct": 66,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Exploring new horizons in neovascular age-related macular degeneration: novel mechanisms of action and future therapeutic avenues."
+          },
+          {
+            "pmid": 40310633,
+            "score": 2,
+            "relevance_pct": 63,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Noninfectious Intraocular Inflammation After Intravitreal Aflibercept."
+          },
+          {
+            "pmid": 39455036,
+            "score": 2,
+            "relevance_pct": 61,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Submacular Hemorrhage Rates Following Anti-Vascular Endothelial Growth Factor Injections for Exudative Age-Related Macular Degeneration."
+          }
+        ]
+      },
+      "v2": {
+        "version": "v2",
+        "params": {
+          "k_pubmed": 100,
+          "rrf": true,
+          "judge_batch": 50,
+          "local_floor": 0,
+          "max_local": 200
+        },
+        "total_s": 90.02,
+        "local_timed_out": true,
+        "builder": "codex",
+        "judge": "codex",
+        "pubmed_query": "((\"Macular Degeneration\"[MeSH] OR \"Age-Related Macular Degeneration\"[tiab] OR AMD[tiab] OR ARMD[tiab]) AND (neovascular[tiab] OR exudative[tiab] OR wet[tiab] OR \"choroidal neovascularization\"[MeSH] OR \"choroidal neovascularization\"[tiab] OR CNV[tiab])) AND ((\"Angiogenesis Inhibitors\"[MeSH] OR \"Vascular Endothelial Growth Factor A\"[MeSH] OR anti-VEGF[tiab] OR ranibizumab[tiab] OR lucentis[tiab] OR aflibercept[tiab] OR eylea[tiab] OR bevacizumab[tiab] OR avastin[tiab] OR brolucizumab[tiab] OR beovu[tiab] OR faricimab[tiab] OR vabysmo[tiab] OR pegaptanib[tiab] OR macugen[tiab]) OR (\"Photochemotherapy\"[MeSH] OR \"photodynamic therapy\"[tiab] OR verteporfin[tiab]) OR (treat*[tiab] OR therap*[tiab] OR management[tiab] OR regimen[tiab] OR \"treat-and-extend\"[tiab] OR PRN[tiab] OR \"pro re nata\"[tiab]))",
+        "mesh_terms": [
+          "Macular Degeneration",
+          "Choroidal Neovascularization",
+          "Angiogenesis Inhibitors",
+          "Vascular Endothelial Growth Factor A",
+          "Photochemotherapy"
+        ],
+        "keywords_en": [
+          "neovascular age-related macular degeneration",
+          "wet age-related macular degeneration",
+          "exudative age-related macular degeneration",
+          "choroidal neovascularization",
+          "anti-VEGF",
+          "ranibizumab",
+          "aflibercept",
+          "bevacizumab",
+          "brolucizumab",
+          "faricimab",
+          "pegaptanib",
+          "photodynamic therapy",
+          "verteporfin",
+          "treat-and-extend",
+          "pro re nata"
+        ],
+        "counts": {
+          "pubmed": 100,
+          "local": 0,
+          "merged": 100,
+          "judgeable": 99,
+          "judged": 50,
+          "kept": 30,
+          "kept_pubmed": 30,
+          "kept_both": 0,
+          "kept_local": 0
+        },
+        "codex_tokens": {
+          "query": 27103,
+          "judge": 44374,
+          "total": 71477
+        },
+        "phases": [
+          {
+            "phase": "codex",
+            "elapsed_s": 0.0,
+            "msg": "🚀 Construction de la requête PubMed (GPT-5.4)…"
+          },
+          {
+            "phase": "codex_done",
+            "elapsed_s": 20.71,
+            "msg": "🧠 Requête PubMed construite · 27 103 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "esearch",
+            "elapsed_s": 20.71,
+            "msg": "🔎 Interrogation de PubMed (esearch)…"
+          },
+          {
+            "phase": "esearch_done",
+            "elapsed_s": 21.63,
+            "msg": "📚 100 articles PubMed récupérés"
+          },
+          {
+            "phase": "filter_start",
+            "elapsed_s": 21.63,
+            "msg": "🗄️ Recherche dans la base locale PubMed (~25 M d'articles)…"
+          },
+          {
+            "phase": "filter_timeout",
+            "elapsed_s": 29.64,
+            "msg": "⏱️ Sujet trop large pour la base locale (25 M articles) — on s'appuie sur les résultats PubMed pour cette recherche."
+          },
+          {
+            "phase": "judge",
+            "elapsed_s": 34.08,
+            "msg": "🧬 GPT-5.4 lit et juge 50 abstracts (sur 99 jugeables)…"
+          },
+          {
+            "phase": "judge_done",
+            "elapsed_s": 90.02,
+            "msg": "🧠 Jugement terminé · 44 374 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "done",
+            "elapsed_s": 90.02,
+            "msg": "✅ 30 articles retenus"
+          }
+        ],
+        "results": [
+          {
+            "pmid": 40876598,
+            "score": 3,
+            "relevance_pct": 95,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 1,
+            "title": "Intravitreal Aflibercept 8 mg in Neovascular Age-Related Macular Degeneration: Ninety-Six-Week Results from the Randomized Phase 3 PULSAR Trial."
+          },
+          {
+            "pmid": 39084554,
+            "score": 3,
+            "relevance_pct": 93,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Real-World 1-Year Outcomes of Treatment-Intensive Neovascular Age-Related Macular Degeneration Switched to Faricimab."
+          },
+          {
+            "pmid": 39824523,
+            "score": 3,
+            "relevance_pct": 92,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Switching to faricimab from the current anti-VEGF therapy: evidence-based expert recommendations."
+          },
+          {
+            "pmid": 39617060,
+            "score": 3,
+            "relevance_pct": 90,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Anatomic Outcomes with Faricimab vs Aflibercept in Head-to-Head Dosing Phase of the TENAYA/LUCERNE Trials in Neovascular Age-related Macular Degeneration."
+          },
+          {
+            "pmid": 40658332,
+            "score": 3,
+            "relevance_pct": 90,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Japanese clinical guidelines for neovascular age-related macular degeneration."
+          },
+          {
+            "pmid": 40241463,
+            "score": 3,
+            "relevance_pct": 89,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Comparative efficacy of intravitreal anti-VEGF therapy for neovascular age-related macular degeneration: A systematic review with network meta-analysis."
+          },
+          {
+            "pmid": 40371970,
+            "score": 3,
+            "relevance_pct": 88,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Early Outcomes After Initiation of Faricimab for Neovascular Age-Related Macular Degeneration."
+          },
+          {
+            "pmid": 41276957,
+            "score": 3,
+            "relevance_pct": 86,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 2,
+            "title": "Early anatomical outcomes of faricimab vs aflibercept 2 mg in treatment-naïve neovascular age-related macular degeneration and polypoidal choroidal vasculopathy: A head-to-head comparative study in Taiwan."
+          },
+          {
+            "pmid": 40310633,
+            "score": 3,
+            "relevance_pct": 84,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Noninfectious Intraocular Inflammation After Intravitreal Aflibercept."
+          },
+          {
+            "pmid": 39761510,
+            "score": 3,
+            "relevance_pct": 82,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "INTRAOCULAR INFLAMMATION ASSOCIATED WITH FARICIMAB THERAPY: One-Year Real-World Outcomes."
+          },
+          {
+            "pmid": 40970870,
+            "score": 3,
+            "relevance_pct": 81,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Ten-Year Incidence, Risk Factors and Progression Rate of Macular Atrophy in Neovascular Age-Related Macular Degeneration."
+          },
+          {
+            "pmid": 39455036,
+            "score": 3,
+            "relevance_pct": 80,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Submacular Hemorrhage Rates Following Anti-Vascular Endothelial Growth Factor Injections for Exudative Age-Related Macular Degeneration."
+          },
+          {
+            "pmid": 42054085,
+            "score": 2,
+            "relevance_pct": 74,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 4,
+            "title": "Neovascular age-related macular degeneration management - Beyond anti-VEGF."
+          },
+          {
+            "pmid": 41490387,
+            "score": 2,
+            "relevance_pct": 72,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Emerging solutions for neovascular age-related macular degeneration."
+          },
+          {
+            "pmid": 39937692,
+            "score": 2,
+            "relevance_pct": 71,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Clinical trials and real-world studies examining faricimab and high-dose aflibercept for wet age-related macular degeneration and diabetic macular edema."
+          },
+          {
+            "pmid": 39842718,
+            "score": 2,
+            "relevance_pct": 70,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Macular Atrophy in Neovascular Age-related Macular Degeneration: A Systematic Review and Meta-analysis."
+          },
+          {
+            "pmid": 39587331,
+            "score": 2,
+            "relevance_pct": 69,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Non-exudative OCT findings in neovascular AMD."
+          },
+          {
+            "pmid": 39222802,
+            "score": 2,
+            "relevance_pct": 68,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Macular neovascularization."
+          },
+          {
+            "pmid": 41123658,
+            "score": 2,
+            "relevance_pct": 67,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Management of fibrosis in neovascular age-related macular degeneration."
+          },
+          {
+            "pmid": 39379521,
+            "score": 2,
+            "relevance_pct": 66,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Exploring new horizons in neovascular age-related macular degeneration: novel mechanisms of action and future therapeutic avenues."
+          },
+          {
+            "pmid": 40293479,
+            "score": 2,
+            "relevance_pct": 65,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Gene therapy in neovascular age related macular degeneration: an update."
+          },
+          {
+            "pmid": 41557066,
+            "score": 2,
+            "relevance_pct": 64,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 2,
+            "title": "Intraocular inflammation incidence and real-world safety of intravitreal faricimab treatment across retinal indications."
+          },
+          {
+            "pmid": 40507802,
+            "score": 2,
+            "relevance_pct": 63,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "VEGF in Diabetic Retinopathy and Age-Related Macular Degeneration."
+          },
+          {
+            "pmid": 40705272,
+            "score": 2,
+            "relevance_pct": 61,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "SDZ-AFL: An Aflibercept Biosimilar."
+          },
+          {
+            "pmid": 40229571,
+            "score": 2,
+            "relevance_pct": 60,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Simultaneous GA and CNV/MNV: incidence, characteristics, and treatments."
+          },
+          {
+            "pmid": 39710898,
+            "score": 2,
+            "relevance_pct": 59,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "The Safety of Recently Approved Therapeutics in Age-Related Macular Degeneration."
+          },
+          {
+            "pmid": 39708087,
+            "score": 2,
+            "relevance_pct": 58,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Emerging clinical evidence of a dual role for Ang-2 and VEGF-A blockade with faricimab in retinal diseases."
+          },
+          {
+            "pmid": 40078048,
+            "score": 2,
+            "relevance_pct": 57,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Cost-effectiveness analysis of bispecific antibody faricimab for treatment of neovascular age-related macular degeneration and diabetic macular edema in Japan."
+          },
+          {
+            "pmid": 41712907,
+            "score": 2,
+            "relevance_pct": 56,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 2,
+            "title": "REAL-WORLD DURABILITY OF AFLIBERCEPT 8 MG AND FARICIMAB IN INITIATORS VERSUS SWITCHERS: A Multicenter Retrospective Analysis."
+          },
+          {
+            "pmid": 40169885,
+            "score": 2,
+            "relevance_pct": 55,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Early intraocular pressure dynamics following aflibercept 8 mg versus aflibercept 2 mg: a propensity score-matched analysis."
+          }
+        ]
+      }
+    },
+    {
+      "query": "Antibiothérapie de la pneumonie aiguë communautaire de l'adulte",
+      "v1": {
+        "version": "v1",
+        "params": {
+          "k_pubmed": 12,
+          "rrf": false,
+          "judge_batch": 50,
+          "local_floor": 0,
+          "max_local": 200
+        },
+        "total_s": 45.83,
+        "local_timed_out": true,
+        "builder": "codex",
+        "judge": "codex",
+        "pubmed_query": "((\"Pneumonia\"[MeSH] OR \"Community-Acquired Infections\"[MeSH] OR \"community-acquired pneumonia\"[tiab] OR CAP[tiab] OR \"adult pneumonia\"[tiab]) AND (adult[MeSH] OR adult*[tiab]) AND (\"Anti-Bacterial Agents\"[MeSH] OR \"anti-bacterial agents\"[tiab] OR antibiotic*[tiab] OR antibacterial*[tiab] OR amoxicillin[tiab] OR amoxicillin-clavulanate[tiab] OR \"amoxicillin clavulanate\"[tiab] OR clavulanate[tiab] OR ampicillin-sulbactam[tiab] OR ceftriaxone[tiab] OR cefotaxime[tiab] OR ceftaroline[tiab] OR macrolide*[tiab] OR azithromycin[tiab] OR clarithromycin[tiab] OR doxycycline[tiab] OR respiratory fluoroquinolone*[tiab] OR levofloxacin[tiab] OR moxifloxacin[tiab]))",
+        "mesh_terms": [
+          "Pneumonia",
+          "Community-Acquired Infections",
+          "Adult",
+          "Anti-Bacterial Agents"
+        ],
+        "keywords_en": [
+          "community-acquired pneumonia",
+          "CAP",
+          "adult",
+          "antibiotic therapy",
+          "antibacterial agents",
+          "amoxicillin",
+          "amoxicillin-clavulanate",
+          "ampicillin-sulbactam",
+          "ceftriaxone",
+          "cefotaxime",
+          "ceftaroline",
+          "macrolides",
+          "azithromycin",
+          "clarithromycin",
+          "doxycycline",
+          "respiratory fluoroquinolones",
+          "levofloxacin",
+          "moxifloxacin"
+        ],
+        "counts": {
+          "pubmed": 12,
+          "local": 0,
+          "merged": 12,
+          "judgeable": 12,
+          "judged": 12,
+          "kept": 6,
+          "kept_pubmed": 6,
+          "kept_both": 0,
+          "kept_local": 0
+        },
+        "codex_tokens": {
+          "query": 26927,
+          "judge": 30926,
+          "total": 57853
+        },
+        "phases": [
+          {
+            "phase": "codex",
+            "elapsed_s": 0.0,
+            "msg": "🚀 Construction de la requête PubMed (GPT-5.4)…"
+          },
+          {
+            "phase": "codex_done",
+            "elapsed_s": 12.46,
+            "msg": "🧠 Requête PubMed construite · 26 927 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "esearch",
+            "elapsed_s": 12.46,
+            "msg": "🔎 Interrogation de PubMed (esearch)…"
+          },
+          {
+            "phase": "esearch_done",
+            "elapsed_s": 13.2,
+            "msg": "📚 12 articles PubMed récupérés"
+          },
+          {
+            "phase": "filter_start",
+            "elapsed_s": 13.2,
+            "msg": "🗄️ Recherche dans la base locale PubMed (~25 M d'articles)…"
+          },
+          {
+            "phase": "filter_timeout",
+            "elapsed_s": 21.25,
+            "msg": "⏱️ Sujet trop large pour la base locale (25 M articles) — on s'appuie sur les résultats PubMed pour cette recherche."
+          },
+          {
+            "phase": "judge",
+            "elapsed_s": 21.76,
+            "msg": "🧬 GPT-5.4 lit et juge 12 abstracts (sur 12 jugeables)…"
+          },
+          {
+            "phase": "judge_done",
+            "elapsed_s": 45.83,
+            "msg": "🧠 Jugement terminé · 30 926 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "done",
+            "elapsed_s": 45.83,
+            "msg": "✅ 6 articles retenus"
+          }
+        ],
+        "results": [
+          {
+            "pmid": 40679934,
+            "score": 3,
+            "relevance_pct": 96,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Diagnosis and Management of Community-acquired Pneumonia. An Official American Thoracic Society Clinical Practice Guideline."
+          },
+          {
+            "pmid": 40378193,
+            "score": 3,
+            "relevance_pct": 94,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Comparative effectiveness of azithromycin versus doxycycline in hospitalized patients with community acquired pneumonia treated with beta-lactams: A multicenter matched cohort study."
+          },
+          {
+            "pmid": 41288422,
+            "score": 3,
+            "relevance_pct": 90,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Community-Acquired Pneumonia in Adults."
+          },
+          {
+            "pmid": 40107661,
+            "score": 3,
+            "relevance_pct": 88,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Risk factors for drug-resistant pathogens in community-acquired pneumonia: systematic review and meta-analysis."
+          },
+          {
+            "pmid": 39917810,
+            "score": 3,
+            "relevance_pct": 85,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Community acquired pneumonia due to antibiotic resistant- Streptococcus pneumoniae : diagnosis, management and prevention."
+          },
+          {
+            "pmid": 40021428,
+            "score": 2,
+            "relevance_pct": 72,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Comprehensive management of pneumonia in older patients."
+          }
+        ]
+      },
+      "v2": {
+        "version": "v2",
+        "params": {
+          "k_pubmed": 100,
+          "rrf": true,
+          "judge_batch": 50,
+          "local_floor": 0,
+          "max_local": 200
+        },
+        "total_s": 76.38,
+        "local_timed_out": true,
+        "builder": "codex",
+        "judge": "codex",
+        "pubmed_query": "((\"Pneumonia\"[MeSH] OR \"community-acquired pneumonia\"[tiab] OR CAP[tiab] OR \"pneumococcal pneumonia\"[tiab]) AND (\"Anti-Bacterial Agents\"[MeSH] OR antibiotic*[tiab] OR antibacterial*[tiab] OR anti-bacterial*[tiab] OR antimicrobial*[tiab] OR anti-infective*[tiab] OR \"antibiotic therapy\"[tiab] OR \"antibacterial therapy\"[tiab] OR amoxicillin[tiab] OR amoxicillin-clavulanate[tiab] OR co-amoxiclav[tiab] OR ampicillin-sulbactam[tiab] OR doxycycline[tiab] OR azithromycin[tiab] OR clarithromycin[tiab] OR erythromycin[tiab] OR levofloxacin[tiab] OR moxifloxacin[tiab] OR ceftriaxone[tiab] OR cefotaxime[tiab]) AND (\"Adult\"[MeSH] OR adult*[tiab]))",
+        "mesh_terms": [
+          "Pneumonia",
+          "Anti-Bacterial Agents",
+          "Adult"
+        ],
+        "keywords_en": [
+          "community-acquired pneumonia",
+          "CAP",
+          "adult",
+          "antibiotic therapy",
+          "antibacterial therapy",
+          "amoxicillin",
+          "amoxicillin-clavulanate",
+          "co-amoxiclav",
+          "ampicillin-sulbactam",
+          "doxycycline",
+          "azithromycin",
+          "clarithromycin",
+          "erythromycin",
+          "levofloxacin",
+          "moxifloxacin",
+          "ceftriaxone",
+          "cefotaxime"
+        ],
+        "counts": {
+          "pubmed": 100,
+          "local": 0,
+          "merged": 100,
+          "judgeable": 100,
+          "judged": 50,
+          "kept": 21,
+          "kept_pubmed": 21,
+          "kept_both": 0,
+          "kept_local": 0
+        },
+        "codex_tokens": {
+          "query": 26890,
+          "judge": 43842,
+          "total": 70732
+        },
+        "phases": [
+          {
+            "phase": "codex",
+            "elapsed_s": 0.0,
+            "msg": "🚀 Construction de la requête PubMed (GPT-5.4)…"
+          },
+          {
+            "phase": "codex_done",
+            "elapsed_s": 13.13,
+            "msg": "🧠 Requête PubMed construite · 26 890 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "esearch",
+            "elapsed_s": 13.13,
+            "msg": "🔎 Interrogation de PubMed (esearch)…"
+          },
+          {
+            "phase": "esearch_done",
+            "elapsed_s": 13.72,
+            "msg": "📚 100 articles PubMed récupérés"
+          },
+          {
+            "phase": "filter_start",
+            "elapsed_s": 13.72,
+            "msg": "🗄️ Recherche dans la base locale PubMed (~25 M d'articles)…"
+          },
+          {
+            "phase": "filter_timeout",
+            "elapsed_s": 21.75,
+            "msg": "⏱️ Sujet trop large pour la base locale (25 M articles) — on s'appuie sur les résultats PubMed pour cette recherche."
+          },
+          {
+            "phase": "judge",
+            "elapsed_s": 26.72,
+            "msg": "🧬 GPT-5.4 lit et juge 50 abstracts (sur 100 jugeables)…"
+          },
+          {
+            "phase": "judge_done",
+            "elapsed_s": 76.38,
+            "msg": "🧠 Jugement terminé · 43 842 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "done",
+            "elapsed_s": 76.38,
+            "msg": "✅ 21 articles retenus"
+          }
+        ],
+        "results": [
+          {
+            "pmid": 40602496,
+            "score": 3,
+            "relevance_pct": 98,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Empiric antibiotic therapy for moderate-to-severe community-acquired pneumonia: a systematic review and network meta-analysis."
+          },
+          {
+            "pmid": 41974005,
+            "score": 3,
+            "relevance_pct": 97,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 2,
+            "title": "Short Versus Longer Antibiotic Duration for Community-Acquired Pneumonia : A Multicenter Target Trial Emulation."
+          },
+          {
+            "pmid": 40037948,
+            "score": 3,
+            "relevance_pct": 96,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Update of guidelines for management of Community Acquired pneumonia in adults by the French Infectious Disease Society (SPILF) and the French-Speaking Society of Respiratory Diseases (SPLF): Endorsed by the French intensive care society (SRLF), the French microbiology society (SFM), the French radiology society (SFR) and the French emergency society (SFMU)."
+          },
+          {
+            "pmid": 40679934,
+            "score": 3,
+            "relevance_pct": 95,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Diagnosis and Management of Community-acquired Pneumonia. An Official American Thoracic Society Clinical Practice Guideline."
+          },
+          {
+            "pmid": 40404065,
+            "score": 3,
+            "relevance_pct": 93,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Antibiotic for community-acquired pneumonia in hospitalized adults: A systematic review and Bayesian network meta-analysis."
+          },
+          {
+            "pmid": 39718980,
+            "score": 3,
+            "relevance_pct": 92,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Addition of Macrolide Antibiotics for Hospital Treatment of Community-Acquired Pneumonia."
+          },
+          {
+            "pmid": 40378193,
+            "score": 3,
+            "relevance_pct": 90,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Comparative effectiveness of azithromycin versus doxycycline in hospitalized patients with community acquired pneumonia treated with beta-lactams: A multicenter matched cohort study."
+          },
+          {
+            "pmid": 40749839,
+            "score": 3,
+            "relevance_pct": 89,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Antibiotic combination indications for the treatment of community-acquired acute pneumonia."
+          },
+          {
+            "pmid": 40614556,
+            "score": 3,
+            "relevance_pct": 88,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "The JRS guideline for the management of pneumonia in adults 2024."
+          },
+          {
+            "pmid": 40107661,
+            "score": 3,
+            "relevance_pct": 86,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Risk factors for drug-resistant pathogens in community-acquired pneumonia: systematic review and meta-analysis."
+          },
+          {
+            "pmid": 40391860,
+            "score": 3,
+            "relevance_pct": 85,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "[Biomarker guided antibiotic stewardship in community acquired pneumonia]."
+          },
+          {
+            "pmid": 41378862,
+            "score": 3,
+            "relevance_pct": 84,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Associations between antibiotic use and outcomes in patients hospitalized with community-acquired pneumonia and positive respiratory viral assays."
+          },
+          {
+            "pmid": 40094490,
+            "score": 3,
+            "relevance_pct": 82,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Pulmonary Infections in Adults: Community-Acquired Pneumonia."
+          },
+          {
+            "pmid": 39647798,
+            "score": 2,
+            "relevance_pct": 78,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Clarithromycin for improved clinical outcomes in community-acquired pneumonia: A subgroup analysis of the ACCESS trial."
+          },
+          {
+            "pmid": 41267642,
+            "score": 2,
+            "relevance_pct": 76,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Comparison of Efficacy and Safety Profiles Between Omadacycline and Moxifloxacin in Elderly Patients with Community-Acquired Pneumonia: A Randomized, Controlled Trial."
+          },
+          {
+            "pmid": 40601818,
+            "score": 2,
+            "relevance_pct": 74,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Target Trial Emulation of Empiric Antibiotics on Clinical Outcomes in Moderately Immunocompromised Patients Hospitalized with Pneumonia."
+          },
+          {
+            "pmid": 41288422,
+            "score": 2,
+            "relevance_pct": 72,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Community-Acquired Pneumonia in Adults."
+          },
+          {
+            "pmid": 40663137,
+            "score": 2,
+            "relevance_pct": 70,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Combined use of a multiplex PCR and serum procalcitonin to reduce antibiotic exposure in critically ill patients with community-acquired pneumonia: the MULTI-CAP randomized controlled trial."
+          },
+          {
+            "pmid": 39917810,
+            "score": 2,
+            "relevance_pct": 68,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Community acquired pneumonia due to antibiotic resistant- Streptococcus pneumoniae : diagnosis, management and prevention."
+          },
+          {
+            "pmid": 40202602,
+            "score": 2,
+            "relevance_pct": 66,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Antimicrobial stewardship interventions in hospitalized adults with community-acquired pneumonia: a systematic review and meta-analysis."
+          },
+          {
+            "pmid": 40492536,
+            "score": 2,
+            "relevance_pct": 60,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Outcomes of ceftriaxone 2 g versus 1 g daily in hospitalized patients with pneumonia: a nationwide retrospective cohort study."
+          }
+        ]
+      }
+    },
+    {
+      "query": "Anticoagulation et risque hémorragique dans la fibrillation atriale",
+      "v1": {
+        "version": "v1",
+        "params": {
+          "k_pubmed": 12,
+          "rrf": false,
+          "judge_batch": 50,
+          "local_floor": 0,
+          "max_local": 200
+        },
+        "total_s": 44.85,
+        "local_timed_out": true,
+        "builder": "codex",
+        "judge": "codex",
+        "pubmed_query": "((\"Atrial Fibrillation\"[MeSH] OR \"atrial fibrillation\"[tiab] OR AF[tiab]) AND (\"Anticoagulants\"[MeSH] OR anticoagulation[tiab] OR anticoagulant*[tiab] OR \"oral anticoagulant*\"[tiab] OR OAC[tiab] OR OACs[tiab] OR DOAC[tiab] OR DOACs[tiab] OR NOAC[tiab] OR NOACs[tiab] OR \"direct oral anticoagulant*\"[tiab] OR \"non-vitamin K antagonist oral anticoagulant*\"[tiab] OR warfarin[tiab] OR coumadin[tiab] OR \"vitamin K antagonist*\"[tiab] OR VKA[tiab] OR VKAs[tiab] OR dabigatran[tiab] OR \"dabigatran etexilate\"[tiab] OR BIBR\\ 1048[tiab] OR rivaroxaban[tiab] OR BAY\\ 59-7939[tiab] OR apixaban[tiab] OR BMS-562247[tiab] OR edoxaban[tiab] OR DU-176b[tiab]) AND (\"Hemorrhage\"[MeSH] OR bleeding[tiab] OR bleed*[tiab] OR hemorrhag*[tiab] OR haemorrhag*[tiab] OR \"bleeding risk\"[tiab] OR \"major bleeding\"[tiab] OR \"intracranial hemorrhage\"[tiab] OR \"gastrointestinal bleeding\"[tiab])))",
+        "mesh_terms": [
+          "Atrial Fibrillation",
+          "Anticoagulants",
+          "Hemorrhage"
+        ],
+        "keywords_en": [
+          "atrial fibrillation",
+          "anticoagulation",
+          "anticoagulants",
+          "oral anticoagulants",
+          "direct oral anticoagulants",
+          "DOAC",
+          "NOAC",
+          "vitamin K antagonists",
+          "warfarin",
+          "coumadin",
+          "dabigatran",
+          "dabigatran etexilate",
+          "BIBR 1048",
+          "rivaroxaban",
+          "BAY 59-7939",
+          "apixaban",
+          "BMS-562247",
+          "edoxaban",
+          "DU-176b",
+          "bleeding risk",
+          "major bleeding",
+          "intracranial hemorrhage",
+          "gastrointestinal bleeding"
+        ],
+        "counts": {
+          "pubmed": 12,
+          "local": 0,
+          "merged": 12,
+          "judgeable": 12,
+          "judged": 12,
+          "kept": 12,
+          "kept_pubmed": 12,
+          "kept_both": 0,
+          "kept_local": 0
+        },
+        "codex_tokens": {
+          "query": 27120,
+          "judge": 31221,
+          "total": 58341
+        },
+        "phases": [
+          {
+            "phase": "codex",
+            "elapsed_s": 0.0,
+            "msg": "🚀 Construction de la requête PubMed (GPT-5.4)…"
+          },
+          {
+            "phase": "codex_done",
+            "elapsed_s": 16.49,
+            "msg": "🧠 Requête PubMed construite · 27 120 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "esearch",
+            "elapsed_s": 16.49,
+            "msg": "🔎 Interrogation de PubMed (esearch)…"
+          },
+          {
+            "phase": "esearch_done",
+            "elapsed_s": 16.98,
+            "msg": "📚 12 articles PubMed récupérés"
+          },
+          {
+            "phase": "filter_start",
+            "elapsed_s": 16.98,
+            "msg": "🗄️ Recherche dans la base locale PubMed (~25 M d'articles)…"
+          },
+          {
+            "phase": "filter_timeout",
+            "elapsed_s": 24.99,
+            "msg": "⏱️ Sujet trop large pour la base locale (25 M articles) — on s'appuie sur les résultats PubMed pour cette recherche."
+          },
+          {
+            "phase": "judge",
+            "elapsed_s": 25.36,
+            "msg": "🧬 GPT-5.4 lit et juge 12 abstracts (sur 12 jugeables)…"
+          },
+          {
+            "phase": "judge_done",
+            "elapsed_s": 44.85,
+            "msg": "🧠 Jugement terminé · 31 221 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "done",
+            "elapsed_s": 44.85,
+            "msg": "✅ 12 articles retenus"
+          }
+        ],
+        "results": [
+          {
+            "pmid": 39225267,
+            "score": 3,
+            "relevance_pct": 96,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Asundexian versus Apixaban in Patients with Atrial Fibrillation."
+          },
+          {
+            "pmid": 39842011,
+            "score": 3,
+            "relevance_pct": 95,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Abelacimab versus Rivaroxaban in Patients with Atrial Fibrillation."
+          },
+          {
+            "pmid": 40023176,
+            "score": 3,
+            "relevance_pct": 94,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Direct oral anticoagulants versus no anticoagulation for the prevention of stroke in survivors of intracerebral haemorrhage with atrial fibrillation (PRESTIGE-AF): a multicentre, open-label, randomised, phase 3 trial."
+          },
+          {
+            "pmid": 39555822,
+            "score": 3,
+            "relevance_pct": 90,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Left Atrial Appendage Closure after Ablation for Atrial Fibrillation."
+          },
+          {
+            "pmid": 41849741,
+            "score": 3,
+            "relevance_pct": 89,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 1,
+            "title": "Left Atrial Appendage Closure or Medical Therapy in Atrial Fibrillation."
+          },
+          {
+            "pmid": 40886309,
+            "score": 3,
+            "relevance_pct": 88,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Long-Term Anticoagulation Discontinuation After Catheter Ablation for Atrial Fibrillation: The ALONE-AF Randomized Clinical Trial."
+          },
+          {
+            "pmid": 41211917,
+            "score": 3,
+            "relevance_pct": 88,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Therapy for Atrial Fibrillation in Patients with Drug-Eluting Stents."
+          },
+          {
+            "pmid": 39918465,
+            "score": 3,
+            "relevance_pct": 87,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Anticoagulation and Antiplatelet Therapy for Atrial Fibrillation and Stable Coronary Disease: Meta-Analysis of Randomized Trials."
+          },
+          {
+            "pmid": 41211931,
+            "score": 3,
+            "relevance_pct": 86,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 2,
+            "title": "Antithrombotic Therapy after Successful Catheter Ablation for Atrial Fibrillation."
+          },
+          {
+            "pmid": 41051787,
+            "score": 3,
+            "relevance_pct": 84,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Optimal Antithrombotics for Ischemic Stroke and Concurrent Atrial Fibrillation and Atherosclerosis: A Randomized Clinical Trial."
+          },
+          {
+            "pmid": 40570866,
+            "score": 3,
+            "relevance_pct": 83,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Collaboration on the optimal timing of anticoagulation after ischaemic stroke and atrial fibrillation: a systematic review and prospective individual participant data meta-analysis of randomised controlled trials (CATALYST)."
+          },
+          {
+            "pmid": 39680399,
+            "score": 2,
+            "relevance_pct": 62,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Atrial Fibrillation: A Review."
+          }
+        ]
+      },
+      "v2": {
+        "version": "v2",
+        "params": {
+          "k_pubmed": 100,
+          "rrf": true,
+          "judge_batch": 50,
+          "local_floor": 0,
+          "max_local": 200
+        },
+        "total_s": 84.91,
+        "local_timed_out": true,
+        "builder": "codex",
+        "judge": "codex",
+        "pubmed_query": "(\"Atrial Fibrillation\"[MeSH] OR \"atrial fibrillation\"[tiab] OR AF[tiab]) AND (\"Anticoagulants\"[MeSH] OR \"anticoagulant*\"[tiab] OR \"oral anticoagulation\"[tiab] OR OAC[tiab] OR DOAC[tiab] OR DOACs[tiab] OR NOAC[tiab] OR NOACs[tiab] OR \"direct oral anticoagulant*\"[tiab] OR \"non-vitamin K antagonist oral anticoagulant*\"[tiab] OR warfarin[tiab] OR coumadin[tiab] OR acenocoumarol[tiab] OR fluindione[tiab] OR phenprocoumon[tiab] OR \"vitamin K antagonist*\"[tiab] OR VKA[tiab] OR dabigatran[tiab] OR \"BIBR 1048\"[tiab] OR rivaroxaban[tiab] OR \"BAY 59-7939\"[tiab] OR apixaban[tiab] OR edoxaban[tiab] OR \"DU-176b\"[tiab]) AND (\"Hemorrhage\"[MeSH] OR hemorrhag*[tiab] OR haemorrhag*[tiab] OR bleed*[tiab] OR \"bleeding risk\"[tiab] OR \"major bleeding\"[tiab])",
+        "mesh_terms": [
+          "Atrial Fibrillation",
+          "Anticoagulants",
+          "Hemorrhage"
+        ],
+        "keywords_en": [
+          "atrial fibrillation",
+          "AF",
+          "anticoagulants",
+          "oral anticoagulation",
+          "OAC",
+          "DOAC",
+          "NOAC",
+          "direct oral anticoagulants",
+          "non-vitamin K antagonist oral anticoagulants",
+          "warfarin",
+          "coumadin",
+          "acenocoumarol",
+          "fluindione",
+          "phenprocoumon",
+          "vitamin K antagonists",
+          "VKA",
+          "dabigatran",
+          "BIBR 1048",
+          "rivaroxaban",
+          "BAY 59-7939",
+          "apixaban",
+          "edoxaban",
+          "DU-176b",
+          "bleeding risk",
+          "major bleeding",
+          "hemorrhage",
+          "haemorrhage"
+        ],
+        "counts": {
+          "pubmed": 100,
+          "local": 0,
+          "merged": 100,
+          "judgeable": 99,
+          "judged": 50,
+          "kept": 36,
+          "kept_pubmed": 36,
+          "kept_both": 0,
+          "kept_local": 0
+        },
+        "codex_tokens": {
+          "query": 27093,
+          "judge": 45191,
+          "total": 72284
+        },
+        "phases": [
+          {
+            "phase": "codex",
+            "elapsed_s": 0.0,
+            "msg": "🚀 Construction de la requête PubMed (GPT-5.4)…"
+          },
+          {
+            "phase": "codex_done",
+            "elapsed_s": 15.65,
+            "msg": "🧠 Requête PubMed construite · 27 093 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "esearch",
+            "elapsed_s": 15.65,
+            "msg": "🔎 Interrogation de PubMed (esearch)…"
+          },
+          {
+            "phase": "esearch_done",
+            "elapsed_s": 16.33,
+            "msg": "📚 100 articles PubMed récupérés"
+          },
+          {
+            "phase": "filter_start",
+            "elapsed_s": 16.33,
+            "msg": "🗄️ Recherche dans la base locale PubMed (~25 M d'articles)…"
+          },
+          {
+            "phase": "filter_timeout",
+            "elapsed_s": 24.35,
+            "msg": "⏱️ Sujet trop large pour la base locale (25 M articles) — on s'appuie sur les résultats PubMed pour cette recherche."
+          },
+          {
+            "phase": "judge",
+            "elapsed_s": 27.55,
+            "msg": "🧬 GPT-5.4 lit et juge 50 abstracts (sur 99 jugeables)…"
+          },
+          {
+            "phase": "judge_done",
+            "elapsed_s": 84.89,
+            "msg": "🧠 Jugement terminé · 45 191 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "done",
+            "elapsed_s": 84.91,
+            "msg": "✅ 36 articles retenus"
+          }
+        ],
+        "results": [
+          {
+            "pmid": 39842011,
+            "score": 3,
+            "relevance_pct": 95,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Abelacimab versus Rivaroxaban in Patients with Atrial Fibrillation."
+          },
+          {
+            "pmid": 39225267,
+            "score": 3,
+            "relevance_pct": 94,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Asundexian versus Apixaban in Patients with Atrial Fibrillation."
+          },
+          {
+            "pmid": 40023176,
+            "score": 3,
+            "relevance_pct": 92,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Direct oral anticoagulants versus no anticoagulation for the prevention of stroke in survivors of intracerebral haemorrhage with atrial fibrillation (PRESTIGE-AF): a multicentre, open-label, randomised, phase 3 trial."
+          },
+          {
+            "pmid": 41910347,
+            "score": 3,
+            "relevance_pct": 91,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 1,
+            "title": "Left Atrial Appendage Closure or Anticoagulation for Atrial Fibrillation."
+          },
+          {
+            "pmid": 40546068,
+            "score": 3,
+            "relevance_pct": 90,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Abelacimab Versus Rivaroxaban in Patients With Atrial Fibrillation on Antiplatelet Therapy: A Prespecified Analysis of the AZALEA-TIMI 71 Trial."
+          },
+          {
+            "pmid": 39555822,
+            "score": 3,
+            "relevance_pct": 90,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Left Atrial Appendage Closure after Ablation for Atrial Fibrillation."
+          },
+          {
+            "pmid": 39918465,
+            "score": 3,
+            "relevance_pct": 89,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Anticoagulation and Antiplatelet Therapy for Atrial Fibrillation and Stable Coronary Disease: Meta-Analysis of Randomized Trials."
+          },
+          {
+            "pmid": 41730211,
+            "score": 3,
+            "relevance_pct": 89,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 2,
+            "title": "The Risk for Bleeding in Patients With Atrial Fibrillation From Concomitant Use of Apixaban or Rivaroxaban With Diltiazem Compared With Metoprolol."
+          },
+          {
+            "pmid": 40886309,
+            "score": 3,
+            "relevance_pct": 88,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Long-Term Anticoagulation Discontinuation After Catheter Ablation for Atrial Fibrillation: The ALONE-AF Randomized Clinical Trial."
+          },
+          {
+            "pmid": 39442621,
+            "score": 3,
+            "relevance_pct": 88,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Comparative effectiveness and safety of rivaroxaban with other oral anticoagulants in older adults with nonvalvular atrial fibrillation: population-based analysis in response to updated Beers Criteria."
+          },
+          {
+            "pmid": 40116829,
+            "score": 3,
+            "relevance_pct": 87,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Discontinuation of Oral Anticoagulation After Successful Atrial Fibrillation Ablation."
+          },
+          {
+            "pmid": 41849741,
+            "score": 3,
+            "relevance_pct": 86,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 1,
+            "title": "Left Atrial Appendage Closure or Medical Therapy in Atrial Fibrillation."
+          },
+          {
+            "pmid": 40754231,
+            "score": 3,
+            "relevance_pct": 86,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Left atrial appendage closure vs oral anticoagulation for stroke prevention in atrial fibrillation: Long-term outcomes from 4 randomized trials."
+          },
+          {
+            "pmid": 41211917,
+            "score": 3,
+            "relevance_pct": 85,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Therapy for Atrial Fibrillation in Patients with Drug-Eluting Stents."
+          },
+          {
+            "pmid": 41211931,
+            "score": 3,
+            "relevance_pct": 84,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 2,
+            "title": "Antithrombotic Therapy after Successful Catheter Ablation for Atrial Fibrillation."
+          },
+          {
+            "pmid": 40924421,
+            "score": 3,
+            "relevance_pct": 84,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Left Atrial Appendage Occlusion vs Anticoagulants in Dialysis With Atrial Fibrillation."
+          },
+          {
+            "pmid": 41758696,
+            "score": 3,
+            "relevance_pct": 84,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 4,
+            "title": "Switching from warfarin to direct oral anticoagulants in frail elderly Asian patients with atrial fibrillation: a Korean nationwide study."
+          },
+          {
+            "pmid": 41845167,
+            "score": 3,
+            "relevance_pct": 82,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 1,
+            "title": "Efficacy and Safety of DOACs in Patients with Atrial Fibrillation and History of Falls or Risk of Falls: The Liverpool AF-Falls Project. A Systematic Review and Bayesian Network Meta-analysis."
+          },
+          {
+            "pmid": 40769671,
+            "score": 3,
+            "relevance_pct": 82,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Outcomes in Older Patients After Switching to a Newer Anticoagulant or Remaining on Warfarin: The COMBINE-AF Substudy."
+          },
+          {
+            "pmid": 40311503,
+            "score": 3,
+            "relevance_pct": 81,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Comparative effectiveness and safety of direct oral anticoagulants in atrial fibrillation patients with dementia."
+          },
+          {
+            "pmid": 41554390,
+            "score": 3,
+            "relevance_pct": 80,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 2,
+            "title": "Effectiveness and Safety of Apixaban Versus Warfarin in Atrial Fibrillation Patients With Malignancy: A Propensity-Matched Analysis."
+          },
+          {
+            "pmid": 40551307,
+            "score": 3,
+            "relevance_pct": 79,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Anticoagulation Therapy for Atrial Fibrillation After Transcatheter Aortic Valve Replacement: National Database Insights."
+          },
+          {
+            "pmid": 41051787,
+            "score": 2,
+            "relevance_pct": 74,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Optimal Antithrombotics for Ischemic Stroke and Concurrent Atrial Fibrillation and Atherosclerosis: A Randomized Clinical Trial."
+          },
+          {
+            "pmid": 40401653,
+            "score": 2,
+            "relevance_pct": 71,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Oral Anticoagulation following intracranial haemorrhage in patients with atrial fibrillation."
+          },
+          {
+            "pmid": 40570866,
+            "score": 2,
+            "relevance_pct": 68,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Collaboration on the optimal timing of anticoagulation after ischaemic stroke and atrial fibrillation: a systematic review and prospective individual participant data meta-analysis of randomised controlled trials (CATALYST)."
+          },
+          {
+            "pmid": 42187550,
+            "score": 2,
+            "relevance_pct": 67,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 4,
+            "title": "Patient-Centered Evaluation of Anticoagulation in Atrial Fibrillation."
+          },
+          {
+            "pmid": 40371611,
+            "score": 2,
+            "relevance_pct": 64,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Comparing Major Gastrointestinal Bleeding in Patients Receiving Edoxaban Versus Warfarin After Transcatheter Aortic Valve Replacement: Results From the Randomized ENVISAGE-TAVI AF Trial."
+          },
+          {
+            "pmid": 39680399,
+            "score": 2,
+            "relevance_pct": 63,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Atrial Fibrillation: A Review."
+          },
+          {
+            "pmid": 41139402,
+            "score": 2,
+            "relevance_pct": 61,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Short-Term Anticoagulation Versus Dual Antiplatelet Therapy for Preventing Device Thrombosis Following Left Atrial Appendage Closure: The ANDES Randomized Clinical Trial."
+          },
+          {
+            "pmid": 41581095,
+            "score": 2,
+            "relevance_pct": 60,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 4,
+            "title": "Targeting Factor XI for Safer Anticoagulation: Emerging Data and Future Directions."
+          },
+          {
+            "pmid": 40136309,
+            "score": 2,
+            "relevance_pct": 59,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Asundexian or Apixaban in Patients With Atrial Fibrillation According to Prior Oral Anticoagulant Use: A Subgroup Analysis of the OCEANIC-AF Randomized Clinical Trial."
+          },
+          {
+            "pmid": 39557062,
+            "score": 2,
+            "relevance_pct": 58,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Direct Oral Anticoagulants: Quick Primer on When to Use and When to Avoid."
+          },
+          {
+            "pmid": 39895532,
+            "score": 2,
+            "relevance_pct": 57,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Prior Anticoagulation and Risk of Hemorrhagic Transformation in Acute Stroke: A Post Hoc Analysis of the PRODAST Study."
+          },
+          {
+            "pmid": 41505758,
+            "score": 2,
+            "relevance_pct": 56,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 4,
+            "title": "Abnormal Uterine Bleeding Among Oral Anticoagulant Users."
+          },
+          {
+            "pmid": 41615279,
+            "score": 2,
+            "relevance_pct": 55,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 4,
+            "title": "Guideline commentary on the ESC/EACTS 2024 guidelines for atrial fibrillation: a focus on managing AF in the older population."
+          },
+          {
+            "pmid": 40540081,
+            "score": 2,
+            "relevance_pct": 50,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Direct Oral Anticoagulants in Valvular Diseases and Prosthetic Valves: Why Not?"
+          }
+        ]
+      }
+    },
+    {
+      "query": "Corticoïdes dans le traitement de la COVID-19 sévère",
+      "v1": {
+        "version": "v1",
+        "params": {
+          "k_pubmed": 12,
+          "rrf": false,
+          "judge_batch": 50,
+          "local_floor": 0,
+          "max_local": 200
+        },
+        "total_s": 57.75,
+        "local_timed_out": true,
+        "builder": "codex",
+        "judge": "codex",
+        "pubmed_query": "((\"COVID-19\"[MeSH] OR \"SARS-CoV-2\"[MeSH] OR COVID-19[tiab] OR covid 19[tiab] OR SARS-CoV-2[tiab] OR severe acute respiratory syndrome coronavirus 2[tiab])) AND ((severe[tiab] OR severity[tiab] OR critically ill[tiab] OR critical illness[tiab] OR intensive care[tiab] OR ICU[tiab] OR hospitalized[tiab] OR hospitalised[tiab] OR hypox*[tiab] OR pneumonia[tiab] OR ARDS[tiab] OR respiratory failure[tiab])) AND ((\"Adrenal Cortex Hormones\"[MeSH] OR \"Glucocorticoids\"[MeSH] OR corticosteroid*[tiab] OR glucocorticoid*[tiab] OR steroid*[tiab] OR dexamethasone[MeSH] OR dexamethasone[tiab] OR Decadron[tiab] OR hydrocortisone[MeSH] OR hydrocortisone[tiab] OR methylprednisolone[MeSH] OR methylprednisolone[tiab] OR prednisone[tiab] OR prednisolone[tiab]))",
+        "mesh_terms": [
+          "COVID-19",
+          "SARS-CoV-2",
+          "Adrenal Cortex Hormones",
+          "Glucocorticoids",
+          "Dexamethasone",
+          "Hydrocortisone",
+          "Methylprednisolone"
+        ],
+        "keywords_en": [
+          "COVID-19",
+          "SARS-CoV-2",
+          "severe COVID-19",
+          "critical COVID-19",
+          "critically ill",
+          "ICU",
+          "ARDS",
+          "respiratory failure",
+          "corticosteroids",
+          "glucocorticoids",
+          "dexamethasone",
+          "Decadron",
+          "hydrocortisone",
+          "methylprednisolone",
+          "prednisone",
+          "prednisolone"
+        ],
+        "counts": {
+          "pubmed": 12,
+          "local": 0,
+          "merged": 12,
+          "judgeable": 12,
+          "judged": 12,
+          "kept": 1,
+          "kept_pubmed": 1,
+          "kept_both": 0,
+          "kept_local": 0
+        },
+        "codex_tokens": {
+          "query": 27088,
+          "judge": 31287,
+          "total": 58375
+        },
+        "phases": [
+          {
+            "phase": "codex",
+            "elapsed_s": 0.0,
+            "msg": "🚀 Construction de la requête PubMed (GPT-5.4)…"
+          },
+          {
+            "phase": "codex_done",
+            "elapsed_s": 17.96,
+            "msg": "🧠 Requête PubMed construite · 27 088 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "esearch",
+            "elapsed_s": 17.96,
+            "msg": "🔎 Interrogation de PubMed (esearch)…"
+          },
+          {
+            "phase": "esearch_done",
+            "elapsed_s": 18.65,
+            "msg": "📚 12 articles PubMed récupérés"
+          },
+          {
+            "phase": "filter_start",
+            "elapsed_s": 18.65,
+            "msg": "🗄️ Recherche dans la base locale PubMed (~25 M d'articles)…"
+          },
+          {
+            "phase": "filter_timeout",
+            "elapsed_s": 26.67,
+            "msg": "⏱️ Sujet trop large pour la base locale (25 M articles) — on s'appuie sur les résultats PubMed pour cette recherche."
+          },
+          {
+            "phase": "judge",
+            "elapsed_s": 27.06,
+            "msg": "🧬 GPT-5.4 lit et juge 12 abstracts (sur 12 jugeables)…"
+          },
+          {
+            "phase": "judge_done",
+            "elapsed_s": 57.75,
+            "msg": "🧠 Jugement terminé · 31 287 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "done",
+            "elapsed_s": 57.75,
+            "msg": "✅ 1 articles retenus"
+          }
+        ],
+        "results": [
+          {
+            "pmid": 41325621,
+            "score": 2,
+            "relevance_pct": 72,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 1,
+            "title": "Systemic Corticosteroids, Mortality, and Infections in Pneumonia and Acute Respiratory Distress Syndrome : A Systematic Review and Meta-analysis."
+          }
+        ]
+      },
+      "v2": {
+        "version": "v2",
+        "params": {
+          "k_pubmed": 100,
+          "rrf": true,
+          "judge_batch": 50,
+          "local_floor": 0,
+          "max_local": 200
+        },
+        "total_s": 80.24,
+        "local_timed_out": true,
+        "builder": "codex",
+        "judge": "codex",
+        "pubmed_query": "((\"Adrenal Cortex Hormones\"[MeSH] OR corticosteroid*[tiab] OR glucocorticoid*[tiab] OR corticosteroids[tiab] OR glucocorticosteroids[tiab] OR dexamethasone[tiab] OR dexamethasone[Supplementary Concept] OR methylprednisolone[tiab] OR methylprednisolone[MeSH] OR hydrocortisone[tiab] OR hydrocortisone[MeSH] OR prednisolone[tiab] OR prednisone[tiab]) AND (\"COVID-19\"[MeSH] OR \"SARS-CoV-2\"[MeSH] OR COVID-19[tiab] OR COVID19[tiab] OR SARS-CoV-2[tiab] OR severe acute respiratory syndrome coronavirus 2[tiab] OR coronavirus disease 2019[tiab]) AND (severe[tiab] OR severity[tiab] OR critically ill[tiab] OR critical illness[tiab] OR hospitalized[tiab] OR hospitalised[tiab] OR pneumonia[tiab] OR hypox*[tiab] OR \"Respiratory Insufficiency\"[MeSH] OR \"Respiration, Artificial\"[MeSH] OR ventilat*[tiab] OR ICU[tiab] OR intensive care[tiab]))",
+        "mesh_terms": [
+          "Adrenal Cortex Hormones",
+          "COVID-19",
+          "SARS-CoV-2",
+          "Respiratory Insufficiency",
+          "Respiration, Artificial",
+          "Methylprednisolone",
+          "Hydrocortisone"
+        ],
+        "keywords_en": [
+          "corticosteroids",
+          "glucocorticoids",
+          "dexamethasone",
+          "methylprednisolone",
+          "hydrocortisone",
+          "prednisolone",
+          "prednisone",
+          "COVID-19",
+          "SARS-CoV-2",
+          "severe",
+          "critically ill",
+          "hospitalized",
+          "pneumonia",
+          "hypoxemia",
+          "mechanical ventilation",
+          "intensive care"
+        ],
+        "counts": {
+          "pubmed": 100,
+          "local": 0,
+          "merged": 100,
+          "judgeable": 97,
+          "judged": 50,
+          "kept": 11,
+          "kept_pubmed": 11,
+          "kept_both": 0,
+          "kept_local": 0
+        },
+        "codex_tokens": {
+          "query": 26953,
+          "judge": 42873,
+          "total": 69826
+        },
+        "phases": [
+          {
+            "phase": "codex",
+            "elapsed_s": 0.0,
+            "msg": "🚀 Construction de la requête PubMed (GPT-5.4)…"
+          },
+          {
+            "phase": "codex_done",
+            "elapsed_s": 14.55,
+            "msg": "🧠 Requête PubMed construite · 26 953 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "esearch",
+            "elapsed_s": 14.55,
+            "msg": "🔎 Interrogation de PubMed (esearch)…"
+          },
+          {
+            "phase": "esearch_done",
+            "elapsed_s": 15.15,
+            "msg": "📚 100 articles PubMed récupérés"
+          },
+          {
+            "phase": "filter_start",
+            "elapsed_s": 15.15,
+            "msg": "🗄️ Recherche dans la base locale PubMed (~25 M d'articles)…"
+          },
+          {
+            "phase": "filter_timeout",
+            "elapsed_s": 23.2,
+            "msg": "⏱️ Sujet trop large pour la base locale (25 M articles) — on s'appuie sur les résultats PubMed pour cette recherche."
+          },
+          {
+            "phase": "judge",
+            "elapsed_s": 27.56,
+            "msg": "🧬 GPT-5.4 lit et juge 50 abstracts (sur 97 jugeables)…"
+          },
+          {
+            "phase": "judge_done",
+            "elapsed_s": 80.24,
+            "msg": "🧠 Jugement terminé · 42 873 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "done",
+            "elapsed_s": 80.24,
+            "msg": "✅ 11 articles retenus"
+          }
+        ],
+        "results": [
+          {
+            "pmid": 40715278,
+            "score": 3,
+            "relevance_pct": 92,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Corticosteroids in immunocompromised ICU patients with severe COVID-19: a multicenter retrospective study."
+          },
+          {
+            "pmid": 40866841,
+            "score": 3,
+            "relevance_pct": 90,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Dexamethasone chronotherapy of COVID-19 patients admitted to intensive care unit: an exploratory study."
+          },
+          {
+            "pmid": 40134846,
+            "score": 3,
+            "relevance_pct": 88,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Dexamethasone in coronavirus disease 2019 care: Dosage and utilization insights."
+          },
+          {
+            "pmid": 40134844,
+            "score": 3,
+            "relevance_pct": 85,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Revisiting dexamethasone dosage in COVID-19 management."
+          },
+          {
+            "pmid": 42178593,
+            "score": 2,
+            "relevance_pct": 72,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 4,
+            "title": "ARDS and corticosteroids: beyond COVID-19."
+          },
+          {
+            "pmid": 40089443,
+            "score": 2,
+            "relevance_pct": 70,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Pharmacologic Treatment and Management of Coronavirus Disease 2019."
+          },
+          {
+            "pmid": 40995636,
+            "score": 2,
+            "relevance_pct": 68,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Dexamethasone Suppresses Endotheliopathy and Endothelial-Induced Coagulopathy in COVID-19."
+          },
+          {
+            "pmid": 39896810,
+            "score": 2,
+            "relevance_pct": 66,
+            "source": "pubmed",
+            "pub_year": 2024,
+            "evidence_level": 1,
+            "title": "Therapeutic plasma exchange accelerates immune cell recovery in severe COVID-19."
+          },
+          {
+            "pmid": 40871295,
+            "score": 2,
+            "relevance_pct": 62,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "SARS-CoV-2 Pneumonia: Advances in Diagnosis and Treatment."
+          },
+          {
+            "pmid": 40967602,
+            "score": 2,
+            "relevance_pct": 60,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Glucocorticoid Treatment in Community-Acquired Pneumonia."
+          },
+          {
+            "pmid": 40598558,
+            "score": 2,
+            "relevance_pct": 58,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Current corticosteroid therapeutic strategy for community-acquired pneumonia in adults: indications, dosage, and timing."
+          }
+        ]
+      }
+    },
+    {
+      "query": "Immunothérapie adjuvante dans le mélanome de stade III",
+      "v1": {
+        "version": "v1",
+        "params": {
+          "k_pubmed": 12,
+          "rrf": false,
+          "judge_batch": 50,
+          "local_floor": 0,
+          "max_local": 200
+        },
+        "total_s": 48.05,
+        "local_timed_out": true,
+        "builder": "codex",
+        "judge": "codex",
+        "pubmed_query": "((\"Melanoma\"[MeSH] OR melanoma*[tiab] OR \"cutaneous melanoma\"[tiab]) AND (\"stage III\"[tiab] OR \"stage 3\"[tiab] OR \"resected stage III\"[tiab] OR \"resected stage 3\"[tiab] OR node-positive[tiab] OR \"lymph node-positive\"[tiab]) AND ((\"Immunotherapy\"[MeSH] OR immunotherap*[tiab] OR \"adjuvant immunotherapy\"[tiab]) OR (\"Immune Checkpoint Inhibitors\"[MeSH] OR \"checkpoint inhibitor*\"[tiab] OR \"PD-1 inhibitor*\"[tiab] OR \"anti-PD-1\"[tiab] OR \"CTLA-4 inhibitor*\"[tiab] OR \"anti-CTLA-4\"[tiab] OR nivolumab[tiab] OR pembrolizumab[tiab] OR ipilimumab[tiab] OR BMS-936558[tiab] OR MK-3475[tiab] OR lambrolizumab[tiab] OR MDX-010[tiab])) AND (adjuvant[tiab] OR postoperative[tiab] OR post-operative[tiab] OR resected[tiab]))",
+        "mesh_terms": [
+          "Melanoma",
+          "Immunotherapy",
+          "Immune Checkpoint Inhibitors"
+        ],
+        "keywords_en": [
+          "stage III melanoma",
+          "resected stage III melanoma",
+          "adjuvant immunotherapy",
+          "immune checkpoint inhibitors",
+          "nivolumab",
+          "BMS-936558",
+          "pembrolizumab",
+          "MK-3475",
+          "lambrolizumab",
+          "ipilimumab",
+          "MDX-010"
+        ],
+        "counts": {
+          "pubmed": 12,
+          "local": 0,
+          "merged": 12,
+          "judgeable": 11,
+          "judged": 11,
+          "kept": 5,
+          "kept_pubmed": 5,
+          "kept_both": 0,
+          "kept_local": 0
+        },
+        "codex_tokens": {
+          "query": 27400,
+          "judge": 30595,
+          "total": 57995
+        },
+        "phases": [
+          {
+            "phase": "codex",
+            "elapsed_s": 0.0,
+            "msg": "🚀 Construction de la requête PubMed (GPT-5.4)…"
+          },
+          {
+            "phase": "codex_done",
+            "elapsed_s": 21.48,
+            "msg": "🧠 Requête PubMed construite · 27 400 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "esearch",
+            "elapsed_s": 21.48,
+            "msg": "🔎 Interrogation de PubMed (esearch)…"
+          },
+          {
+            "phase": "esearch_done",
+            "elapsed_s": 22.06,
+            "msg": "📚 12 articles PubMed récupérés"
+          },
+          {
+            "phase": "filter_start",
+            "elapsed_s": 22.06,
+            "msg": "🗄️ Recherche dans la base locale PubMed (~25 M d'articles)…"
+          },
+          {
+            "phase": "filter_timeout",
+            "elapsed_s": 30.07,
+            "msg": "⏱️ Sujet trop large pour la base locale (25 M articles) — on s'appuie sur les résultats PubMed pour cette recherche."
+          },
+          {
+            "phase": "judge",
+            "elapsed_s": 31.46,
+            "msg": "🧬 GPT-5.4 lit et juge 11 abstracts (sur 11 jugeables)…"
+          },
+          {
+            "phase": "judge_done",
+            "elapsed_s": 48.05,
+            "msg": "🧠 Jugement terminé · 30 595 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "done",
+            "elapsed_s": 48.05,
+            "msg": "✅ 5 articles retenus"
+          }
+        ],
+        "results": [
+          {
+            "pmid": 41124198,
+            "score": 3,
+            "relevance_pct": 96,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 1,
+            "title": "Nivolumab for Resected Stage III or IV Melanoma at 9 Years."
+          },
+          {
+            "pmid": 40402230,
+            "score": 3,
+            "relevance_pct": 95,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "[Adjuvant treatment for melanoma]."
+          },
+          {
+            "pmid": 40412886,
+            "score": 3,
+            "relevance_pct": 92,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Adjuvant Therapy for Melanoma."
+          },
+          {
+            "pmid": 39709737,
+            "score": 3,
+            "relevance_pct": 90,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "European consensus-based interdisciplinary guideline for melanoma. Part 2: Treatment - Update 2024."
+          },
+          {
+            "pmid": 39925013,
+            "score": 2,
+            "relevance_pct": 62,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Cutaneous Side Effects of PD-1 Inhibitors: A Single-Center Retrospective Study."
+          }
+        ]
+      },
+      "v2": {
+        "version": "v2",
+        "params": {
+          "k_pubmed": 100,
+          "rrf": true,
+          "judge_batch": 50,
+          "local_floor": 0,
+          "max_local": 200
+        },
+        "total_s": 88.94,
+        "local_timed_out": true,
+        "builder": "codex",
+        "judge": "codex",
+        "pubmed_query": "(\"Melanoma\"[MeSH] OR melanoma[tiab] OR melanomas[tiab] OR \"cutaneous melanoma\"[tiab]) AND (\"Neoplasm Staging\"[MeSH] OR \"stage III\"[tiab] OR \"stage 3\"[tiab] OR \"resected stage III\"[tiab]) AND (\"Adjuvant Therapy\"[MeSH] OR adjuvant[tiab] OR postoperative[tiab] OR post-operative[tiab]) AND (\"Immunotherapy\"[MeSH] OR \"Immune Checkpoint Inhibitors\"[MeSH] OR immunotherap*[tiab] OR \"checkpoint inhibitor*\"[tiab] OR \"anti-PD-1\"[tiab] OR \"anti-PD1\"[tiab] OR \"anti-PD-L1\"[tiab] OR \"anti-PDL1\"[tiab] OR \"anti-CTLA-4\"[tiab] OR nivolumab[tiab] OR BMS-936558[tiab] OR pembrolizumab[tiab] OR MK-3475[tiab] OR lambrolizumab[tiab] OR ipilimumab[tiab] OR MDX-010[tiab] OR BMS-734016[tiab])",
+        "mesh_terms": [
+          "Melanoma",
+          "Neoplasm Staging",
+          "Adjuvant Therapy",
+          "Immunotherapy",
+          "Immune Checkpoint Inhibitors"
+        ],
+        "keywords_en": [
+          "melanoma",
+          "cutaneous melanoma",
+          "stage III",
+          "stage 3",
+          "resected stage III",
+          "adjuvant",
+          "postoperative",
+          "immunotherapy",
+          "checkpoint inhibitor",
+          "anti-PD-1",
+          "anti-PD-L1",
+          "anti-CTLA-4",
+          "nivolumab",
+          "BMS-936558",
+          "pembrolizumab",
+          "MK-3475",
+          "lambrolizumab",
+          "ipilimumab",
+          "MDX-010",
+          "BMS-734016"
+        ],
+        "counts": {
+          "pubmed": 100,
+          "local": 0,
+          "merged": 100,
+          "judgeable": 99,
+          "judged": 50,
+          "kept": 17,
+          "kept_pubmed": 17,
+          "kept_both": 0,
+          "kept_local": 0
+        },
+        "codex_tokens": {
+          "query": 27443,
+          "judge": 44433,
+          "total": 71876
+        },
+        "phases": [
+          {
+            "phase": "codex",
+            "elapsed_s": 0.0,
+            "msg": "🚀 Construction de la requête PubMed (GPT-5.4)…"
+          },
+          {
+            "phase": "codex_done",
+            "elapsed_s": 21.96,
+            "msg": "🧠 Requête PubMed construite · 27 443 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "esearch",
+            "elapsed_s": 21.96,
+            "msg": "🔎 Interrogation de PubMed (esearch)…"
+          },
+          {
+            "phase": "esearch_done",
+            "elapsed_s": 22.6,
+            "msg": "📚 100 articles PubMed récupérés"
+          },
+          {
+            "phase": "filter_start",
+            "elapsed_s": 22.6,
+            "msg": "🗄️ Recherche dans la base locale PubMed (~25 M d'articles)…"
+          },
+          {
+            "phase": "filter_timeout",
+            "elapsed_s": 30.62,
+            "msg": "⏱️ Sujet trop large pour la base locale (25 M articles) — on s'appuie sur les résultats PubMed pour cette recherche."
+          },
+          {
+            "phase": "judge",
+            "elapsed_s": 32.64,
+            "msg": "🧬 GPT-5.4 lit et juge 50 abstracts (sur 99 jugeables)…"
+          },
+          {
+            "phase": "judge_done",
+            "elapsed_s": 88.93,
+            "msg": "🧠 Jugement terminé · 44 433 tokens (dont 25 984 en cache)"
+          },
+          {
+            "phase": "done",
+            "elapsed_s": 88.94,
+            "msg": "✅ 17 articles retenus"
+          }
+        ],
+        "results": [
+          {
+            "pmid": 42352494,
+            "score": 3,
+            "relevance_pct": 96,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 4,
+            "title": "Adjuvant Approaches in Fully Resected Stage III and IV Cutaneous Melanoma: Where Are We Now?"
+          },
+          {
+            "pmid": 41109920,
+            "score": 3,
+            "relevance_pct": 95,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 1,
+            "title": "Adjuvant nivolumab and relatlimab in stage III/IV melanoma: the randomized phase 3 RELATIVITY-098 trial."
+          },
+          {
+            "pmid": 40204154,
+            "score": 3,
+            "relevance_pct": 94,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Efficacy of adjuvant therapy in patients with stage IIIA cutaneous melanoma."
+          },
+          {
+            "pmid": 41342263,
+            "score": 3,
+            "relevance_pct": 92,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Real-World Outcomes of Adjuvant Therapy in Stage III Melanoma and the Impact of Somatic Mutations."
+          },
+          {
+            "pmid": 40402230,
+            "score": 3,
+            "relevance_pct": 91,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "[Adjuvant treatment for melanoma]."
+          },
+          {
+            "pmid": 39709737,
+            "score": 3,
+            "relevance_pct": 90,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "European consensus-based interdisciplinary guideline for melanoma. Part 2: Treatment - Update 2024."
+          },
+          {
+            "pmid": 40119686,
+            "score": 3,
+            "relevance_pct": 89,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Early termination does not negatively impact the outcome of adjuvant immunotherapy in melanoma."
+          },
+          {
+            "pmid": 40412886,
+            "score": 3,
+            "relevance_pct": 88,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Adjuvant Therapy for Melanoma."
+          },
+          {
+            "pmid": 40966900,
+            "score": 2,
+            "relevance_pct": 74,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "A dynamic recurrence risk prediction tool for adjuvant therapy in stage III melanoma."
+          },
+          {
+            "pmid": 40234665,
+            "score": 2,
+            "relevance_pct": 72,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 2,
+            "title": "Adjuvant BRAF/MEK versus anti-PD-1 in BRAF-mutant melanoma: a propensity score matched survival analysis."
+          },
+          {
+            "pmid": 41453433,
+            "score": 2,
+            "relevance_pct": 70,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Updates in adjuvant and neoadjuvant therapies for resectable cutaneous melanoma."
+          },
+          {
+            "pmid": 40023681,
+            "score": 2,
+            "relevance_pct": 68,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 4,
+            "title": "[Adjuvant and neoadjuvant treatments of melanoma]."
+          },
+          {
+            "pmid": 41713079,
+            "score": 2,
+            "relevance_pct": 66,
+            "source": "pubmed",
+            "pub_year": 2026,
+            "evidence_level": 2,
+            "title": "Impact of adjuvant anti-PD-1 immunotherapy on ovarian function in female patients with resectable melanoma: A prospective observational study."
+          },
+          {
+            "pmid": 39925013,
+            "score": 2,
+            "relevance_pct": 65,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Cutaneous Side Effects of PD-1 Inhibitors: A Single-Center Retrospective Study."
+          },
+          {
+            "pmid": 40327569,
+            "score": 2,
+            "relevance_pct": 60,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Cutaneous Immune-Related Adverse Events Associated With Immunotherapy in Patients With Melanoma."
+          },
+          {
+            "pmid": 39784319,
+            "score": 2,
+            "relevance_pct": 60,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Current and emerging treatment options for BRAFV600-mutant melanoma."
+          },
+          {
+            "pmid": 40633934,
+            "score": 2,
+            "relevance_pct": 58,
+            "source": "pubmed",
+            "pub_year": 2025,
+            "evidence_level": 4,
+            "title": "Gene-expression signature predicts autoimmune toxicity in metastatic melanoma."
+          }
+        ]
+      }
+    }
+  ]
+}
