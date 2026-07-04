@@ -30,7 +30,14 @@ DEFAULT_MODEL = settings.embedding_model_list[0] if settings.embedding_model_lis
 # sur un sujet à termes courants, le filtre FTS+MeSH matche des millions de lignes
 # et le tri ts_rank peut prendre plusieurs minutes. Au-delà de ce délai, on renonce
 # au vivier local (repli PubMed) plutôt que de faire attendre le médecin.
-LOCAL_SEARCH_TIMEOUT_MS = 8000
+# Valeur dans Settings (env LOCAL_SEARCH_TIMEOUT_MS) — montée à 2 min pour l'essai
+# « mesurer le vrai temps », avec bouton stop côté front en complément.
+LOCAL_SEARCH_TIMEOUT_MS = settings.local_search_timeout_ms
+
+# Recherches locales en cours, annulables depuis le front (bouton stop) :
+# token (fourni par le front) → PID du backend Postgres qui exécute la requête FTS.
+# Un seul process API (uvicorn) → un dict module suffit, pas besoin de Redis.
+_LOCAL_SEARCH_PIDS: dict[str, int] = {}
 
 
 def _vec_literal(vec) -> str:
@@ -417,6 +424,10 @@ class DeepSearchRequest(BaseModel):
     # Minimum d'articles LOCAUX-seuls garantis dans le lot jugé (curseur UI). 0 = RRF
     # pur ; > 0 = on réserve ce nombre de places aux meilleurs candidats locaux.
     local_floor: int = 0
+    # Jeton d'annulation de la requête locale (bouton stop du front) : tant que la
+    # requête FTS tourne, POST /search/local/stop/{token} l'annule côté Postgres
+    # et la recherche continue avec les seuls résultats PubMed.
+    local_token: str | None = None
 
 
 class DeepHit(BaseModel):
@@ -574,14 +585,21 @@ def _run_deep_search(
     # SET LOCAL est borné au SAVEPOINT (begin_nested) : si la requête locale dépasse
     # LOCAL_SEARCH_TIMEOUT_MS, Postgres l'annule, on rollback au savepoint (le reste de
     # la transaction — fetch abstracts, cache de traduction — reste intact) et on
-    # continue sans vivier local.
+    # continue sans vivier local. Même mécanique pour le bouton stop du front
+    # (pg_cancel_backend via /search/local/stop/{token}) : seul le message d'erreur
+    # Postgres distingue les deux (« user request » vs « statement timeout »).
     local_pmids: list[int] = []
     local_timed_out = False
+    local_stopped = False
+    t_local = time.monotonic()
     try:
         with session.begin_nested():
             session.execute(
                 sql_text(f"SET LOCAL statement_timeout = '{LOCAL_SEARCH_TIMEOUT_MS}ms'")
             )
+            if req.local_token:
+                pid = session.scalar(sql_text("SELECT pg_backend_pid()"))
+                _LOCAL_SEARCH_PIDS[req.local_token] = pid
             local_pmids = list(
                 session.scalars(
                     select(Article.pmid)
@@ -590,14 +608,28 @@ def _run_deep_search(
                     .limit(req.max_local)
                 ).all()
             )
-    except OperationalError:
-        local_timed_out = True
-    if local_timed_out:
+    except OperationalError as e:
+        if "user request" in str(e):
+            local_stopped = True
+        else:
+            local_timed_out = True
+    finally:
+        if req.local_token:
+            _LOCAL_SEARCH_PIDS.pop(req.local_token, None)
+    local_s = time.monotonic() - t_local
+    if local_stopped:
+        emit("filter_stopped",
+             f"⏹️ Recherche locale interrompue au bout de {local_s:.1f}s — on "
+             "continue avec les seuls résultats PubMed.")
+    elif local_timed_out:
         emit("filter_timeout",
-             "⏱️ Sujet trop large pour la base locale (25 M articles) — on s'appuie "
+             f"⏱️ Sujet trop large pour la base locale (délai de "
+             f"{LOCAL_SEARCH_TIMEOUT_MS / 1000:.0f}s dépassé) — on s'appuie "
              "sur les résultats PubMed pour cette recherche.")
     else:
-        emit("filter", f"🧮 {len(local_pmids)} candidats locaux (filtre lexical FTS)")
+        emit("filter",
+             f"🧮 {len(local_pmids)} candidats locaux "
+             f"(filtre lexical FTS · {local_s:.1f}s)")
 
     # --- Rassembler les candidats (A ∪ B) + récupérer titres/abstracts ---
     a_set, local_set = set(a_pmids), set(local_pmids)
@@ -1123,6 +1155,24 @@ def translate_batch(req: TranslateBatchRequest, session: Session = Depends(get_s
     return TranslateBatchResponse(translations=out)
 
 
+class LocalStopResponse(BaseModel):
+    stopped: bool  # True si une requête locale a bien été annulée
+
+
+@router.post("/search/local/stop/{token}", response_model=LocalStopResponse)
+def stop_local_search(token: str):
+    """Bouton stop du front : annule la requête FTS locale en cours identifiée par
+    `token` (pg_cancel_backend). La recherche v2 continue avec PubMed seul — même
+    chemin de repli que le timeout. Sans requête en cours (déjà finie, token
+    inconnu), ne fait rien et renvoie stopped=False."""
+    pid = _LOCAL_SEARCH_PIDS.get(token)
+    if pid is None:
+        return LocalStopResponse(stopped=False)
+    with SessionLocal() as s:
+        ok = bool(s.scalar(sql_text("SELECT pg_cancel_backend(:pid)"), {"pid": pid}))
+    return LocalStopResponse(stopped=ok)
+
+
 @router.get("/search/pubmed/deep/stream")
 def search_pubmed_deep_stream(
     query: str = Query(..., min_length=1),
@@ -1133,6 +1183,7 @@ def search_pubmed_deep_stream(
     rrf: bool = Query(default=False),
     judge_batch: int = Query(default=50, ge=10, le=100),
     local_floor: int = Query(default=0, ge=0, le=100),
+    local_token: str | None = Query(default=None, max_length=64),
 ):
     """Identique à /search/pubmed/deep mais en SSE : émet le déroulé en direct
     (les keep-alives empêchent le proxy de couper les requêtes longues) puis un
@@ -1166,6 +1217,7 @@ def search_pubmed_deep_stream(
                             query=query, date_from=date_from, date_to=date_to,
                             k_pubmed=k_pubmed, max_local=max_local,
                             rrf=rrf, judge_batch=judge_batch, local_floor=local_floor,
+                            local_token=local_token,
                         ),
                         worker_session,
                         progress,
