@@ -1,0 +1,74 @@
+[
+  {
+    "query": "Inhibiteurs du SGLT2 dans l'insuffisance cardiaque à fraction d'éjection préservée",
+    "esearch_n": 100,
+    "local_full": 200,
+    "local_secs": 31.0,
+    "local_timed_out": false,
+    "v1_local_in_batch": 38,
+    "v2_local_in_batch": 9
+  },
+  {
+    "query": "Efficacité du sémaglutide oral dans le diabète de type 2",
+    "esearch_n": 100,
+    "local_full": 0,
+    "local_secs": 120.1,
+    "local_timed_out": true,
+    "v1_local_in_batch": 0,
+    "v2_local_in_batch": 0
+  },
+  {
+    "query": "Dépistage du cancer du col de l'utérus par test HPV",
+    "esearch_n": 100,
+    "local_full": 0,
+    "local_secs": 120.1,
+    "local_timed_out": true,
+    "v1_local_in_batch": 0,
+    "v2_local_in_batch": 0
+  },
+  {
+    "query": "Prise en charge de la dégénérescence maculaire liée à l'âge néovasculaire",
+    "esearch_n": 100,
+    "local_full": 0,
+    "local_secs": 120.1,
+    "local_timed_out": true,
+    "v1_local_in_batch": 0,
+    "v2_local_in_batch": 0
+  },
+  {
+    "query": "Antibiothérapie de la pneumonie aiguë communautaire de l'adulte",
+    "esearch_n": 100,
+    "local_full": 0,
+    "local_secs": 120.1,
+    "local_timed_out": true,
+    "v1_local_in_batch": 0,
+    "v2_local_in_batch": 0
+  },
+  {
+    "query": "Anticoagulation et risque hémorragique dans la fibrillation atriale",
+    "esearch_n": 100,
+    "local_full": 0,
+    "local_secs": 120.1,
+    "local_timed_out": true,
+    "v1_local_in_batch": 0,
+    "v2_local_in_batch": 0
+  },
+  {
+    "query": "Corticoïdes dans le traitement de la COVID-19 sévère",
+    "esearch_n": 100,
+    "local_full": 0,
+    "local_secs": 120.1,
+    "local_timed_out": true,
+    "v1_local_in_batch": 0,
+    "v2_local_in_batch": 0
+  },
+  {
+    "query": "Immunothérapie adjuvante dans le mélanome de stade III",
+    "esearch_n": 81,
+    "local_full": 0,
+    "local_secs": 120.1,
+    "local_timed_out": true,
+    "v1_local_in_batch": 0,
+    "v2_local_in_batch": 0
+  }
+]
