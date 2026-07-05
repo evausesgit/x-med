@@ -136,16 +136,22 @@ pour peu de gain). Transition = **parallèle puis bascule**.
 - `CMD` : `alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8800`
   (les migrations, jusqu'ici jouées par `dev_up.sh`, suivent le déploiement).
 
-### 7.2 Auth codex : dossier d'état dédié (revue Codex 2026-07-05)
+### 7.2 Auth codex : bind-mount du `~/.codex` vivant de geekette (pattern legiradar)
 
-**Ne PAS bind-monter le `~/.codex` vivant de geekette** : deux runtimes actifs sur le
-même state dir = rotation concurrente du refresh token (last-write-wins, invalidation
-croisée), deux versions CLI qui écrivent des métadonnées différentes, et le conteneur
-hérite de bien plus que l'auth (historique, sessions, trust state).
+Décision d'Eva (2026-07-05) : le conteneur utilise **le login codex de geekette**, sur
+le modèle éprouvé de legiradar (son worker Coolify monte `/home/jack/.codex` en rw avec
+`CODEX_HOME=/codex-home`, en prod depuis des jours sans incident).
 
-À la place : un dossier dédié **`/home/geekette/.codex-xmed-api`** sur l'hôte,
-initialisé par copie contrôlée (`auth.json` + `config.toml` uniquement), bind-monté →
-`/home/api/.codex`, utilisé exclusivement par l'API Coolify.
+Concrètement : bind-mount **`/home/geekette/.codex` → `/codex-home`** (rw) + variable
+d'env **`CODEX_HOME=/codex-home`**. Le conteneur tourne en uid 1001 = geekette, les
+droits collent des deux côtés, et l'état d'auth reste unique (un re-login de geekette
+sur l'hôte profite immédiatement au conteneur — pas de copie qui périme).
+
+Risque résiduel assumé (revue Codex) : pendant la phase parallèle, le uvicorn hôte et
+le conteneur partagent le même state dir — rotation du token en last-write-wins et
+versions CLI différentes qui écrivent leurs métadonnées au même endroit. Le précédent
+legiradar montre que ça tient en pratique ; la phase parallèle est de toute façon
+courte.
 
 ### 7.3 Bascule sans rebuild du front (remap de port)
 
