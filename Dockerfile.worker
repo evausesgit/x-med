@@ -1,0 +1,35 @@
+# Worker « cron » X-Med — conteneur minimal pour les tâches planifiées Coolify
+# (aujourd'hui : scripts/pubmed_daily.py, la mise à jour quotidienne PubMed).
+#
+# Volontairement léger : dépendances cœur uniquement (SQLAlchemy, lxml, requests).
+# Ni API FastAPI servie, ni torch (groupe ml), ni codex — l'ingestion n'en a pas besoin.
+#
+# Le conteneur ne fait RIEN par lui-même : il reste vivant (sleep infinity) et
+# c'est la Scheduled Task Coolify qui exécute `python -m scripts.pubmed_daily`
+# dedans (docker exec) selon son cron. Voir DEPLOY_BACKEND_COOLIFY.md § worker.
+
+FROM python:3.12-slim
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+ENV UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=never \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# uid 1001 = geekette sur l'hôte : les updatefiles écrits dans le bind-mount
+# /data/pubmed restent lisibles/supprimables par les scripts lancés depuis l'hôte.
+RUN useradd -m -u 1001 worker
+
+# Dépendances d'abord (cache de layer), code ensuite.
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev --no-install-project
+
+COPY app ./app
+COPY scripts ./scripts
+
+ENV PATH="/app/.venv/bin:$PATH"
+USER worker
+
+CMD ["sleep", "infinity"]
