@@ -120,6 +120,9 @@ export function searchPubmedDeepStream(
     onTranslations?: (
       fr: Record<string, { title_fr: string; abstract_fr: string }>,
     ) => void;
+    // Recherche arrêtée côté serveur (bouton stop — en général le front a déjà
+    // fermé le flux ; couvre les arrêts venus d'ailleurs, ex. autre onglet).
+    onStopped?: () => void;
   },
   // Algo v2 : fusion RRF pour la sélection des candidats (tri final = score Codex).
   // `judgeBatch` = total analysé par lot · `localFloor` = minimum local garanti ·
@@ -160,6 +163,10 @@ export function searchPubmedDeepStream(
       es.close();
     }
   });
+  es.addEventListener("stopped", () => {
+    handlers.onStopped?.();
+    es.close();
+  });
   es.addEventListener("error", (e) => {
     const data = (e as MessageEvent).data;
     if (data) {
@@ -184,6 +191,24 @@ export async function stopLocalSearch(token: string): Promise<boolean> {
     const res = await fetch(`${API_BASE}/search/local/stop/${encodeURIComponent(token)}`, {
       method: "POST",
     });
+    if (!res.ok) return false;
+    const data = await res.json();
+    return !!data.stopped;
+  } catch {
+    return false;
+  }
+}
+
+// Bouton « Arrêter la recherche » : annule TOUTE la recherche PubMed + IA en
+// cours (appel codex tué, requête locale annulée, pipeline stoppé) — pour
+// corriger une faute de frappe ou reformuler sans attendre la fin.
+// Best-effort : renvoie false (sans jeter) si rien n'était à annuler.
+export async function stopDeepSearch(token: string): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `${API_BASE}/search/pubmed/deep/stop/${encodeURIComponent(token)}`,
+      { method: "POST" },
+    );
     if (!res.ok) return false;
     const data = await res.json();
     return !!data.stopped;

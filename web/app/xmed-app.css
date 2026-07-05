@@ -211,6 +211,15 @@
   opacity: 0.55;
   cursor: default;
 }
+/* Pendant une recherche PubMed + IA, « Explorer » devient « Arrêter » :
+   même gabarit, teinte sombre pour signaler l'action d'interruption. */
+.xm-explore-stop {
+  background: #8a3d34;
+}
+.xm-explore-stop:hover:not(:disabled) {
+  background: #a34a3f;
+  border-color: #a34a3f;
+}
 
 /* ============================ METHOD + DATES ============================ */
 .xm-method-row {

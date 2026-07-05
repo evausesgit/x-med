@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.config import settings
+from app.services.search_cancel import SearchCancelled, current_search, kill_proc_tree
 
 
 @dataclass
@@ -72,7 +73,9 @@ def _parse_usage(stdout: bytes | None) -> CodexUsage:
 def run_codex(prompt: str, schema: dict, timeout: int) -> tuple[dict, CodexUsage]:
     """Lance `codex exec` avec un schéma JSON imposé. Retourne (data, usage).
 
-    Lève `CodexCliError` si codex échoue / sortie illisible.
+    Lève `CodexCliError` si codex échoue / sortie illisible, `SearchCancelled` si
+    le process a été tué par le bouton « Arrêter la recherche » (jeton d'annulation
+    de la recherche courante, cf. `search_cancel.current_search`).
     """
     with tempfile.TemporaryDirectory() as td:
         schema_path = Path(td) / "schema.json"
@@ -86,22 +89,39 @@ def run_codex(prompt: str, schema: dict, timeout: int) -> tuple[dict, CodexUsage
         if settings.codex_model:
             cmd += ["-m", settings.codex_model]
         cmd.append(prompt)
+        # Popen (et non subprocess.run) : le bouton « Arrêter la recherche » doit
+        # pouvoir tuer le process en plein vol via l'état d'annulation partagé.
+        cancel_state = current_search.get()
         try:
             # stdin fermé : sinon `codex exec` se bloque en attente d'entrée.
-            proc = subprocess.run(
+            # start_new_session : codex et ses enfants forment un groupe qu'une
+            # annulation (ou un timeout) peut tuer d'un bloc — tuer le seul parent
+            # laisserait des enfants tenir les pipes et bloquerait communicate().
+            proc = subprocess.Popen(
                 cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE, timeout=timeout, check=True,
+                stderr=subprocess.PIPE, start_new_session=True,
             )
         except FileNotFoundError as e:
             raise CodexCliError(f"codex introuvable ({settings.codex_bin})") from e
+        if cancel_state is not None:
+            cancel_state.attach_proc(proc)
+        try:
+            stdout, stderr = proc.communicate(timeout=timeout)
         except subprocess.TimeoutExpired as e:
+            kill_proc_tree(proc)
+            proc.communicate()
             raise CodexCliError(f"codex timeout ({timeout}s)") from e
-        except subprocess.CalledProcessError as e:
-            tail = (e.stderr or b"").decode(errors="replace")[-300:]
-            raise CodexCliError(f"codex a échoué : {tail}") from e
+        finally:
+            if cancel_state is not None:
+                cancel_state.detach_proc()
+        if cancel_state is not None and cancel_state.cancelled:
+            raise SearchCancelled
+        if proc.returncode != 0:
+            tail = (stderr or b"").decode(errors="replace")[-300:]
+            raise CodexCliError(f"codex a échoué : {tail}")
         try:
             data = json.loads(out_path.read_text())
         except Exception as e:  # fichier vide / JSON cassé
             raise CodexCliError(f"sortie codex illisible : {e}") from e
 
-    return data, _parse_usage(proc.stdout)
+    return data, _parse_usage(stdout)
