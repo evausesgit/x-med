@@ -18,6 +18,7 @@ import {
   searchPubmedDeepStream,
   searchSemantic,
   SearchResponse,
+  stopDeepSearch,
   stopLocalSearch,
 } from "@/lib/api";
 import type { CompareResult, DeepHit } from "@/lib/api";
@@ -404,8 +405,15 @@ export default function Home() {
   const moreRef = useRef<EventSource | null>(null);
   // Bouton stop de la requête locale (FTS) : jeton propre à chaque recherche,
   // passé au stream pour que le backend sache quelle requête Postgres annuler.
+  // Le même jeton sert au bouton « Arrêter » global (annulation de TOUTE la
+  // recherche : codex tué + pipeline stoppé côté serveur).
   const localTokenRef = useRef<string>("");
   const [stoppingLocal, setStoppingLocal] = useState(false);
+  // Numéro de lancement : incrémenté à chaque recherche ET à chaque arrêt. Une
+  // étape asynchrone (lookup du cache des recherches sauvegardées) ne poursuit
+  // que si son numéro est encore le courant — sinon la recherche a été arrêtée
+  // ou remplacée entre-temps.
+  const runIdRef = useRef(0);
 
   // Analyse critique comparative : PMID sélectionnés (≤ MAX_COMPARE), résultat,
   // déroulé et état de l'appel codex.
@@ -637,6 +645,7 @@ export default function Home() {
   }, [mode, model, q]);
 
   async function runSearch(newOffset = 0, opts: { force?: boolean } = {}) {
+    const runId = ++runIdRef.current;
     setLoading(true);
     setError(null);
     setCodexLimit(false);
@@ -677,6 +686,8 @@ export default function Home() {
           } catch {
             /* lookup best-effort : en cas d'échec, on relance la recherche */
           }
+          // Arrêtée ou remplacée pendant le lookup : ne pas ouvrir le stream.
+          if (runId !== runIdRef.current) return;
           if (existing) {
             setDeep(existing.payload);
             setSavedHit({ id: existing.id, created_at: existing.created_at });
@@ -705,6 +716,9 @@ export default function Home() {
               setError(msg || "La recherche a échoué.");
               setLoading(false);
             },
+            // Recherche arrêtée côté serveur (normalement le clic sur « Arrêter »
+            // a déjà tout remis en état ici — filet de sécurité).
+            onStopped: () => setLoading(false),
             // Traductions FR qui arrivent après les résultats : on les fusionne.
             onTranslations: (fr) =>
               setDeep((prev) =>
@@ -784,6 +798,25 @@ export default function Home() {
     if (!ok) setStoppingLocal(false);
   }
 
+  // Bouton « Arrêter » global : abandonne TOUTE la recherche PubMed + IA en cours
+  // (faute de frappe, envie de reformuler…). On coupe le flux SSE, on demande au
+  // serveur de tuer l'appel codex + la requête locale (best-effort, sans attendre
+  // la réponse), et la barre redevient utilisable immédiatement.
+  function handleStopSearch() {
+    runIdRef.current++; // invalide le lookup de cache éventuellement en vol
+    esRef.current?.close();
+    void stopDeepSearch(localTokenRef.current);
+    setLoading(false);
+    setStoppingLocal(false);
+    setLogs((prev) => [
+      ...prev,
+      {
+        phase: "stopped",
+        msg: "⏹️ Recherche arrêtée — corrigez votre question et relancez quand vous voulez.",
+      },
+    ]);
+  }
+
   const selectedModel = models.find((m) => m.name === model);
   const noEmbeddings = mode === "semantic" && selectedModel && selectedModel.embedded === 0;
 
@@ -816,9 +849,22 @@ export default function Home() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
-        <button type="submit" className="xm-explore" disabled={loading}>
-          {loading ? "…" : "Explorer →"}
-        </button>
+        {loading && isPubmed ? (
+          // Pendant une recherche PubMed + IA, « Explorer » devient « Arrêter » :
+          // on peut abandonner à tout moment pour corriger ou reformuler.
+          <button
+            type="button"
+            className="xm-explore xm-explore-stop"
+            onClick={handleStopSearch}
+            title="Arrêter la recherche en cours (pour corriger ou changer votre question)"
+          >
+            ⏹ Arrêter
+          </button>
+        ) : (
+          <button type="submit" className="xm-explore" disabled={loading}>
+            {loading ? "…" : "Explorer →"}
+          </button>
+        )}
       </form>
 
       <div className="xm-method-row">

@@ -14,7 +14,7 @@ from typing import Any, Literal
 
 from app.config import settings
 
-SearchStatus = Literal["ok", "error"]
+SearchStatus = Literal["ok", "error", "stopped"]
 
 
 def _short(value: str | None, *, limit: int = 700) -> str:
@@ -49,7 +49,11 @@ def _build_message(
     progress_events: Sequence[dict[str, Any]],
     error: str | None = None,
 ) -> str:
-    status_label = "✅ terminée" if status == "ok" else "❌ en erreur"
+    status_label = {
+        "ok": "✅ terminée",
+        "error": "❌ en erreur",
+        "stopped": "⏹️ arrêtée par l'utilisateur",
+    }[status]
     lines = [
         f"🔎 X-Med — recherche API {status_label}",
         f"Heure: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}",

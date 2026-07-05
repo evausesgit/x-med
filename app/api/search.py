@@ -19,8 +19,10 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.db import SessionLocal, get_session
 from app.models import Article, MeshDescriptor
+from app.services import search_cancel
 from app.services.embeddings import REGISTRY, get_model
 from app.services.explainability import explain_article
+from app.services.search_cancel import SearchCancelled
 
 router = APIRouter()
 
@@ -424,9 +426,11 @@ class DeepSearchRequest(BaseModel):
     # Minimum d'articles LOCAUX-seuls garantis dans le lot jugé (curseur UI). 0 = RRF
     # pur ; > 0 = on réserve ce nombre de places aux meilleurs candidats locaux.
     local_floor: int = 0
-    # Jeton d'annulation de la requête locale (bouton stop du front) : tant que la
-    # requête FTS tourne, POST /search/local/stop/{token} l'annule côté Postgres
-    # et la recherche continue avec les seuls résultats PubMed.
+    # Jeton d'annulation (généré par le front pour chaque recherche). Deux usages :
+    # - POST /search/local/stop/{token} annule la seule requête FTS locale (la
+    #   recherche continue avec les résultats PubMed) ;
+    # - POST /search/pubmed/deep/stop/{token} arrête TOUTE la recherche en cours
+    #   (codex tué, pipeline stoppé au prochain jalon).
     local_token: str | None = None
 
 
@@ -1173,6 +1177,22 @@ def stop_local_search(token: str):
     return LocalStopResponse(stopped=ok)
 
 
+@router.post("/search/pubmed/deep/stop/{token}", response_model=LocalStopResponse)
+def stop_deep_search(token: str):
+    """Bouton « Arrêter la recherche » du front : annule TOUTE la recherche v2 en
+    cours identifiée par `token` — l'appel codex en vol est tué, la requête FTS
+    locale éventuelle est annulée (pg_cancel_backend), et le pipeline s'arrête au
+    prochain jalon. À distinguer de /search/local/stop/{token}, qui n'interrompt
+    que le pré-filtre local (la recherche continue alors avec PubMed seul).
+    Sans recherche en cours (déjà finie, jeton inconnu), renvoie stopped=False."""
+    stopped = search_cancel.cancel(token)
+    pid = _LOCAL_SEARCH_PIDS.get(token)
+    if pid is not None:
+        with SessionLocal() as s:
+            s.scalar(sql_text("SELECT pg_cancel_backend(:pid)"), {"pid": pid})
+    return LocalStopResponse(stopped=stopped)
+
+
 @router.get("/search/pubmed/deep/stream")
 def search_pubmed_deep_stream(
     query: str = Query(..., min_length=1),
@@ -1201,7 +1221,17 @@ def search_pubmed_deep_stream(
         events: Queue[tuple[str, dict] | None] = Queue()
         progress_events: list[dict] = []
 
+        # État d'annulation de CETTE recherche (bouton « Arrêter » du front).
+        # Enregistré sous le jeton fourni ; sans jeton, un état orphelin inerte.
+        cancel_state = (
+            search_cancel.register(local_token) if local_token else search_cancel.CancelState()
+        )
+
         def progress(phase: str, msg: str, data: dict) -> None:
+            # Point d'arrêt coopératif : chaque jalon du pipeline passe ici, donc
+            # une annulation prend effet au prochain jalon (les appels codex, eux,
+            # sont tués immédiatement par le endpoint stop).
+            cancel_state.raise_if_cancelled()
             elapsed = round(time.monotonic() - t0, 1)
             progress_events.append({"phase": phase, "msg": msg, "elapsed_s": elapsed, **data})
             events.put(("log", {"phase": phase, "msg": f"{msg} ({elapsed}s)", **data}))
@@ -1209,6 +1239,7 @@ def search_pubmed_deep_stream(
         def produce() -> None:
             from app.services.search_notifications import send_search_notification
 
+            search_cancel.current_search.set(cancel_state)
             notified = False
             try:
                 with SessionLocal() as worker_session:
@@ -1237,6 +1268,17 @@ def search_pubmed_deep_stream(
                     fr = _translate_kept(result, worker_session, progress)
                     if fr:
                         events.put(("translations", fr))
+            except SearchCancelled:
+                # Arrêt volontaire (bouton stop) : pas une erreur. Le front a en
+                # général déjà fermé le flux ; l'événement couvre les autres cas.
+                if not notified:
+                    send_search_notification(
+                        status="stopped", query=query,
+                        duration_s=time.monotonic() - t0,
+                        metrics={"method": "v2 (filtre lexical/MeSH + jugement codex)"},
+                        progress_events=progress_events,
+                    )
+                events.put(("stopped", {"msg": "⏹️ Recherche arrêtée."}))
             except Exception as exc:
                 if not notified:
                     send_search_notification(
@@ -1248,6 +1290,8 @@ def search_pubmed_deep_stream(
                     )
                 events.put(("error", {"msg": f"Recherche v2 indisponible : {exc}"}))
             finally:
+                if local_token:
+                    search_cancel.unregister(local_token)
                 events.put(None)
 
         Thread(target=produce, daemon=True).start()
