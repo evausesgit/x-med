@@ -66,7 +66,7 @@ score Codex**.
 | **Durée typique d'une recherche** | **30–90 s** (souvent ~1 min) | UI : « un peu plus long » > 90 s, « recherche longue » > 180 s |
 | Construction requête (Codex GPT-5.4) | timeout **180 s** | repli « requête brute » |
 | `esearch` PubMed (source A) | dépend de NCBI | échec → **502** (stoppe tout) |
-| **Requête base locale (source B)** | **≤ 8 s** (`statement_timeout`) | B = ∅, repli PubMed (`filter_timeout`) |
+| **Requête base locale (source B)** | **≤ 120 s** (`statement_timeout`, env `LOCAL_SEARCH_TIMEOUT_MS`) | B = ∅, repli PubMed (`filter_timeout`) |
 | `esummary`/`efetch` (résumés manquants) | best-effort | dégrade (titre/résumé absents), pas de 500 |
 | Jugement (Codex) | timeout **420 s** | repli `skipped` (pas de score, tri lexical) |
 | Keep-alive SSE | toutes les **10 s** | évite la coupure proxy pendant le silence du jugement |
@@ -80,7 +80,10 @@ score Codex**.
 - **Source B = FTS seul** (index GIN, tri `ts_rank`). Le `OR mesh_terms && ARRAY[...]` a
   été retiré : un descripteur MeSH courant (« Heart Failure ») faisait passer la même
   requête de 0,4 s à **206 s**. `mesh_terms` ne sert plus qu'à la requête PubMed.
-- **Garde-fou local 8 s** (mesuré jusqu'à ~493 s sur mots ultra-courants même en FTS seul).
+- **Garde-fou local 120 s** (configurable via `LOCAL_SEARCH_TIMEOUT_MS`) + **bouton stop**
+  côté UI (PR #22). L'ancienne valeur de **8 s** coupait des requêtes larges légitimes et a
+  causé un **faux diagnostic de lenteur** du moteur (voir compte rendu ci-dessous) ; le
+  garde-fou reste nécessaire (mesuré jusqu'à ~493 s sur mots ultra-courants même en FTS seul).
 - **Infra Postgres** (indispensable à l'échelle) : `shared_buffers` 128 Mo → **8 Go**,
   `work_mem` 64 Mo, `effective_cache_size` 24 Go, `random_page_cost` 1.1, index FTS (5,7 Go)
   préchauffé (`pg_prewarm`).
@@ -88,10 +91,54 @@ score Codex**.
   `esearch` → `filter_start` → `filter`|`filter_timeout` → `judge` → `done` → `translate`).
 
 **Mesuré, e2e :** SGLT2/HFpEF → local 0,5 s, 150 candidats, 15 retenus ; sujet large →
-coupé à ~9 s, repli PubMed, 14 retenus.
+coupé à ~9 s (avec l'ancien garde-fou 8 s), repli PubMed, 14 retenus ; requête large à
+chaud ~32 s sous le garde-fou 120 s.
 
 **Question de fond ouverte** : accélérer *aussi* les sujets larges sans garde-fou →
 **RUM index** (FTS classé par l'index) vs **pgvector/HNSW** (sémantique, archi cible de
 `PIPELINE_EMBEDDINGS.md`, embeddings à compléter sur 25 M docs).
 
 Détail complet fidèle au code : `ALGO_RECHERCHE.md`. Commits : `0fabd6b` (code), `62fdd0c` (doc).
+
+---
+
+## 3. Compte rendu — Réunion X-Med Recherche (2026-07-04)
+
+**Objectif** : faire le point sur les performances de la recherche locale, comparer les
+versions v1 et v2 et définir les prochaines étapes.
+
+### Points abordés
+
+- Le **ralentissement observé de la recherche locale n'était pas lié à l'algorithme**,
+  mais au **timeout configuré à 8 secondes** (garde-fou `statement_timeout`), qui coupait
+  les requêtes larges légitimes → **faux diagnostic** de problème de performance. Le
+  garde-fou est depuis passé à **120 s configurable** avec un **bouton stop** (PR #22).
+- La **recherche à chaud fonctionne correctement** et les performances sont satisfaisantes.
+- Les **deux versions de la recherche (v1 et v2) sont désormais disponibles** (sélecteur
+  « TRI » : v1 · score IA, v2 · fusion RRF).
+- Les **résultats des deux versions sont cohérents**, ce qui valide globalement le
+  comportement de la nouvelle implémentation (v2).
+
+### Actions à réaliser
+
+**Yoann**
+
+- [ ] Étudier et améliorer la **scalabilité** de la recherche.
+- [ ] Déployer le **backend dans Coolify**.
+
+**Eva**
+
+- [ ] Ajouter une **cron dans Coolify** pour le téléchargement quotidien des données.
+- [ ] **Normaliser les curseurs** entre v1 et v2.
+- [ ] **Normaliser les cartes / l'interface** entre v1 et v2.
+- [ ] Corriger le comportement à la **fermeture ou au changement de page** : la requête en
+  cours ne doit plus être perdue.
+- [ ] Permettre d'**annuler / stopper une tâche** lancée par erreur.
+- [ ] Ajouter la possibilité de **sauvegarder les critiques** (analyses critiques d'articles).
+
+### Conclusion
+
+La principale inquiétude sur les performances de la recherche locale est **levée** : le
+problème venait d'un timeout, pas du moteur de recherche. Les efforts se concentrent
+désormais sur la **robustesse**, l'**expérience utilisateur**, la **scalabilité** et
+l'**industrialisation du déploiement dans Coolify**.
