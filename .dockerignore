@@ -1,0 +1,14 @@
+# Contexte de build Docker : ne monter que ce que les images copient réellement
+# (app/, alembic/, scripts/, pyproject.toml, uv.lock). Le reste — venv local,
+# node_modules du front, données, docs — n'a rien à faire dans le contexte.
+.venv
+.git
+.claude
+web/node_modules
+web/.next
+documents
+docs
+marketing
+tests
+bench
+*.md

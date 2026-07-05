@@ -116,19 +116,58 @@ C'est probablement **ce qui avait bloqué « à l'époque »** — à confirmer 
   mode PubMed+IA tombe. Prévoir le repli « fallback » (déjà géré côté code : `builder=
   fallback`, `judge=skipped`) mais c'est dégradé.
 
-## 7. Rollout proposé (progressif, réversible)
+## 7. Rollout — décidé et en cours (2026-07-05)
 
-1. Écrire le `Dockerfile` API + le faire tourner **en local** (`docker compose up api`),
-   valider `/health` **et** une recherche PubMed+IA (donc codex OK en conteneur).
-2. Résoudre l'auth codex en conteneur (le vrai verrou).
-3. Ajouter `api` dans Coolify, réseau interne, volumes, env → déployer **en parallèle**
-   du uvicorn hôte (port distinct), tester.
-4. Basculer le front sur l'API Coolify (`API_INTERNAL_URL`), garder l'hôte en repli.
-5. Une fois stable : couper le uvicorn hôte, migrer le cron vers un worker Coolify.
+**Décisions prises** : périmètre = **API seule dans Coolify** (db/redis restent en
+compose : `restart: always` suffit, et migrer le volume pgdata de 63 Go est un risque
+pour peu de gain). Transition = **parallèle puis bascule**.
 
-> Décision préalable pour Eva : on vise **tout dans Coolify** (db+redis+api+worker), ou
-> on **garde db/redis en compose** et on ne conteneurise que l'API ? (Le plus stable =
-> tout dans Coolify, mais plus de travail de migration des volumes.)
+### 7.1 L'image (`Dockerfile` à la racine — livré)
+
+- `python:3.12-slim` + uv, `uv sync --frozen --no-dev --group ml` (la recherche
+  sémantique MedCPT/bge-m3 tourne dans l'API → torch **CPU** requis ; l'index
+  `download.pytorch.org/whl/cpu` est épinglé dans `pyproject.toml`, ce qui retire
+  ~7 Go de wheels NVIDIA inutiles — l'hôte n'a pas de GPU).
+- Node 22 (NodeSource) + `@openai/codex` npm global, **version épinglée** (le format
+  d'événements `codex exec --json` est parsé par `app/services/codex_cli.py`).
+- `USER` uid 1001 (= `geekette` côté hôte, même convention que `Dockerfile.worker`).
+- `HF_HOME=/data/hf-cache` : les modèles d'embedding (~5 Go) vivent dans un **volume
+  persistant**, téléchargés au premier chargement puis réutilisés entre déploiements.
+- `CMD` : `alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8800`
+  (les migrations, jusqu'ici jouées par `dev_up.sh`, suivent le déploiement).
+
+### 7.2 Auth codex : dossier d'état dédié (revue Codex 2026-07-05)
+
+**Ne PAS bind-monter le `~/.codex` vivant de geekette** : deux runtimes actifs sur le
+même state dir = rotation concurrente du refresh token (last-write-wins, invalidation
+croisée), deux versions CLI qui écrivent des métadonnées différentes, et le conteneur
+hérite de bien plus que l'auth (historique, sessions, trust state).
+
+À la place : un dossier dédié **`/home/geekette/.codex-xmed-api`** sur l'hôte,
+initialisé par copie contrôlée (`auth.json` + `config.toml` uniquement), bind-monté →
+`/home/api/.codex`, utilisé exclusivement par l'API Coolify.
+
+### 7.3 Bascule sans rebuild du front (remap de port)
+
+Next 16 fige la destination du rewrite `/api` **au build** (`http://10.0.1.1:8800`).
+Plutôt que rebuilder le front : l'app Coolify publie d'abord **`8810:8800`** (phase
+parallèle), puis à la bascule on remappe **`8800:8800`**. Le front continue de taper
+`10.0.1.1:8800` sans rebuild. C'est une **mini-coupure assumée** (le remap redéploie le
+conteneur), pas un hot-swap. À terme, l'état propre reste un rebuild front vers l'API
+en réseau interne Coolify — le remap est la bascule pragmatique, pas l'architecture
+finale.
+
+Séquence :
+
+1. Déployer l'app API Coolify en `8810:8800` + `ufw allow from 10.0.1.0/24 to any
+   port 8810 proto tcp`.
+2. Tester **depuis le conteneur web** : `curl http://10.0.1.1:8810/health`, puis une
+   recherche PubMed+IA complète (valide codex en conteneur — le vrai verrou).
+3. Stopper le uvicorn hôte ; vérifier `ss -ltnp | grep ':8800'` vide.
+4. Remapper l'app Coolify en `8800:8800`, accepter le redéploiement.
+5. Re-tester depuis le conteneur web : `curl http://10.0.1.1:8800/health` + recherche.
+6. **Rollback** si problème : remettre `8810:8800` et relancer le uvicorn hôte
+   (`scripts/dev_up.sh`).
 
 ## 8. Étape isolée — sortir le **cron PubMed quotidien** du crontab système vers Coolify
 
