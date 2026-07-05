@@ -6,7 +6,7 @@ on reconstruit le lot que Codex jugerait sous les deux algos et on compte la par
 d'articles LOCAUX-seuls qui y entrent :
 
 - v1 : PubMed d'abord (k_pubmed=20) puis local, top `batch`.
-- v2 : fusion RRF (rang réciproque) de PubMed (k_pubmed=100) et du local, top `batch`.
+- v2 : fusion RRF (rang réciproque) de PubMed (k_pubmed=50) et du local, top `batch`.
 
 Le RRF vise à ne pas enterrer le local (~39 % des résultats pertinents en viennent).
 Robuste au rate-limit NCBI (429 → backoff + retry). Lecture seule, sans codex.
@@ -29,7 +29,7 @@ from app.models.saved_search import SavedSearch
 from app.services import pubmed_eutils as eut
 
 
-def esearch_retry(pq, dfrom, dto, retmax=100, tries=12, wait=60):
+def esearch_retry(pq, dfrom, dto, retmax=50, tries=12, wait=60):
     """esearch avec backoff sur 429 (rate-limit NCBI)."""
     for i in range(tries):
         try:
@@ -90,18 +90,18 @@ def main() -> None:
         for x in rows:
             p, pr = x.payload, (x.params or {})
             try:
-                _, a100 = esearch_retry(p["pubmed_query"], pr.get("date_from"), pr.get("date_to"))
+                _, a50 = esearch_retry(p["pubmed_query"], pr.get("date_from"), pr.get("date_to"))
             except Exception as e:
                 emit(f"{x.query[:38]:<40}  esearch KO ({type(e).__name__})")
                 continue
-            a20, a100s = a100[:20], set(a100)
+            a20, a50s = a50[:20], set(a50)
             a20s = set(a20)
             B = local_pmids(s, p.get("keywords_en", []), p.get("mesh_terms", []),
                             pr.get("date_from"), pr.get("date_to"))
             v1 = list(dict.fromkeys([*a20, *B]))[: args.batch]
             v1l = sum(1 for q in v1 if q not in a20s)
-            v2 = rrf(a100, B)[: args.batch]
-            v2l = sum(1 for q in v2 if q not in a100s)
+            v2 = rrf(a50, B)[: args.batch]
+            v2l = sum(1 for q in v2 if q not in a50s)
             a1 += v1l
             a2 += v2l
             n += 1

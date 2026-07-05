@@ -23,7 +23,7 @@ temps que l'IA *lise* les articles.
 - **v1 — « score IA » (par défaut)** : rapide et ciblée. On prend une **petite tête de
   liste PubMed** (les plus pertinents) complétée par notre base, et l'IA note. Idéale au
   quotidien.
-- **v2 — « fusion équilibrée »** : plus large. On élargit à **~100 articles PubMed** et on
+- **v2 — « fusion équilibrée »** : plus large. On élargit à **~50 articles PubMed** et on
   **mélange équitablement** PubMed et notre base, pour ne pas passer à côté d'un bon
   article présent uniquement chez nous (près de **4 sur 10** des articles pertinents en
   viennent). Un curseur permet de garantir un minimum d'articles issus de notre base. À
@@ -48,7 +48,7 @@ score Codex**.
 
 | Étape | v1 · score IA (défaut) | v2 · fusion RRF |
 |---|---|---|
-| **A — PubMed live** (`k_pubmed`) | **12** | **100** |
+| **A — PubMed live** (`k_pubmed`) | **20** | **50** |
 | **B — base locale** (`max_local`) | ≤ **200** | ≤ **200** |
 | **Fusion des candidats** | A **puis** B (PubMed d'abord, local en filet) | **RRF** (rang réciproque) des 2 listes → le local n'est pas enterré |
 | **Plancher local garanti** (`local_floor`) | 0 | **réglable** (curseur, 0 par défaut) |

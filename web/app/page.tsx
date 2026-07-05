@@ -688,7 +688,7 @@ export default function Home() {
           q.trim(),
           dateFrom || undefined,
           dateTo || undefined,
-          algoRef.current === "v2" ? 100 : 12,
+          algoRef.current === "v2" ? 50 : 20,
           {
             onLog: (log) => {
               setLogs((prev) => [...prev, log]);

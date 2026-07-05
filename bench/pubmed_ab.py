@@ -139,7 +139,7 @@ def main() -> None:
     p.add_argument("--b", default="http://127.0.0.1:8810", help="base URL méthode B (deep, PR#13)")
     p.add_argument("--from", dest="date_from", required=True)
     p.add_argument("--to", dest="date_to", required=True)
-    p.add_argument("--k", type=int, default=12)
+    p.add_argument("--k", type=int, default=20)
     p.add_argument("--max-local", type=int, default=50)
     p.add_argument("--timeout-a", type=float, default=3600, help="A peut lire des milliers d'abstracts")
     p.add_argument("--timeout-b", type=float, default=600)

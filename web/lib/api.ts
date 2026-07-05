@@ -88,7 +88,7 @@ export async function searchPubmedDeep(
   query: string,
   dateFrom: string | undefined,
   dateTo: string | undefined,
-  k = 12,
+  k = 20,
 ): Promise<DeepSearchResponse> {
   const res = await fetch(`${API_BASE}/search/pubmed/deep`, {
     method: "POST",
