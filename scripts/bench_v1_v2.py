@@ -6,8 +6,8 @@ Rejoue une liste de requêtes cliniques FR à travers les DEUX versions du séle
 (`app.api.search._run_deep_search`), donc sans notification Hermes ni endpoint HTTP.
 
 Paramètres reproduisant EXACTEMENT ce que l'UI envoie :
-  - v1 « score IA » (défaut) : k_pubmed=12,  rrf=False, judge_batch=50, local_floor=0
-  - v2 « fusion RRF »         : k_pubmed=100, rrf=True,  judge_batch=50, local_floor=0
+  - v1 « score IA » (défaut) : k_pubmed=20, rrf=False, judge_batch=50, local_floor=0
+  - v2 « fusion RRF »         : k_pubmed=50, rrf=True,  judge_batch=50, local_floor=0
   (max_local=200, min_score=2, fenêtre de dates communes aux deux)
 
 Capture, par (requête, version) :
@@ -54,8 +54,8 @@ DEFAULT_QUERIES = [
 ]
 
 VERSIONS = {
-    "v1": dict(k_pubmed=12, rrf=False, judge_batch=50, local_floor=0, max_local=200),
-    "v2": dict(k_pubmed=100, rrf=True, judge_batch=50, local_floor=0, max_local=200),
+    "v1": dict(k_pubmed=20, rrf=False, judge_batch=50, local_floor=0, max_local=200),
+    "v2": dict(k_pubmed=50, rrf=True, judge_batch=50, local_floor=0, max_local=200),
 }
 
 
@@ -129,8 +129,8 @@ def build_report(data: dict) -> str:
     L.append("## Méthode\n")
     L.append("Chaque requête est rejouée dans les deux versions via la **même fonction que "
              "la production** (`_run_deep_search`). Paramètres identiques à l'UI :\n")
-    L.append("- **v1 · score IA** (défaut) : `k_pubmed=12`, fusion « PubMed d'abord », lot 50.")
-    L.append("- **v2 · fusion RRF** : `k_pubmed=100`, fusion RRF (local non enterré), lot 50.")
+    L.append("- **v1 · score IA** (défaut) : `k_pubmed=20`, fusion « PubMed d'abord », lot 50.")
+    L.append("- **v2 · fusion RRF** : `k_pubmed=50`, fusion RRF (local non enterré), lot 50.")
     L.append("- Communs : `max_local=200`, `min_score=2`, même fenêtre de dates.\n")
     L.append("Le **tri final est toujours le score Codex** dans les deux cas ; v1/v2 ne "
              "changent que **quels candidats sont jugés**.\n")

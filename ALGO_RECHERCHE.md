@@ -313,9 +313,9 @@ PubMed Best Match ne sert jamais à classer ce que voit le médecin — seulemen
 pertinents viennent du **local seul** (mesuré sur les recherches sauvegardées) → il ne
 faut pas laisser PubMed monopoliser le lot de jugement.
 
-Activé par `rrf=True` + `k_pubmed` élevé (100). Change **seulement la sélection** :
+Activé par `rrf=True` + `k_pubmed` élevé (50). Change **seulement la sélection** :
 
-- **`k_pubmed` 20 → 100** : head PubMed plus large.
+- **`k_pubmed` 20 → 50** : head PubMed plus large.
 - **Fusion RRF** (rang réciproque) du vivier au lieu de « PubMed d'abord » :
   ```
   K = 60
