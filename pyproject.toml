@@ -14,6 +14,9 @@ dependencies = [
     "lxml>=5.3",
     "python-dateutil>=2.9",
     "httpx>=0.28",
+    # utilisé par scripts/pubmed_daily.py (download des updatefiles) ; sans lui,
+    # une install cœur (uv sync --no-dev, ex. image worker Coolify) casse le cron
+    "requests>=2.32",
 ]
 
 [dependency-groups]

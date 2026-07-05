@@ -1749,6 +1749,7 @@ dependencies = [
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic-settings" },
     { name = "python-dateutil" },
+    { name = "requests" },
     { name = "sqlalchemy" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -1776,6 +1777,7 @@ requires-dist = [
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
     { name = "pydantic-settings", specifier = ">=2.6" },
     { name = "python-dateutil", specifier = ">=2.9" },
+    { name = "requests", specifier = ">=2.32" },
     { name = "sqlalchemy", specifier = ">=2.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
 ]

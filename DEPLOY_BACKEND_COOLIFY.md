@@ -129,3 +129,50 @@ C'est probablement **ce qui avait bloqué « à l'époque »** — à confirmer 
 > Décision préalable pour Eva : on vise **tout dans Coolify** (db+redis+api+worker), ou
 > on **garde db/redis en compose** et on ne conteneurise que l'API ? (Le plus stable =
 > tout dans Coolify, mais plus de travail de migration des volumes.)
+
+## 8. Étape isolée — sortir le **cron PubMed quotidien** du crontab système vers Coolify
+
+Premier pas concret, indépendant de la migration complète de l'API : faire gérer la
+mise à jour quotidienne PubMed (`scripts/pubmed_daily.py`) par une **Scheduled Task
+Coolify** au lieu de la crontab de `geekette`. Bénéfice : plus de tâche invisible sur
+l'hôte, logs + historique d'exécution dans l'UI Coolify, redémarrage géré.
+
+### Comment ça marche dans Coolify
+
+Une *Scheduled Task* Coolify s'attache à une **application** et fait un `docker exec`
+d'une commande dans son conteneur, selon un cron. Il faut donc une petite application
+worker **qui reste vivante** (`sleep infinity`) ; le cron, lui, lance la commande dedans.
+
+### Pièces livrées dans le repo (cette PR)
+
+- **`Dockerfile.worker`** — image minimale (`python:3.12-slim` + `uv sync --no-dev`),
+  sans FastAPI servie, sans torch, sans codex (l'ingestion n'en a pas besoin). Le
+  conteneur ne fait que `sleep infinity` ; la Scheduled Task exécute le script.
+- **`requests`** ajouté aux dépendances cœur de `pyproject.toml` (le download des
+  updatefiles l'utilise ; il n'était que transitif → une install `--no-dev` cassait).
+
+### À créer côté Coolify (via API, une fois le token fourni)
+
+1. **Application** (build pack *Dockerfile*), repo `github.com/evausesgit/x-med`,
+   branche `main`, `Dockerfile.worker`. Pas de domaine, pas de port exposé.
+2. **Variables d'environnement** :
+   - `DATABASE_URL=postgresql+psycopg://xmed:xmed@10.0.1.1:5432/xmed`
+     (le Postgres X-Med tourne en compose sur l'hôte ; `10.0.1.1` = passerelle du
+     réseau Docker « coolify » vers l'hôte, comme pour l'API `:8800`).
+   - `DATA_DIR=/data/pubmed`
+3. **Bind-mount (Storage)** : hôte `/home/geekette/data/pubmed` → conteneur
+   `/data/pubmed`. Les updatefiles téléchargés y persistent et restent lisibles par
+   l'hôte (le conteneur tourne en **uid 1001 = `geekette`**).
+4. **Scheduled Task** : commande `python -m scripts.pubmed_daily`, cron `0 5 * * *`
+   (05:00 UTC, à l'identique de la crontab actuelle).
+5. **Pare-feu** : autoriser le réseau coolify vers Postgres si besoin —
+   `ufw allow from 10.0.1.0/24 to any port 5432 proto tcp` (analogue à la règle `:8800`).
+
+### Bascule
+
+Déployer, **déclencher la tâche une fois à la main** dans l'UI et vérifier les logs
+(download + ingestion OK, `ftp_state` avance). Une fois validée, **retirer la ligne
+`pubmed_daily` de la crontab** de `geekette` (garder le cron LinkedIn 6h, hors périmètre).
+
+> Le worker est aussi le point d'accroche naturel pour les futurs crons (embedding des
+> nouveaux articles pour combler le trou 2025-2026, LinkedIn, etc.) : une app, N tâches.
