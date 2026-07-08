@@ -1,10 +1,11 @@
-from app.models.article import Article, FtpState, MeshDescriptor
+from app.models.article import Article, ArticleSearch, FtpState, MeshDescriptor
 from app.models.benchmark import BenchQrel, BenchQuery, BenchResult, BenchRun
 from app.models.doctor import Doctor, DoctorProfile
 from app.models.saved_search import SavedSearch
 
 __all__ = [
     "Article",
+    "ArticleSearch",
     "FtpState",
     "MeshDescriptor",
     "BenchQuery",
