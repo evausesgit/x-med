@@ -27,6 +27,17 @@ class Settings(BaseSettings):
     codex_model: str = "gpt-5.4"
     codex_abstract_timeout: int = 900
 
+    # Table étroite de recherche FTS (`article_search`) : fenêtre glissante des
+    # dernières années, maintenue chaude en RAM. Le pré-filtre du pipeline PubMed
+    # est routé dessus quand la borne basse de la recherche est dans la fenêtre
+    # (sinon on retombe sur la table complète `articles`). La largeur de la fenêtre
+    # est définie UNE seule fois côté SQL (`article_search_min_year()`, migration
+    # 0006) — le routage l'interroge, pas de knob applicatif qui pourrait diverger.
+    # `use_narrow_search` reste False tant que le backfill initial n'est pas fait
+    # (sinon on servirait des résultats d'une table incomplète). Voir la migration
+    # 0006 et scripts/backfill_article_search.py.
+    use_narrow_search: bool = False
+
     # Garde-fou du pré-filtre local (FTS sur ~25 M d'articles) : au-delà de ce
     # délai, Postgres annule la requête et la recherche continue avec PubMed seul.
     # Monté à 2 min pour l'essai « mesurer le vrai temps » (base censée être chaude

@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.db import SessionLocal, get_session
-from app.models import Article, MeshDescriptor
+from app.models import Article, ArticleSearch, MeshDescriptor
 from app.services import search_cancel
 from app.services.embeddings import REGISTRY, get_model
 from app.services.explainability import explain_article
@@ -495,6 +495,24 @@ def _year(d: str | None) -> int | None:
         return None
 
 
+def _prefilter_source(session: Session, date_from: str | None):
+    """Choisit la table du pré-filtre FTS selon la borne basse de la recherche.
+
+    `article_search` (fenêtre récente, chaude en RAM → ~0,4 s) seulement si la
+    recherche est bornée dans la fenêtre ; sinon la table complète `articles`
+    (tout l'historique, mais froide → jusqu'à ~150 s, sous garde-fou timeout).
+    Une recherche sans borne basse couvre tout l'historique → `articles`.
+
+    La borne de fenêtre vient de la fonction SQL `article_search_min_year()` — même
+    source de vérité que le trigger et le prune (migration 0006), et même horloge
+    que la base (pas de dérive routage/DB au passage d'année civile)."""
+    yf = _year(date_from)
+    if not settings.use_narrow_search or yf is None:
+        return Article
+    min_year = session.scalar(sql_text("SELECT article_search_min_year()"))
+    return ArticleSearch if yf >= min_year else Article
+
+
 def _fmt_tokens(usage) -> str:
     """Format lisible des tokens d'un appel codex (ex. « 27 014 tokens »)."""
     n = f"{usage.total_tokens:,}".replace(",", " ")
@@ -579,13 +597,16 @@ def _run_deep_search(
     # déjà exhaustifs (synonymes cliniques + noms de molécules) et codex re-juge ensuite,
     # donc le gain de rappel du MeSH était marginal pour un coût prohibitif. `mesh` reste
     # utilisé pour la requête PubMed (esearch), pas pour le vivier local.
-    cond = Article.fts.op("@@")(tsq)
+    # Table étroite récente (chaude) si la recherche tient dans la fenêtre, sinon
+    # la table complète. `Src` a les mêmes colonnes (pmid, pub_year, fts).
+    Src = _prefilter_source(session, req.date_from)
+    cond = Src.fts.op("@@")(tsq)
     conditions = [cond]
     yf, yt = _year(req.date_from), _year(req.date_to)
     if yf is not None:
-        conditions.append(Article.pub_year >= yf)
+        conditions.append(Src.pub_year >= yf)
     if yt is not None:
-        conditions.append(Article.pub_year <= yt)
+        conditions.append(Src.pub_year <= yt)
     # SET LOCAL est borné au SAVEPOINT (begin_nested) : si la requête locale dépasse
     # LOCAL_SEARCH_TIMEOUT_MS, Postgres l'annule, on rollback au savepoint (le reste de
     # la transaction — fetch abstracts, cache de traduction — reste intact) et on
@@ -606,9 +627,9 @@ def _run_deep_search(
                 _LOCAL_SEARCH_PIDS[req.local_token] = pid
             local_pmids = list(
                 session.scalars(
-                    select(Article.pmid)
+                    select(Src.pmid)
                     .where(*conditions)
-                    .order_by(func.ts_rank(Article.fts, tsq).desc())
+                    .order_by(func.ts_rank(Src.fts, tsq).desc())
                     .limit(req.max_local)
                 ).all()
             )
