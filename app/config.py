@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     search_notify_hermes_bin: str = "hermes"
     search_notify_timeout: int = 20
 
+    # Envoi direct via l'API Telegram Bot (conteneurs Coolify : le CLI hermes
+    # n'y existe pas). Si les deux variables sont renseignées, elles priment
+    # sur le CLI hermes ; sinon repli sur hermes (dev local).
+    telegram_bot_token: str | None = None
+    telegram_chat_id: str | None = None
+
     @property
     def embedding_model_list(self) -> list[str]:
         return [m.strip() for m in self.embedding_models.split(",") if m.strip()]

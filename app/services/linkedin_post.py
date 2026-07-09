@@ -13,7 +13,6 @@ brouillon à relire.
 
 from __future__ import annotations
 
-import subprocess
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -293,25 +292,7 @@ def render_draft(post: GeneratedPost) -> str:
 
 
 def send_to_hermes(message: str) -> bool:
-    """Envoie le brouillon sur Telegram via Hermes. Retourne True si l'envoi part."""
-    try:
-        subprocess.run(
-            [
-                settings.search_notify_hermes_bin,
-                "send",
-                "--to",
-                settings.search_notify_target,
-                "--quiet",
-                "--file",
-                "-",
-            ],
-            input=message,
-            text=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=settings.search_notify_timeout,
-            check=False,
-        )
-        return True
-    except Exception:
-        return False
+    """Envoie le brouillon sur Telegram (API Bot ou Hermes selon la config)."""
+    from app.services.search_notifications import deliver_notification
+
+    return deliver_notification(message)
