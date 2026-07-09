@@ -1244,9 +1244,16 @@ def search_pubmed_deep_stream(
 
         # État d'annulation de CETTE recherche (bouton « Arrêter » du front).
         # Enregistré sous le jeton fourni ; sans jeton, un état orphelin inerte.
-        cancel_state = (
-            search_cancel.register(local_token) if local_token else search_cancel.CancelState()
-        )
+        if local_token:
+            cancel_state = search_cancel.register(local_token)
+            if cancel_state is None:
+                # Jeton déjà vu = RECONNEXION EventSource (proxy/réseau) ou relance :
+                # on NE relance PAS de recherche (sinon appels codex en double +
+                # process orphelins). On clôt proprement ; le front ferme l'ES.
+                yield sse("stopped", {"msg": "⏹️ Recherche déjà en cours ou arrêtée."})
+                return
+        else:
+            cancel_state = search_cancel.CancelState()
 
         def progress(phase: str, msg: str, data: dict) -> None:
             # Point d'arrêt coopératif : chaque jalon du pipeline passe ici, donc
