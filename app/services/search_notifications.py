@@ -12,9 +12,65 @@ from datetime import datetime
 from threading import Thread
 from typing import Any, Literal
 
+import httpx
+
 from app.config import settings
 
 SearchStatus = Literal["ok", "error", "stopped"]
+
+# Limite dure de l'API Telegram sendMessage (4096 caractères), avec une marge.
+_TELEGRAM_MAX_LEN = 4000
+
+
+def _send_via_telegram_api(message: str) -> bool:
+    """Envoi direct via l'API Telegram Bot (pas de CLI hermes requis)."""
+    if not (settings.telegram_bot_token and settings.telegram_chat_id):
+        return False
+    try:
+        response = httpx.post(
+            f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage",
+            json={
+                "chat_id": settings.telegram_chat_id,
+                "text": message[:_TELEGRAM_MAX_LEN],
+                "disable_web_page_preview": True,
+            },
+            timeout=settings.search_notify_timeout,
+        )
+        return response.is_success
+    except Exception:
+        return False
+
+
+def _send_via_hermes(message: str) -> bool:
+    """Envoi via le CLI hermes (poste de dev, où le gateway tourne)."""
+    try:
+        subprocess.run(
+            [
+                settings.search_notify_hermes_bin,
+                "send",
+                "--to",
+                settings.search_notify_target,
+                "--quiet",
+                "--file",
+                "-",
+            ],
+            input=message,
+            text=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=settings.search_notify_timeout,
+            check=False,
+        )
+        return True
+    except Exception:
+        return False
+
+
+def deliver_notification(message: str) -> bool:
+    """Achemine un message vers Telegram : API Bot si configurée, sinon hermes."""
+    if _send_via_telegram_api(message):
+        return True
+    return _send_via_hermes(message)
 
 
 def _short(value: str | None, *, limit: int = 700) -> str:
@@ -126,26 +182,7 @@ def send_search_notification(
     )
 
     def _send() -> None:
-        try:
-            subprocess.run(
-                [
-                    settings.search_notify_hermes_bin,
-                    "send",
-                    "--to",
-                    settings.search_notify_target,
-                    "--quiet",
-                    "--file",
-                    "-",
-                ],
-                input=message,
-                text=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                timeout=settings.search_notify_timeout,
-                check=False,
-            )
-        except Exception:
-            # Notification best-effort: ne jamais casser l'API de recherche.
-            return
+        # Notification best-effort: ne jamais casser l'API de recherche.
+        deliver_notification(message)
 
     Thread(target=_send, daemon=True).start()
