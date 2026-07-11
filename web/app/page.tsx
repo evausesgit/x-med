@@ -409,6 +409,10 @@ export default function Home() {
   // recherche : codex tué + pipeline stoppé côté serveur).
   const localTokenRef = useRef<string>("");
   const [stoppingLocal, setStoppingLocal] = useState(false);
+  // Fenêtre de garde après un clic sur « Arrêter » (voir handleStopSearch) :
+  // ignore toute resoumission du formulaire (double-clic, touche Entrée) le
+  // temps que le bouton reprenne son état normal.
+  const [justStopped, setJustStopped] = useState(false);
   // Numéro de lancement : incrémenté à chaque recherche ET à chaque arrêt. Une
   // étape asynchrone (lookup du cache des recherches sauvegardées) ne poursuit
   // que si son numéro est encore le courant — sinon la recherche a été arrêtée
@@ -808,6 +812,14 @@ export default function Home() {
     void stopDeepSearch(localTokenRef.current);
     setLoading(false);
     setStoppingLocal(false);
+    // Fenêtre de garde : sans elle, le bouton « Arrêter » redevient « Explorer →»
+    // (submit) au même endroit sous le curseur au rendu suivant. Un double-clic
+    // (réflexe naturel quand l'arrêt semble ne rien faire) atterrit alors sur
+    // « Explorer » et relance aussitôt une recherche complète — d'où l'impression
+    // que le bouton stop « relance une recherche ». On bloque les resoumissions
+    // pendant un court instant le temps que l'utilisateur voie que c'est arrêté.
+    setJustStopped(true);
+    window.setTimeout(() => setJustStopped(false), 600);
     setLogs((prev) => [
       ...prev,
       {
@@ -833,6 +845,7 @@ export default function Home() {
         className="xm-searchbar"
         onSubmit={(e) => {
           e.preventDefault();
+          if (justStopped) return; // voir handleStopSearch : anti double-clic/Entrée
           runSearch(0);
         }}
       >
@@ -859,6 +872,12 @@ export default function Home() {
             title="Arrêter la recherche en cours (pour corriger ou changer votre question)"
           >
             ⏹ Arrêter
+          </button>
+        ) : justStopped ? (
+          // Fenêtre de garde : le bouton reste visiblement « arrêté » un court
+          // instant plutôt que de redevenir aussitôt cliquable au même endroit.
+          <button type="button" className="xm-explore" disabled>
+            ⏹ Arrêté
           </button>
         ) : (
           <button type="submit" className="xm-explore" disabled={loading}>
