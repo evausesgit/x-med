@@ -682,9 +682,6 @@ export default function Home() {
       </form>
 
       <div className="xm-method-row">
-        <span className="xm-method-label">MÉTHODE</span>
-        <span className="xm-chip on">PubMed + IA</span>
-
         <div className="xm-daterange">
           <svg viewBox="0 0 24 24">
             <rect x="3" y="5" width="18" height="16" rx="2" />
