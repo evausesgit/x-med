@@ -3,31 +3,22 @@
 import { useEffect, useRef, useState } from "react";
 import {
   analyzeCompareStream,
-  ArticleResult,
   DeepSearchResponse,
   Doctor,
-  EmbeddingModelInfo,
   listDoctors,
-  listModels,
   lookupSavedSearch,
-  meshAutocomplete,
   PubmedLog,
   saveSearch,
-  searchMesh,
   searchPubmedDeepMoreStream,
   searchPubmedDeepStream,
-  searchSemantic,
-  SearchResponse,
   stopDeepSearch,
   stopLocalSearch,
 } from "@/lib/api";
 import type { CompareResult, DeepHit } from "@/lib/api";
 import Link from "next/link";
-import XMedResult, { deepRelevance, StructuredAbstract, type Relevance } from "./XMedResult";
+import XMedResult, { deepRelevance, StructuredAbstract } from "./XMedResult";
 import { CritiquePanel, MAX_COMPARE, SelectButton } from "./Critique";
 import { LanguageToggle, useDisplayLang, useTranslatedHits } from "./lang";
-
-const PAGE = 20;
 
 // Durée d'une recherche PubMed + IA (jugement codex). En pratique 30–90 s ; le
 // backend laisse beaucoup plus avant d'abandonner (timeouts codex : 180 s pour
@@ -40,90 +31,6 @@ const DEEP_LONG_S = 180; // au-delà : on prévient que c'est une recherche long
 // Format chrono lisible : « 12s », puis « 1 min 05s ».
 const fmtElapsed = (s: number) =>
   s < 60 ? `${s}s` : `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, "0")}s`;
-
-// Seuils de pertinence pour la recherche par sens (similarité cosinus bge-m3).
-// ⚠ Provisoires : à caler sur le gold set annoté par les médecins (/annotate).
-const SEM_RELEVANT = 0.5; // en-dessous : on prévient que rien n'est vraiment pertinent
-const SEM_FLOOR = 0.45; // en-dessous : hors périmètre couvert
-
-// --- Pertinence par méthode → format commun de la carte (anneau + pastille) ---
-// Chaque méthode a sa propre échelle ; on convertit ici en {pct, tier, label}.
-
-// Sémantique : `score` EST la similarité cosinus (0–1), signal ABSOLU. Affiché tel
-// quel (pas de normalisation au meilleur de la page).
-function semanticRelevance(score: number): Relevance {
-  const pct = Math.round(score * 100);
-  const tier: Relevance["tier"] =
-    score >= 0.6 ? "high" : score >= SEM_RELEVANT ? "mid" : score >= SEM_FLOOR ? "low" : "off";
-  const label =
-    score >= 0.6
-      ? "Très pertinent"
-      : score >= SEM_RELEVANT
-        ? "Pertinent"
-        : score >= SEM_FLOOR
-          ? "Lié"
-          : "Hors périmètre";
-  return {
-    pct,
-    tier,
-    label,
-    title: `Similarité de sens : ${score.toFixed(3)} (0–1, signal absolu, non normalisé).`,
-  };
-}
-
-function Explanation({ article }: { article: ArticleResult }) {
-  const explanation = article.explanation;
-  if (!explanation) return null;
-
-  const hasExplanation =
-    explanation.concepts.length > 0 ||
-    explanation.population ||
-    explanation.intervention ||
-    explanation.study_type;
-
-  if (!hasExplanation) return null;
-
-  return (
-    <details className="explanation" style={{ marginTop: 14 }}>
-      <summary>Pourquoi ce résultat ?</summary>
-      <p className="explanation-note">
-        Indices issus de l&apos;indexation PubMed et des mentions repérées dans le
-        résumé. Ils expliquent le contenu rapproché de la question, sans constituer
-        une validation clinique.
-      </p>
-      <dl className="explanation-grid">
-        {explanation.concepts.length > 0 && (
-          <div>
-            <dt>Concepts</dt>
-            <dd>{explanation.concepts.join(" · ")}</dd>
-          </div>
-        )}
-        {explanation.population && (
-          <div>
-            <dt>Population</dt>
-            <dd>{explanation.population}</dd>
-          </div>
-        )}
-        {explanation.intervention && (
-          <div>
-            <dt>Intervention</dt>
-            <dd>{explanation.intervention}</dd>
-          </div>
-        )}
-        {explanation.study_type && (
-          <div>
-            <dt>Type d&apos;étude</dt>
-            <dd>{explanation.study_type}</dd>
-          </div>
-        )}
-      </dl>
-    </details>
-  );
-}
-
-// Recherche PubMed + IA (filtre lexical/MeSH → jugement codex), recherche par
-// sens (sémantique) et recherche par mots-clés/MeSH.
-type Mode = "pubmed_v2" | "semantic" | "keyword";
 
 function CopyLinkButton() {
   const [copied, setCopied] = useState(false);
@@ -360,26 +267,10 @@ const SearchIcon = (
 );
 
 export default function Home() {
-  const [mode, setMode] = useState<Mode>("pubmed_v2");
   const [q, setQ] = useState("");
-  const [mesh, setMesh] = useState<string[]>([]);
-  const [meshMode, setMeshMode] = useState<"and" | "or">("or");
-  const [yearFrom, setYearFrom] = useState("");
-  const [yearTo, setYearTo] = useState("");
-  const [evidenceMax, setEvidenceMax] = useState("");
 
   const [dateFrom, setDateFrom] = useState("2025-01-01");
   const [dateTo, setDateTo] = useState(() => new Date().toISOString().slice(0, 10));
-
-  const [meshInput, setMeshInput] = useState("");
-  const [suggestions, setSuggestions] = useState<string[]>([]);
-
-  const [models, setModels] = useState<EmbeddingModelInfo[]>([]);
-  const [model, setModel] = useState("");
-
-  // Recherche PubMed + IA : filtre lexical+MeSH local borné, puis un appel codex
-  // de jugement (méthode unique).
-  const isPubmed = mode === "pubmed_v2";
 
   // Algo PubMed : v1 (tri par score IA) ou v2 « hybride re-classé » (tri par
   // pertinence PubMed Best Match + k_pubmed élevé). Ref pour éviter une lecture
@@ -391,11 +282,9 @@ export default function Home() {
   const [judgeBatch, setJudgeBatch] = useState(50);
   const [localFloor, setLocalFloor] = useState(0);
 
-  const [data, setData] = useState<SearchResponse | null>(null);
   const [deep, setDeep] = useState<DeepSearchResponse | null>(null);
   const [savedHit, setSavedHit] = useState<{ id: string; created_at: string } | null>(null);
   const [logs, setLogs] = useState<PubmedLog[]>([]);
-  const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(false);
   // Jugement d'un lot supplémentaire (« Analyser 50 de plus ») en cours.
   const [loadingMore, setLoadingMore] = useState(false);
@@ -564,49 +453,12 @@ export default function Home() {
     });
   }
 
-  useEffect(() => {
-    listModels().then((ms) => {
-      setModels(ms);
-      const ready =
-        ms.find((m) => m.name === "bge_m3" && m.embedded > 0) ||
-        ms.find((m) => m.embedded > 0) ||
-        ms[0];
-      if (ready) setModel(ready.name);
-    });
-  }, []);
-
-  const acTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    if (acTimer.current) clearTimeout(acTimer.current);
-    if (!meshInput.trim()) {
-      setSuggestions([]);
-      return;
-    }
-    acTimer.current = setTimeout(async () => {
-      setSuggestions(await meshAutocomplete(meshInput.trim()));
-    }, 180);
-  }, [meshInput]);
-
-  function syncUrl(m: Mode, query: string) {
+  function syncUrl(query: string) {
     const sp = new URLSearchParams();
-    sp.set("mode", m);
     if (query.trim()) sp.set("q", query.trim());
-    if (m === "pubmed_v2") {
-      if (dateFrom) sp.set("from", dateFrom);
-      if (dateTo) sp.set("to", dateTo);
-    }
+    if (dateFrom) sp.set("from", dateFrom);
+    if (dateTo) sp.set("to", dateTo);
     window.history.replaceState(null, "", `?${sp.toString()}`);
-  }
-
-  function selectMode(m: Mode) {
-    setMode(m);
-    syncUrl(m, q);
-  }
-
-  // Clic sur la pastille de méthode.
-  function selectMethod(method: "pubmed" | "semantic" | "keyword") {
-    if (method === "pubmed") selectMode("pubmed_v2");
-    else selectMode(method);
   }
 
   // Bascule algo v1/v2 : on met la ref à jour AVANT de relancer (setAlgo est
@@ -616,20 +468,13 @@ export default function Home() {
     if (v === algo) return;
     algoRef.current = v;
     setAlgo(v);
-    if (isPubmed && q.trim()) runSearch(0, { force: true });
+    if (q.trim()) runSearch({ force: true });
   }
 
   const autorun = useRef(false);
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
-    const m = sp.get("mode");
     const query = sp.get("q");
-    if (m === "pubmed_v2" || m === "semantic" || m === "keyword") {
-      setMode(m);
-    } else if (m === "pubmed" || m === "pubmed_v1") {
-      // rétro-compat des anciens liens (?mode=pubmed, ?mode=pubmed_v1) → méthode unique.
-      setMode("pubmed_v2");
-    }
     const from = sp.get("from");
     const to = sp.get("to");
     if (from) setDateFrom(from);
@@ -642,150 +487,114 @@ export default function Home() {
 
   useEffect(() => {
     if (!autorun.current) return;
-    if (mode === "semantic" && !model) return;
     autorun.current = false;
-    runSearch(0);
+    runSearch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, model, q]);
+  }, [q]);
 
-  async function runSearch(newOffset = 0, opts: { force?: boolean } = {}) {
+  async function runSearch(opts: { force?: boolean } = {}) {
     const runId = ++runIdRef.current;
     setLoading(true);
     setError(null);
     setCodexLimit(false);
-    syncUrl(mode, q);
+    syncUrl(q);
     try {
-      if (isPubmed) {
-        if (!q.trim()) {
-          setLoading(false);
-          return;
-        }
-        setData(null);
-        setDeep(null);
-        setSavedHit(null);
-        setLogs([]);
-        setOffset(0);
-        setLoadingMore(false);
-        clearSelection();
-        esRef.current?.close();
-        moreRef.current?.close();
-        localTokenRef.current =
-          typeof crypto !== "undefined" && "randomUUID" in crypto
-            ? crypto.randomUUID()
-            : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        setStoppingLocal(false);
-        // Recherche PubMed + IA : streaming SSE (déroulé en direct) pour ne pas
-        // se faire couper par le proxy sur les requêtes longues.
-        // Avant tout appel codex (coûteux), on regarde si une recherche identique
-        // a déjà été sauvegardée : on réaffiche alors le snapshot.
-        // `force` (bouton « Relancer quand même ») court-circuite ce cache.
-        if (!opts.force) {
-          let existing = null;
-          try {
-            existing = await lookupSavedSearch({
-              query: q.trim(),
-              date_from: dateFrom || undefined,
-              date_to: dateTo || undefined,
-            });
-          } catch {
-            /* lookup best-effort : en cas d'échec, on relance la recherche */
-          }
-          // Arrêtée ou remplacée pendant le lookup : ne pas ouvrir le stream.
-          if (runId !== runIdRef.current) return;
-          if (existing) {
-            setDeep(existing.payload);
-            setSavedHit({ id: existing.id, created_at: existing.created_at });
-            setLoading(false);
-            return;
-          }
-        }
-        esRef.current = searchPubmedDeepStream(
-          q.trim(),
-          dateFrom || undefined,
-          dateTo || undefined,
-          algoRef.current === "v2" ? 50 : 20,
-          {
-            onLog: (log) => {
-              setLogs((prev) => [...prev, log]);
-              if (log.phase === "codex_limit") setCodexLimit(true);
-            },
-            onResult: (res) => {
-              setDeep(res);
-              if (res.codex_limit) setCodexLimit(true);
-              setLoading(false);
-            },
-            onError: (msg) => {
-              if (msg && /usage limit|limite d'usage|rate limit/i.test(msg))
-                setCodexLimit(true);
-              setError(msg || "La recherche a échoué.");
-              setLoading(false);
-            },
-            // Recherche arrêtée côté serveur (normalement le clic sur « Arrêter »
-            // a déjà tout remis en état ici — filet de sécurité).
-            onStopped: () => setLoading(false),
-            // Traductions FR qui arrivent après les résultats : on les fusionne.
-            onTranslations: (fr) =>
-              setDeep((prev) =>
-                prev
-                  ? {
-                      ...prev,
-                      results: prev.results.map((r) =>
-                        fr[String(r.pmid)]
-                          ? {
-                              ...r,
-                              abstract_fr: fr[String(r.pmid)].abstract_fr,
-                              title_fr: fr[String(r.pmid)].title_fr || r.title_fr,
-                            }
-                          : r,
-                      ),
-                    }
-                  : prev,
-              ),
-          },
-          {
-            rrf: algoRef.current === "v2",
-            judgeBatch,
-            localFloor: algoRef.current === "v2" ? localFloor : 0,
-            localToken: localTokenRef.current,
-          },
-        );
-        return; // `loading` reste vrai jusqu'à onResult/onError
+      if (!q.trim()) {
+        setLoading(false);
+        return;
       }
-      let res: SearchResponse;
-      if (mode === "semantic") {
-        if (!q.trim()) {
-          setLoading(false);
-          return;
-        }
-        res = await searchSemantic(q.trim(), model, PAGE);
-      } else {
-        res = await searchMesh({
-          q: q.trim() || undefined,
-          mesh,
-          mode: meshMode,
-          yearFrom: yearFrom ? Number(yearFrom) : undefined,
-          yearTo: yearTo ? Number(yearTo) : undefined,
-          evidenceMax: evidenceMax ? Number(evidenceMax) : undefined,
-          limit: PAGE,
-          offset: newOffset,
-        });
-      }
-      setData(res);
       setDeep(null);
-      setOffset(newOffset);
-      setLoading(false);
+      setSavedHit(null);
+      setLogs([]);
+      setLoadingMore(false);
+      clearSelection();
+      esRef.current?.close();
+      moreRef.current?.close();
+      localTokenRef.current =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      setStoppingLocal(false);
+      // Recherche PubMed + IA : streaming SSE (déroulé en direct) pour ne pas
+      // se faire couper par le proxy sur les requêtes longues.
+      // Avant tout appel codex (coûteux), on regarde si une recherche identique
+      // a déjà été sauvegardée : on réaffiche alors le snapshot.
+      // `force` (bouton « Relancer quand même ») court-circuite ce cache.
+      if (!opts.force) {
+        let existing = null;
+        try {
+          existing = await lookupSavedSearch({
+            query: q.trim(),
+            date_from: dateFrom || undefined,
+            date_to: dateTo || undefined,
+          });
+        } catch {
+          /* lookup best-effort : en cas d'échec, on relance la recherche */
+        }
+        // Arrêtée ou remplacée pendant le lookup : ne pas ouvrir le stream.
+        if (runId !== runIdRef.current) return;
+        if (existing) {
+          setDeep(existing.payload);
+          setSavedHit({ id: existing.id, created_at: existing.created_at });
+          setLoading(false);
+          return;
+        }
+      }
+      esRef.current = searchPubmedDeepStream(
+        q.trim(),
+        dateFrom || undefined,
+        dateTo || undefined,
+        algoRef.current === "v2" ? 50 : 20,
+        {
+          onLog: (log) => {
+            setLogs((prev) => [...prev, log]);
+            if (log.phase === "codex_limit") setCodexLimit(true);
+          },
+          onResult: (res) => {
+            setDeep(res);
+            if (res.codex_limit) setCodexLimit(true);
+            setLoading(false);
+          },
+          onError: (msg) => {
+            if (msg && /usage limit|limite d'usage|rate limit/i.test(msg))
+              setCodexLimit(true);
+            setError(msg || "La recherche a échoué.");
+            setLoading(false);
+          },
+          // Recherche arrêtée côté serveur (normalement le clic sur « Arrêter »
+          // a déjà tout remis en état ici — filet de sécurité).
+          onStopped: () => setLoading(false),
+          // Traductions FR qui arrivent après les résultats : on les fusionne.
+          onTranslations: (fr) =>
+            setDeep((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    results: prev.results.map((r) =>
+                      fr[String(r.pmid)]
+                        ? {
+                            ...r,
+                            abstract_fr: fr[String(r.pmid)].abstract_fr,
+                            title_fr: fr[String(r.pmid)].title_fr || r.title_fr,
+                          }
+                        : r,
+                    ),
+                  }
+                : prev,
+            ),
+        },
+        {
+          rrf: algoRef.current === "v2",
+          judgeBatch,
+          localFloor: algoRef.current === "v2" ? localFloor : 0,
+          localToken: localTokenRef.current,
+        },
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur inconnue");
-      setData(null);
       setDeep(null);
       setLoading(false);
     }
-  }
-
-  function addMesh(term: string) {
-    if (!mesh.includes(term)) setMesh([...mesh, term]);
-    setMeshInput("");
-    setSuggestions([]);
   }
 
   // La requête FTS locale tourne si le dernier événement du déroulé est
@@ -829,14 +638,6 @@ export default function Home() {
     ]);
   }
 
-  const selectedModel = models.find((m) => m.name === model);
-  const noEmbeddings = mode === "semantic" && selectedModel && selectedModel.embedded === 0;
-
-  const topScore =
-    data && data.results.length ? Math.max(0, ...data.results.map((r) => r.score ?? 0)) : 0;
-  const weakSemantic =
-    mode === "semantic" && data !== null && data.results.length > 0 && topScore < SEM_RELEVANT;
-
   return (
     <main className="xm-page">
       <h1 className="xm-hero">Que recherchez-vous aujourd’hui, Docteur&nbsp;?</h1>
@@ -846,23 +647,17 @@ export default function Home() {
         onSubmit={(e) => {
           e.preventDefault();
           if (justStopped) return; // voir handleStopSearch : anti double-clic/Entrée
-          runSearch(0);
+          runSearch();
         }}
       >
         {SearchIcon}
         <input
           type="text"
-          placeholder={
-            mode === "semantic"
-              ? "Ex. : crise cardiaque chez le patient diabétique âgé…"
-              : isPubmed
-                ? "Décrivez votre question clinique en français…"
-                : "Mots-clés (anglais) : myocardial infarction, diabetes…"
-          }
+          placeholder="Décrivez votre question clinique en français…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
-        {loading && isPubmed ? (
+        {loading ? (
           // Pendant une recherche PubMed + IA, « Explorer » devient « Arrêter » :
           // on peut abandonner à tout moment pour corriger ou reformuler.
           <button
@@ -888,66 +683,42 @@ export default function Home() {
 
       <div className="xm-method-row">
         <span className="xm-method-label">MÉTHODE</span>
-        <button
-          type="button"
-          className={`xm-chip ${isPubmed ? "on" : ""}`}
-          onClick={() => selectMethod("pubmed")}
-        >
-          PubMed + IA
-        </button>
-        <button
-          type="button"
-          className={`xm-chip ${mode === "semantic" ? "on" : ""}`}
-          onClick={() => selectMethod("semantic")}
-        >
-          Par sens
-        </button>
-        <button
-          type="button"
-          className={`xm-chip ${mode === "keyword" ? "on" : ""}`}
-          onClick={() => selectMethod("keyword")}
-        >
-          Mots-clés / MeSH
-        </button>
+        <span className="xm-chip on">PubMed + IA</span>
 
-        {isPubmed && (
-          <div className="xm-daterange">
-            <svg viewBox="0 0 24 24">
-              <rect x="3" y="5" width="18" height="16" rx="2" />
-              <path d="M3 9h18M8 3v4M16 3v4" />
-            </svg>
-            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-            <span className="sep">→</span>
-            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-          </div>
-        )}
+        <div className="xm-daterange">
+          <svg viewBox="0 0 24 24">
+            <rect x="3" y="5" width="18" height="16" rx="2" />
+            <path d="M3 9h18M8 3v4M16 3v4" />
+          </svg>
+          <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+          <span className="sep">→</span>
+          <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+        </div>
 
-        {isPubmed && (
-          <div
-            className="xm-algo-toggle"
-            title="v1 = tri par score IA · v2 = tri par pertinence PubMed (Best Match) + vivier PubMed élargi"
+        <div
+          className="xm-algo-toggle"
+          title="v1 = tri par score IA · v2 = tri par pertinence PubMed (Best Match) + vivier PubMed élargi"
+        >
+          <span className="xm-method-label">TRI</span>
+          <button
+            type="button"
+            className={`xm-chip ${algo === "v1" ? "on" : ""}`}
+            onClick={() => switchAlgo("v1")}
           >
-            <span className="xm-method-label">TRI</span>
-            <button
-              type="button"
-              className={`xm-chip ${algo === "v1" ? "on" : ""}`}
-              onClick={() => switchAlgo("v1")}
-            >
-              v1 · score IA
-            </button>
-            <button
-              type="button"
-              className={`xm-chip ${algo === "v2" ? "on" : ""}`}
-              onClick={() => switchAlgo("v2")}
-            >
-              v2 · fusion RRF
-            </button>
-          </div>
-        )}
+            v1 · score IA
+          </button>
+          <button
+            type="button"
+            className={`xm-chip ${algo === "v2" ? "on" : ""}`}
+            onClick={() => switchAlgo("v2")}
+          >
+            v2 · fusion RRF
+          </button>
+        </div>
       </div>
 
       {/* Curseurs v2 : total analysé par lot + minimum local garanti dans le lot. */}
-      {isPubmed && algo === "v2" && (
+      {algo === "v2" && (
         <div className="xm-sliders">
           <label className="xm-slider">
             <span>
@@ -986,118 +757,14 @@ export default function Home() {
         </div>
       )}
 
-      {/* PubMed + IA : note de fonctionnement (méthode unique). */}
-      {isPubmed && (
-        <p
-          className="meta"
-          style={{ margin: "12px 2px 0", color: "var(--faint)", fontSize: 12.5 }}
-        >
-          L’IA construit une requête experte, on pré-filtre la base en local
-          (mots-clés + MeSH), puis GPT-5.4 lit et juge uniquement ces candidats —
-          rapide, insensible à la largeur de la période.
-        </p>
-      )}
-
-      {/* Sémantique : sélecteur de modèle d'embedding. */}
-      {mode === "semantic" && (
-        <div className="filters">
-          <div className="field">
-            <label>Modèle d&apos;embedding</label>
-            <select value={model} onChange={(e) => setModel(e.target.value)}>
-              {models.map((m) => (
-                <option key={m.name} value={m.name}>
-                  {m.name} ({m.embedded.toLocaleString("fr-FR")} articles)
-                </option>
-              ))}
-            </select>
-          </div>
-          {noEmbeddings && (
-            <p className="error" style={{ alignSelf: "center" }}>
-              ⚠ Ce modèle n&apos;a pas encore d&apos;articles vectorisés.
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Mots-clés : chips MeSH + filtres. */}
-      {mode === "keyword" && (
-        <>
-          <div className="mesh-box">
-            {mesh.length > 0 && (
-              <div className="chips">
-                {mesh.map((m) => (
-                  <span className="chip" key={m}>
-                    {m}
-                    <button
-                      type="button"
-                      onClick={() => setMesh(mesh.filter((x) => x !== m))}
-                      aria-label={`Retirer ${m}`}
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-            <input
-              type="text"
-              placeholder="Ajouter un tag MeSH (autocomplétion)…"
-              value={meshInput}
-              onChange={(e) => setMeshInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && suggestions.length) {
-                  e.preventDefault();
-                  addMesh(suggestions[0]);
-                }
-              }}
-              style={{ width: "100%" }}
-            />
-            {suggestions.length > 0 && (
-              <div className="suggestions">
-                {suggestions.map((s) => (
-                  <div key={s} onClick={() => addMesh(s)}>
-                    {s}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="filters">
-            {mesh.length > 1 && (
-              <div className="field">
-                <label>Combinaison des tags</label>
-                <div className="toggle">
-                  <button type="button" className={meshMode === "or" ? "on" : ""} onClick={() => setMeshMode("or")}>
-                    OU
-                  </button>
-                  <button type="button" className={meshMode === "and" ? "on" : ""} onClick={() => setMeshMode("and")}>
-                    ET
-                  </button>
-                </div>
-              </div>
-            )}
-            <div className="field">
-              <label>Année min.</label>
-              <input type="number" value={yearFrom} onChange={(e) => setYearFrom(e.target.value)} placeholder="1975" />
-            </div>
-            <div className="field">
-              <label>Année max.</label>
-              <input type="number" value={yearTo} onChange={(e) => setYearTo(e.target.value)} placeholder="2026" />
-            </div>
-            <div className="field">
-              <label>Niveau de preuve max.</label>
-              <select value={evidenceMax} onChange={(e) => setEvidenceMax(e.target.value)}>
-                <option value="">Tous</option>
-                <option value="1">1 — élevée</option>
-                <option value="2">≤ 2</option>
-                <option value="3">≤ 3</option>
-                <option value="4">≤ 4</option>
-              </select>
-            </div>
-          </div>
-        </>
-      )}
+      <p
+        className="meta"
+        style={{ margin: "12px 2px 0", color: "var(--faint)", fontSize: 12.5 }}
+      >
+        L’IA construit une requête experte, on pré-filtre la base en local
+        (mots-clés + MeSH), puis GPT-5.4 lit et juge uniquement ces candidats —
+        rapide, insensible à la largeur de la période.
+      </p>
 
       {codexLimit && (
         <div className="xm-banner error" role="alert">
@@ -1111,10 +778,10 @@ export default function Home() {
 
       {error && <p className="xm-banner error">⚠ {error}</p>}
 
-      {(loading || loadingMore || (isPubmed && logs.length > 0)) && (
+      {(loading || loadingMore || logs.length > 0) && (
         <LiveEvents
           running={loading || loadingMore}
-          variant={isPubmed ? "pubmed" : "other"}
+          variant="pubmed"
           logs={logs}
           stopLocal={
             localSearching
@@ -1122,77 +789,6 @@ export default function Home() {
               : null
           }
         />
-      )}
-
-      {/* ---------- Résultats sémantique / mots-clés ---------- */}
-      {data && (
-        <>
-          <div className="xm-results-head">
-            <span className="xm-results-count">
-              {data.total.toLocaleString("fr-FR")} résultat(s)
-              {mode === "keyword" &&
-                data.total > 0 &&
-                ` · affichage ${offset + 1}–${Math.min(offset + PAGE, data.total)}`}
-            </span>
-            <CopyLinkButton />
-          </div>
-
-          {weakSemantic && (
-            <p className="xm-banner warn">
-              Aucun article vraiment pertinent pour cette requête. Le périmètre couvert
-              par la recherche sémantique est encore limité (surtout gynéco-obstétrique
-              &amp; ophtalmologie) — les résultats ci-dessous sont les plus proches, pas
-              forcément adaptés. Essayez le mode «&nbsp;Mots-clés&nbsp;».
-            </p>
-          )}
-
-          <div>
-            {data.results.map((r: ArticleResult, i: number) => {
-              const e = r.explanation;
-              const hasExp = !!(
-                e &&
-                (e.concepts.length > 0 || e.population || e.intervention || e.study_type)
-              );
-              const detail =
-                r.abstract_snippet || hasExp ? (
-                  <>
-                    {r.abstract_snippet && (
-                      <span style={{ whiteSpace: "pre-line" }}>{r.abstract_snippet}</span>
-                    )}
-                    <Explanation article={r} />
-                  </>
-                ) : undefined;
-              return (
-                <XMedResult
-                  key={r.pmid}
-                  rank={offset + i + 1}
-                  title={r.title}
-                  journal={r.journal}
-                  year={r.pub_year}
-                  level={r.evidence_level}
-                  relevance={
-                    mode === "semantic" && r.score != null ? semanticRelevance(r.score) : undefined
-                  }
-                  pubmedUrl={r.pubmed_url}
-                  mesh={r.mesh_terms ?? undefined}
-                >
-                  {detail}
-                </XMedResult>
-              );
-            })}
-          </div>
-
-          {mode === "keyword" && data.total > PAGE && (
-            <div className="pager">
-              <button disabled={offset === 0 || loading} onClick={() => runSearch(Math.max(0, offset - PAGE))}>
-                ← Précédent
-              </button>
-              <button disabled={offset + PAGE >= data.total || loading} onClick={() => runSearch(offset + PAGE)}>
-                Suivant →
-              </button>
-            </div>
-          )}
-        </>
       )}
 
       {/* ---------- Résultats PubMed v2 (deep) ---------- */}
@@ -1236,7 +832,7 @@ export default function Home() {
               <button
                 type="button"
                 style={{ minHeight: 32, padding: "4px 12px" }}
-                onClick={() => runSearch(0, { force: true })}
+                onClick={() => runSearch({ force: true })}
               >
                 Relancer quand même
               </button>
