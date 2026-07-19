@@ -1,32 +1,37 @@
 :root {
-  /* Design system « X-Med App » : papier chaud, vert profond, or réservé au
-     plus haut niveau de preuve. (Source : X-Med Design Board.) */
-  --bg: #f6f4ee; /* Paper */
+  /* Design system « X-Med App » — variante « Clinique / confiance » : papier
+     blanc-bleuté, bleu médical, or réservé au plus haut niveau de preuve. */
+  --bg: #f3f6fb; /* Paper */
   --surface: #ffffff; /* Surface */
-  --surface-soft: #f1efe8;
-  --line: #e7e1d6;
-  --line-strong: #d8d1c3;
-  --text: #1a1712; /* Ink */
-  --muted: #5b554c;
-  --faint: #a39b8d;
-  --accent: #1f5147; /* Accent (vert profond) */
-  --accent-hover: #173b34;
-  --accent-soft: #e6efea;
+  --surface-soft: #eaf1fa;
+  --line: #d7e3f0;
+  --line-strong: #b9cbe3;
+  --text: #101828; /* Ink */
+  --muted: #55637a;
+  --faint: #8996ac;
+  --accent: #2563eb; /* Accent (bleu médical) */
+  --accent-hover: #1d4ed8;
+  --accent-soft: #e5edfd;
+  --accent-soft-line: #c7d9fb;
   --gold: #b6852a; /* réservé preuve élevée / mise en avant */
   --amber-soft: #f6eccf;
   --red-soft: #f6e3da;
-  --shadow: 0 18px 50px rgba(46, 38, 26, 0.08);
+  --shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
 
   /* Polices du design system. Les familles auto-hébergées sont fournies par
-     next/font (variables --ff-*, posées sur <html>) ; on y ajoute un repli. */
-  --font-serif: var(--ff-serif), Georgia, "Times New Roman", serif;
+     next/font (variables --ff-*, posées sur <html>) ; on y ajoute un repli.
+     Variante « Clinique » : le token --font-serif (titres/héros/cartes) pointe
+     sur la même famille sans-serif que le corps de texte, pas sur --ff-serif —
+     direction délibérément non-éditoriale, à la place du serif Newsreader. */
+  --font-serif: var(--ff-sans), system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-sans: var(--ff-sans), system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: var(--ff-mono), ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 
 ::selection {
-  background: #cfe1d9;
+  background: #d7e6fc;
 }
 
 @keyframes xm-rise {
@@ -122,7 +127,7 @@ select {
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background: #fffdf9;
+  background: #fbfdff;
   color: var(--text);
   font: inherit;
   outline: none;
@@ -139,7 +144,7 @@ button {
   padding: 10px 15px;
   border: 1px solid var(--line-strong);
   border-radius: 6px;
-  background: #fffdf9;
+  background: #fbfdff;
   color: var(--text);
   font: inherit;
   font-weight: 560;
@@ -154,7 +159,7 @@ button.primary {
   min-width: 128px;
   background: var(--text);
   border-color: var(--text);
-  color: #fffdf9;
+  color: #fbfdff;
 }
 
 button.primary:hover:not(:disabled) {
@@ -187,7 +192,7 @@ button:disabled {
 
 .toggle button.on {
   background: var(--text);
-  color: #fffdf9;
+  color: #fbfdff;
 }
 
 .filters {
@@ -236,7 +241,7 @@ button:disabled {
   align-items: center;
   padding: 4px 10px;
   background: var(--accent-soft);
-  border: 1px solid #cbded6;
+  border: 1px solid var(--accent-soft-line);
   border-radius: 999px;
   color: var(--accent);
   font-size: 13px;
@@ -325,7 +330,7 @@ button:disabled {
 .abstract {
   max-width: 830px;
   margin: 10px 0;
-  color: #302b25;
+  color: var(--text);
   font-size: 15px;
 }
 
@@ -432,8 +437,8 @@ button:disabled {
 .explanation {
   margin: 12px 0;
   padding: 11px 13px;
-  background: #f8faf8;
-  border: 1px solid #d6e2dc;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
   border-radius: 7px;
 }
 
@@ -474,7 +479,7 @@ button:disabled {
 
 .explanation-grid dd {
   margin: 0;
-  color: #302b25;
+  color: var(--text);
   font-size: 13px;
 }
 

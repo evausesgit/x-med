@@ -77,10 +77,14 @@ const EV: Record<number, { label: string; cls: string }> = {
 };
 
 // Couleurs de la pastille de pertinence selon le palier (cf. design tier()).
+// Variante « Clinique » : le palier « high » reprend le bleu de marque (comme
+// l'accent vert le faisait dans la variante éditoriale) ; « mid » passe au
+// sarcelle pour rester net à l'œil malgré la présence du bleu partout ailleurs
+// (boutons, liens, anneau) ; « off » garde l'ambre, signal universel d'alerte.
 const TIER_CHIP: Record<Tier, { bg: string; fg: string; dot: string }> = {
-  high: { bg: "#e0efe6", fg: "#1d5b43", dot: "#2f8a63" },
-  mid: { bg: "#edf3ff", fg: "#284b7b", dot: "#4a73b8" },
-  low: { bg: "#f1efe8", fg: "#6c655b", dot: "#a39b8d" },
+  high: { bg: "#dbe8fd", fg: "#1d4ed8", dot: "#2563eb" },
+  mid: { bg: "#dcf3f2", fg: "#0e6377", dot: "#14919b" },
+  low: { bg: "#eef1f6", fg: "#57647a", dot: "#94a3b8" },
   off: { bg: "#f6ead9", fg: "#8a5a1c", dot: "#c79a4e" },
 };
 
@@ -283,7 +287,7 @@ export default function XMedResult({
             <div
               className="xmr-ring"
               style={{
-                background: `conic-gradient(var(--accent) 0% ${ringPct}%, #eef0ea ${ringPct}% 100%)`,
+                background: `conic-gradient(var(--accent) 0% ${ringPct}%, var(--surface-soft) ${ringPct}% 100%)`,
               }}
               title={relevance.title}
             >

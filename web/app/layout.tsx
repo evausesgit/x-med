@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Newsreader, IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
+import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import "./xmed-app.css";
 import Nav from "./Nav";
@@ -9,12 +9,8 @@ import Nav from "./Nav";
 // les variables CSS consommées par globals.css / xmed-app.css.
 // Variables dédiées (--ff-*) référencées par les tokens --font-* de globals.css,
 // qui leur ajoutent une pile de repli générique.
-const serif = Newsreader({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--ff-serif",
-  display: "swap",
-});
+// Variante « Clinique » : pas de police serif — --font-serif est repointé sur
+// --ff-sans dans globals.css, donc Newsreader n'est plus chargé ici.
 const sans = IBM_Plex_Sans({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
@@ -37,7 +33,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="fr" className={`${serif.variable} ${sans.variable} ${mono.variable}`}>
+    <html lang="fr" className={`${sans.variable} ${mono.variable}`}>
       <body>
         <Nav />
         {children}
