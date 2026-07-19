@@ -839,7 +839,7 @@ export default function Home() {
 
   return (
     <main className="xm-page">
-      <h1 className="xm-hero">Que voulez-vous comprendre aujourd’hui&nbsp;?</h1>
+      <h1 className="xm-hero">Que recherchez-vous aujourd’hui, Docteur&nbsp;?</h1>
 
       <form
         className="xm-searchbar"
