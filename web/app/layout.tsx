@@ -3,6 +3,7 @@ import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import "./xmed-app.css";
 import Nav from "./Nav";
+import { AuthProvider } from "@/lib/auth-context";
 
 // Polices du design system « X-Med App », auto-hébergées par next/font (pas de
 // requête runtime vers Google, pas de décalage de mise en page). Elles exposent
@@ -35,8 +36,10 @@ export default function RootLayout({
   return (
     <html lang="fr" className={`${sans.variable} ${mono.variable}`}>
       <body>
-        <Nav />
-        {children}
+        <AuthProvider>
+          <Nav />
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

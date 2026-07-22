@@ -9,7 +9,7 @@ from queue import Empty, Queue
 from threading import Thread
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select, text as sql_text
@@ -23,6 +23,7 @@ from app.services import search_cancel
 from app.services.embeddings import REGISTRY, get_model
 from app.services.explainability import explain_article
 from app.services.search_cancel import SearchCancelled
+from app.services.usage_log import record_usage
 
 router = APIRouter()
 
@@ -113,6 +114,7 @@ def _to_result(
 
 @router.get("/search/mesh", response_model=SearchResponse)
 def search_mesh(
+    request: Request,
     session: Session = Depends(get_session),
     mesh: list[str] = Query(default=[], description="tags MeSH (répétable)"),
     q: str | None = Query(default=None, description="texte libre (plein-texte)"),
@@ -124,6 +126,12 @@ def search_mesh(
     offset: int = Query(default=0, ge=0),
 ):
     """Recherche par tags MeSH (ET/OU) + filtres, optionnellement croisée au plein-texte."""
+    record_usage(
+        request,
+        "search.mesh",
+        query=q,
+        params={"mesh": mesh, "mode": mode, "year_from": year_from, "year_to": year_to},
+    )
     conditions = []
     if mesh:
         conditions.append(
@@ -155,6 +163,7 @@ def search_mesh(
 
 @router.get("/search", response_model=SearchResponse)
 def search_fulltext(
+    request: Request,
     session: Session = Depends(get_session),
     q: str = Query(..., min_length=1, description="requête plein-texte"),
     limit: int = Query(default=20, ge=1, le=100),
@@ -165,6 +174,7 @@ def search_fulltext(
     Sera étendue en recherche hybride (plein-texte + sémantique, fusion RRF)
     à l'étape C, une fois les embeddings disponibles.
     """
+    record_usage(request, "search.fulltext", query=q)
     tsquery = func.websearch_to_tsquery("english", q)
     cond = Article.fts.op("@@")(tsquery)
     total = session.scalar(select(func.count()).select_from(Article).where(cond)) or 0
@@ -312,8 +322,11 @@ def bench_leaderboard(session: Session = Depends(get_session)) -> list[dict]:
 
 
 @router.post("/search/semantic", response_model=SearchResponse)
-def search_semantic(req: SemanticRequest, session: Session = Depends(get_session)):
+def search_semantic(
+    req: SemanticRequest, request: Request, session: Session = Depends(get_session)
+):
     """Recherche par sens : embed la requête, plus proches voisins (cosinus)."""
+    record_usage(request, "search.semantic", query=req.query, params={"model": req.model})
     if req.model not in REGISTRY:
         raise HTTPException(400, f"Modèle inconnu : {req.model}")
     table = get_model(req.model).table
@@ -345,6 +358,7 @@ def search_semantic(req: SemanticRequest, session: Session = Depends(get_session
 
 @router.get("/search/hybrid", response_model=SearchResponse)
 def search_hybrid(
+    request: Request,
     session: Session = Depends(get_session),
     q: str = Query(..., min_length=1),
     model: str = Query(default=DEFAULT_MODEL),
@@ -352,6 +366,7 @@ def search_hybrid(
     pool: int = Query(default=50, ge=10, le=200, description="taille du pool par méthode"),
 ):
     """Fusion RRF entre plein-texte (ts_rank) et sémantique (pgvector)."""
+    record_usage(request, "search.hybrid", query=q, params={"model": model})
     if model not in REGISTRY:
         raise HTTPException(400, f"Modèle inconnu : {model}")
     table = get_model(model).table
@@ -937,8 +952,16 @@ def _run_deep_more(
 
 
 @router.post("/search/pubmed/deep", response_model=DeepSearchResponse)
-def search_pubmed_deep(req: DeepSearchRequest, session: Session = Depends(get_session)):
+def search_pubmed_deep(
+    req: DeepSearchRequest, request: Request, session: Session = Depends(get_session)
+):
     """Recherche v2 : PubMed (A) + base locale filtrée (B), jugée par codex."""
+    record_usage(
+        request,
+        "search.deep",
+        query=req.query,
+        params={"date_from": req.date_from, "date_to": req.date_to, "rrf": req.rrf},
+    )
     from app.services.search_notifications import send_search_notification
 
     t0 = time.monotonic()
@@ -1216,6 +1239,7 @@ def stop_deep_search(token: str):
 
 @router.get("/search/pubmed/deep/stream")
 def search_pubmed_deep_stream(
+    request: Request,
     query: str = Query(..., min_length=1),
     date_from: str | None = Query(default=None),
     date_to: str | None = Query(default=None),
@@ -1233,6 +1257,12 @@ def search_pubmed_deep_stream(
     `rrf=True` (+ `k_pubmed` élevé) = algo v2 : fusion RRF pour la sélection des
     candidats, tri final toujours par score Codex. `judge_batch`/`local_floor` =
     curseurs (total analysé par lot / minimum d'articles locaux garantis)."""
+    record_usage(
+        request,
+        "search.deep",
+        query=query,
+        params={"date_from": date_from, "date_to": date_to, "rrf": rrf, "stream": True},
+    )
 
     def sse(event: str, data: dict) -> str:
         return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
@@ -1343,13 +1373,19 @@ def search_pubmed_deep_stream(
 
 
 @router.post("/search/pubmed/deep/more", response_model=DeepMoreResponse)
-def search_pubmed_deep_more(req: DeepMoreRequest, session: Session = Depends(get_session)):
+def search_pubmed_deep_more(
+    req: DeepMoreRequest, request: Request, session: Session = Depends(get_session)
+):
     """« Analyser N de plus » : juge le lot de PMID fourni (cf. `remaining`)."""
+    record_usage(
+        request, "search.deep.more", query=req.query, params={"n_pmids": len(req.pmids)}
+    )
     return _run_deep_more(req, session)
 
 
 @router.get("/search/pubmed/deep/more/stream")
 def search_pubmed_deep_more_stream(
+    request: Request,
     query: str = Query(..., min_length=1),
     pmids: str = Query(..., description="PMID à juger, séparés par des virgules"),
     min_score: int = Query(default=2, ge=0, le=3),
@@ -1358,6 +1394,12 @@ def search_pubmed_deep_more_stream(
     (forme DeepMoreResponse), comme le stream de la recherche initiale. Les
     keep-alives évitent que le proxy coupe l'appel codex (qui peut durer ~1 min)."""
     pmid_list = [int(x) for x in pmids.split(",") if x.strip().isdigit()]
+    record_usage(
+        request,
+        "search.deep.more",
+        query=query,
+        params={"n_pmids": len(pmid_list), "stream": True},
+    )
 
     def sse(event: str, data: dict) -> str:
         return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
@@ -1539,13 +1581,17 @@ def _run_compare(
 
 
 @router.post("/analyze/compare", response_model=CompareResponse)
-def analyze_compare(req: CompareRequest, session: Session = Depends(get_session)):
+def analyze_compare(
+    req: CompareRequest, request: Request, session: Session = Depends(get_session)
+):
     """Analyse critique comparative de 2–3 articles (non streaming, pour tests)."""
+    record_usage(request, "analyze.compare", query=req.query, params={"pmids": req.pmids})
     return _run_compare(req, session)
 
 
 @router.get("/analyze/compare/stream")
 def analyze_compare_stream(
+    request: Request,
     query: str = Query(..., min_length=1),
     pmids: str = Query(..., description="PMID à comparer (2–3), séparés par des virgules"),
 ):
@@ -1553,6 +1599,12 @@ def analyze_compare_stream(
     `result` (forme CompareResponse). Les keep-alives évitent que le proxy coupe
     l'appel codex (qui peut durer ~1 min)."""
     pmid_list = [int(x) for x in pmids.split(",") if x.strip().isdigit()][:MAX_COMPARE]
+    record_usage(
+        request,
+        "analyze.compare",
+        query=query,
+        params={"pmids": pmid_list, "stream": True},
+    )
 
     def sse(event: str, data: dict) -> str:
         return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"

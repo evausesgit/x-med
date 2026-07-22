@@ -461,14 +461,14 @@ export default function Home() {
     window.history.replaceState(null, "", `?${sp.toString()}`);
   }
 
-  // Bascule algo v1/v2 : on met la ref à jour AVANT de relancer (setAlgo est
-  // asynchrone) pour que runSearch lise bien la nouvelle valeur. Relance à chaud
-  // pour comparer les deux tris sur la même requête.
+  // Bascule algo v1/v2 : on met la ref à jour en même temps que l'état (setAlgo
+  // est asynchrone) pour que la PROCHAINE recherche lise la bonne valeur. Ne
+  // relance rien : comme les dates et les curseurs, ce choix ne prend effet
+  // qu'au clic sur « Explorer » — seul déclencheur d'une recherche.
   function switchAlgo(v: "v1" | "v2") {
     if (v === algo) return;
     algoRef.current = v;
     setAlgo(v);
-    if (q.trim()) runSearch({ force: true });
   }
 
   const autorun = useRef(false);
