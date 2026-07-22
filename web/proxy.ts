@@ -23,32 +23,42 @@ const ALLOWED_EMAILS = (process.env.XMED_ALLOWED_EMAILS ?? "")
   .map((e) => e.trim().toLowerCase())
   .filter(Boolean);
 
-type Verdict = "ok" | "anonymous" | "forbidden";
+type Session =
+  | { verdict: "ok"; email: string }
+  | { verdict: "anonymous" | "forbidden" };
 
-async function checkSession(req: NextRequest): Promise<Verdict> {
+async function checkSession(req: NextRequest): Promise<Session> {
   const token = req.cookies.get(SESSION_COOKIE)?.value;
-  if (!token) return "anonymous";
+  if (!token) return { verdict: "anonymous" };
   try {
     const { payload } = await jwtVerify(token, JWKS, {
       issuer: `https://securetoken.google.com/${PROJECT_ID}`,
       audience: PROJECT_ID,
       algorithms: ["RS256"],
     });
-    if (!payload.sub) return "anonymous";
+    if (!payload.sub) return { verdict: "anonymous" };
     const email = String(payload.email ?? "").toLowerCase();
     if (ALLOWED_EMAILS.length > 0 && !ALLOWED_EMAILS.includes(email)) {
-      return "forbidden";
+      return { verdict: "forbidden" };
     }
-    return "ok";
+    return { verdict: "ok", email };
   } catch {
     // Jeton absent/expiré/falsifié : on retombe sur le parcours de connexion.
-    return "anonymous";
+    return { verdict: "anonymous" };
   }
 }
 
 export async function proxy(req: NextRequest) {
-  const verdict = await checkSession(req);
-  if (verdict === "ok") return NextResponse.next();
+  const session = await checkSession(req);
+  const verdict = session.verdict;
+  if (session.verdict === "ok") {
+    // Identité vérifiée transmise à l'API (journal d'usage : qui fait quoi).
+    // On ÉCRASE toujours le header : une valeur venue du navigateur serait de
+    // l'usurpation, jamais relayée.
+    const headers = new Headers(req.headers);
+    headers.set("x-user-email", session.email);
+    return NextResponse.next({ request: { headers } });
+  }
 
   const { pathname, search } = req.nextUrl;
 
