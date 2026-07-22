@@ -8,6 +8,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useAuth } from "@/lib/auth-context";
 
 type MenuItem = { label: string; href: string; tag?: string; external?: boolean };
 
@@ -24,6 +25,7 @@ const MENU: MenuItem[] = [
 
 export default function Nav() {
   const pathname = usePathname();
+  const { user, signOutUser } = useAuth();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -46,6 +48,9 @@ export default function Nav() {
 
   // Referme le menu à chaque changement de page.
   useEffect(() => setOpen(false), [pathname]);
+
+  // La page de connexion est un sas plein écran : pas de barre de navigation.
+  if (pathname === "/login") return null;
 
   const isSearch = pathname === "/";
   const isDigest = pathname === "/digest" || pathname.startsWith("/digest/");
@@ -100,6 +105,20 @@ export default function Nav() {
                       {item.tag && <span className="xm-menu-tag">{item.tag}</span>}
                     </Link>
                   ),
+                )}
+                {user && (
+                  <div className="xm-menu-user">
+                    <div className="xm-menu-user-mail" title={user.email ?? undefined}>
+                      {user.email}
+                    </div>
+                    <button
+                      type="button"
+                      className="xm-menu-signout"
+                      onClick={signOutUser}
+                    >
+                      Se déconnecter
+                    </button>
+                  </div>
                 )}
               </div>
             )}
