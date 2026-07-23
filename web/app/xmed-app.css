@@ -1060,24 +1060,32 @@
   color: var(--accent);
 }
 
-/* Titre de section « démonstration » : collé juste au-dessus d'un digest
-   fictif pour qu'on ne le confonde jamais avec une vraie génération. */
+/* Grosse bannière « démonstration » : collée juste au-dessus du digest fictif,
+   impossible à confondre avec une vraie génération. Volontairement massive
+   (fond ambre plein, bordure pointillée, texte centré) : c'est un avertissement,
+   pas un titre de section. */
 .xm-demo-title {
-  margin: 4px 0 18px;
-  padding: 10px 0 10px 16px;
-  border-left: 3px solid #ecd9a6;
+  margin: 4px 0 22px;
+  padding: 22px 24px;
+  border-radius: 14px;
+  background: #f6ead9;
+  border: 2px dashed #d9b96a;
+  text-align: center;
 }
 .xm-demo-title h2 {
   font-family: var(--font-serif);
-  font-size: 21px;
-  margin: 0 0 6px;
-  color: var(--text);
+  font-size: 28px;
+  letter-spacing: 0.3px;
+  margin: 0 0 8px;
+  color: #6f4a17;
+  text-transform: uppercase;
 }
 .xm-demo-title p {
-  margin: 0;
-  font-size: 13px;
+  margin: 0 auto;
+  max-width: 560px;
+  font-size: 14px;
   line-height: 1.55;
-  color: var(--muted);
+  color: #6f4a17;
 }
 
 /* ============================ RESPONSIVE ============================ */

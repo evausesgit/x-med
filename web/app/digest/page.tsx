@@ -166,14 +166,6 @@ export default function DigestPage() {
           <Link href="/profil">Créer mon profil →</Link>
         </div>
       )}
-      {doctor && profile && !digest && !running && (
-        <div className="xm-banner warn" style={{ marginTop: 0 }}>
-          Aucun digest généré pour l'instant — un aperçu de démonstration est
-          affiché plus bas. Veille sur les {days} derniers jours, complétée par
-          le fonds local lorsque la date précise manque.
-        </div>
-      )}
-
       <div
         className="xm-method-row"
         style={{ marginTop: 0, marginBottom: 24, gap: 10 }}
@@ -261,15 +253,15 @@ export default function DigestPage() {
       ) : (
         !running && (
           <>
-            {/* Titre bien visible : évite toute confusion avec un vrai
-                digest — la démo ci-dessous est un profil et des articles
-                inventés, pas une sélection PubMed réelle. */}
+            {/* Grosse bannière : tout ce qui suit est un exemple inventé,
+                pas une sélection PubMed réelle. */}
             <div className="xm-demo-title">
-              <h2>🧪 Aperçu de démonstration</h2>
+              <h2>🧪 Ceci est un aperçu de démonstration</h2>
               <p>
-                Les articles ci-dessous sont un exemple fictif (profil « Dr
-                Lefèvre » inventé). Générez votre digest pour obtenir une
-                vraie sélection PubMed adaptée à votre profil.
+                Tout ce qui s&apos;affiche ci-dessous est un exemple fictif —
+                profil « Dr Lefèvre » et articles inventés. Cliquez sur
+                «&nbsp;✨ Générer mon digest&nbsp;» pour obtenir une vraie
+                sélection PubMed adaptée à votre profil.
               </p>
             </div>
             <DigestView key="apercu" data={{ ...sampleDigest, date: todayFr() }} />
