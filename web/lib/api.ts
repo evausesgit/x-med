@@ -599,6 +599,15 @@ export async function createDoctor(body: {
   if (!res.ok) throw new Error(`Erreur API (${res.status})`);
   return res.json();
 }
+// Mon profil, en LECTURE PURE : null si aucun médecin rattaché au compte (404).
+// Ne crée jamais rien — le rattachement (bootstrap) est réservé à la page
+// Profil ; visiter une page qui lit le profil ne doit pas écrire en base.
+export async function getMe(): Promise<Doctor | null> {
+  const res = await fetch(`${API_BASE}/me`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  return res.json();
+}
 // Mon profil : le médecin rattaché au compte Google connecté (identité posée
 // par proxy.ts dans les headers, rien à envoyer côté client).
 export async function bootstrapMe(): Promise<Doctor> {

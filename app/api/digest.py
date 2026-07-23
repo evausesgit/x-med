@@ -16,11 +16,10 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy.orm import Session
 
 from app.api.me import Identity, _find_doctor, current_identity
 from app.api.search import DeepSearchRequest, deep_search_sse
-from app.db import get_session
+from app.db import SessionLocal
 from app.services.digest_query import build_digest_query, digest_usage_label
 from app.services.usage_log import record_usage
 
@@ -39,38 +38,44 @@ def digest_stream(
     judge_batch: int = Query(default=50, ge=10, le=100),
     local_token: str | None = Query(default=None, max_length=64),
     ident: Identity = Depends(current_identity),
-    session: Session = Depends(get_session),
 ):
     """Génère le digest du médecin connecté, en SSE — mêmes événements que
     /search/pubmed/deep/stream (`log`* → `result` → `translations`* → `complete`),
     donc même code front pour le déroulé live, l'arrêt et les traductions.
 
-    La fenêtre couvre les `days` derniers jours côté PubMed (précis au jour) ;
-    le fonds local complète, avec exclusion des articles dont la date prouve
-    qu'ils sont hors fenêtre (cf. `_window_keep`). `require_builder=True` : sans
-    query-builder GPT-5.4, le digest échoue proprement plutôt que d'envoyer le
-    metaprompt français brut à PubMed.
+    La fenêtre couvre exactement `days` dates calendaires, bornée des deux côtés
+    (PubMed contient des dates de publication futures) ; le fonds local complète,
+    avec exclusion des articles dont la date prouve qu'ils sont hors fenêtre
+    (cf. `_window_keep`). `require_builder=True` : sans query-builder GPT-5.4, le
+    digest échoue proprement plutôt que d'envoyer le metaprompt français brut à
+    PubMed.
     """
-    doctor = _find_doctor(session, ident)
-    if doctor is None or doctor.profile is None:
-        raise HTTPException(
-            404, "Complétez votre profil pour générer votre digest personnalisé."
-        )
+    # Session courte, fermée AVANT de retourner le stream : une dépendance
+    # get_session resterait ouverte pendant toute la durée du SSE (plusieurs
+    # minutes) et immobiliserait une connexion en plus de celle du worker.
+    with SessionLocal() as session:
+        doctor = _find_doctor(session, ident)
+        if doctor is None or doctor.profile is None:
+            raise HTTPException(
+                404, "Complétez votre profil pour générer votre digest personnalisé."
+            )
+        query = build_digest_query(doctor, doctor.profile)
+        label = digest_usage_label(doctor.profile, days)
     record_usage(
-        request,
-        "digest.run",
-        query=digest_usage_label(doctor.profile, days),
-        params={"days": days, "k_pubmed": k_pubmed},
+        request, "digest.run", query=label, params={"days": days, "k_pubmed": k_pubmed}
     )
+    today = date.today()
     return deep_search_sse(
         DeepSearchRequest(
-            query=build_digest_query(doctor, doctor.profile),
-            date_from=(date.today() - timedelta(days=days)).isoformat(),
+            query=query,
+            date_from=(today - timedelta(days=days - 1)).isoformat(),
+            date_to=today.isoformat(),
             k_pubmed=k_pubmed,
             rrf=True,
             judge_batch=judge_batch,
             local_token=local_token,
             require_builder=True,
         ),
-        notif_query=digest_usage_label(doctor.profile, days),
+        notif_query=label,
+        notif_omit_pubmed_query=True,
     )

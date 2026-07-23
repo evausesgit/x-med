@@ -1380,7 +1380,9 @@ def search_pubmed_deep_stream(
 
 
 def deep_search_sse(
-    req: DeepSearchRequest, notif_query: str | None = None
+    req: DeepSearchRequest,
+    notif_query: str | None = None,
+    notif_omit_pubmed_query: bool = False,
 ) -> StreamingResponse:
     """Machinerie SSE de la recherche v2, partagée avec le digest (/digest/stream).
 
@@ -1391,6 +1393,9 @@ def deep_search_sse(
 
     `notif_query` : libellé compact pour la notification Telegram (le digest y met
     « Digest on-demand · … » plutôt que le metaprompt intégral).
+    `notif_omit_pubmed_query` : retire la requête PubMed construite des métriques
+    de la notification — pour le digest, elle est dérivée du profil clinique et
+    le révélerait autant que le metaprompt lui-même.
     """
     local_token = req.local_token
     notif_query = notif_query or req.query
@@ -1433,12 +1438,15 @@ def deep_search_sse(
             try:
                 with SessionLocal() as worker_session:
                     result = _run_deep_search(req, worker_session, progress)
+                    metrics = _deep_metrics(result)
+                    if notif_omit_pubmed_query:
+                        metrics.pop("pubmed_query", None)
                     # Notif dès que la recherche a abouti (la traduction qui suit est
                     # un post-traitement best-effort, pas un échec de recherche).
                     send_search_notification(
                         status="ok", query=notif_query,
                         duration_s=time.monotonic() - t0,
-                        metrics=_deep_metrics(result),
+                        metrics=metrics,
                         progress_events=progress_events,
                     )
                     notified = True

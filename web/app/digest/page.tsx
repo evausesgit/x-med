@@ -12,8 +12,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  bootstrapMe,
   digestStream,
+  getMe,
   stopDeepSearch,
   type DeepSearchResponse,
   type Doctor,
@@ -49,6 +49,7 @@ const DEFAULT_DAYS = 30;
 
 export default function DigestPage() {
   const [doctor, setDoctor] = useState<Doctor | null>(null);
+  const [noAccount, setNoAccount] = useState(false); // authentifié mais sans profil rattaché
   const [meError, setMeError] = useState(false);
   const [days, setDays] = useState<number>(DEFAULT_DAYS);
   const [running, setRunning] = useState(false);
@@ -56,12 +57,20 @@ export default function DigestPage() {
   const [res, setRes] = useState<DeepSearchResponse | null>(null);
   const [generatedAt, setGeneratedAt] = useState("");
   const [genDays, setGenDays] = useState<number>(DEFAULT_DAYS); // fenêtre du digest affiché
+  // Incrémenté à chaque résultat : sert de `key` à DigestView pour le REMONTER
+  // à la régénération — sinon sélection et analyse critique du digest précédent
+  // survivent sous les nouvelles cartes.
+  const [genId, setGenId] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const esRef = useRef<EventSource | null>(null);
   const tokenRef = useRef<string | null>(null);
 
   useEffect(() => {
-    bootstrapMe().then(setDoctor).catch(() => setMeError(true));
+    // Lecture pure : visiter le digest ne doit rien écrire en base (le
+    // rattachement du compte se fait sur la page Profil).
+    getMe()
+      .then((d) => (d ? setDoctor(d) : setNoAccount(true)))
+      .catch(() => setMeError(true));
   }, []);
 
   // Démontage : fermer le flux ET arrêter la génération côté serveur
@@ -96,6 +105,7 @@ export default function DigestPage() {
         setRes(r);
         setGenDays(nDays);
         setGeneratedAt(nowHHMM());
+        setGenId((g) => g + 1);
       },
       // Les traductions FR arrivent après les résultats : on patche les hits,
       // l'adaptateur (useMemo) reconstruit les cartes.
@@ -150,7 +160,7 @@ export default function DigestPage() {
           page.
         </div>
       )}
-      {doctor && !profile && (
+      {(noAccount || (doctor && !profile)) && (
         <div className="xm-banner warn" style={{ marginTop: 0 }}>
           Votre digest se personnalise à partir de votre profil.{" "}
           <Link href="/profil">Créer mon profil →</Link>
@@ -247,9 +257,11 @@ export default function DigestPage() {
       )}
 
       {digest ? (
-        <DigestView data={digest} />
+        <DigestView key={genId} data={digest} />
       ) : (
-        !running && <DigestView data={{ ...sampleDigest, date: todayFr() }} />
+        !running && (
+          <DigestView key="apercu" data={{ ...sampleDigest, date: todayFr() }} />
+        )
       )}
     </main>
   );
