@@ -1390,7 +1390,7 @@ def deep_search_sse(
     notif_omit_pubmed_query: bool = False,
     notif_user: str | None = None,
 ) -> StreamingResponse:
-    """Machinerie SSE de la recherche v2, partagée avec le digest (/digest/stream).
+    """Machinerie SSE de la recherche v2.
 
     Contrat d'événements : `log`* → `result` → `translations`* → `complete`
     (ou `stopped` / `error`). Le front ne doit fermer l'EventSource que sur
