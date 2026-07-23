@@ -132,7 +132,7 @@ export function ResultDetail({ payload }: { payload: DeepSearchResponse }) {
       onResult: (res) => {
         if (res.codex_limit) {
           setAnalysisError(
-            "Limite d'usage GPT-5.4 atteinte — réessayez l'analyse plus tard.",
+            "Limite d'usage GPT-5.6 atteinte — réessayez l'analyse plus tard.",
           );
         } else {
           setAnalysis(res);

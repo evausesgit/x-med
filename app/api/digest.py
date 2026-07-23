@@ -46,7 +46,7 @@ def digest_stream(
     La fenêtre couvre exactement `days` dates calendaires, bornée des deux côtés
     (PubMed contient des dates de publication futures) ; le fonds local complète,
     avec exclusion des articles dont la date prouve qu'ils sont hors fenêtre
-    (cf. `_window_keep`). `require_builder=True` : sans query-builder GPT-5.4, le
+    (cf. `_window_keep`). `require_builder=True` : sans query-builder GPT-5.6, le
     digest échoue proprement plutôt que d'envoyer le metaprompt français brut à
     PubMed.
     """

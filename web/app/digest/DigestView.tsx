@@ -167,7 +167,7 @@ export default function DigestView({ data }: { data: DigestData }) {
       onLog: (log) => setAnalysisLogs((prev) => [...prev, log]),
       onResult: (res) => {
         if (res.codex_limit) {
-          setAnalysisError("Limite d'usage GPT-5.4 atteinte — réessayez l'analyse plus tard.");
+          setAnalysisError("Limite d'usage GPT-5.6 atteinte — réessayez l'analyse plus tard.");
         } else {
           setAnalysis(res);
         }

@@ -66,7 +66,7 @@ export interface DeepSearchResponse {
   query_builder: "codex" | "fallback";
   judge: "codex" | "skipped";
   codex_limit?: boolean;
-  codex_tokens?: Record<string, number>; // tokens GPT-5.4 (query / judge / total)
+  codex_tokens?: Record<string, number>; // tokens GPT-5.6 (query / judge / total)
   counts: Record<string, number>;
   results: DeepHit[];
   // PMID jugeables pas encore soumis à codex : permet « Analyser 50 de plus ».
@@ -351,7 +351,7 @@ export async function translateAbstract(
   });
   if (!res.ok) {
     if (res.status === 429)
-      throw new Error("Limite d'usage GPT-5.4 atteinte — réessayez plus tard.");
+      throw new Error("Limite d'usage GPT-5.6 atteinte — réessayez plus tard.");
     throw new Error(`Erreur API (${res.status})`);
   }
   return res.json();
@@ -376,7 +376,7 @@ export async function translateBatch(
   });
   if (!res.ok) {
     if (res.status === 429)
-      throw new Error("Limite d'usage GPT-5.4 atteinte — réessayez plus tard.");
+      throw new Error("Limite d'usage GPT-5.6 atteinte — réessayez plus tard.");
     throw new Error(`Erreur API (${res.status})`);
   }
   const data = await res.json();

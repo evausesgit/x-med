@@ -58,7 +58,7 @@ export function deepSearchToDigestData(
   return {
     date: opts.date,
     generated: opts.generated,
-    method: `PubMed + GPT-5.4 · ${opts.days} derniers jours`,
+    method: `PubMed + GPT-5.6 · ${opts.days} derniers jours`,
     doctor: {
       name: doctor.name,
       specialty: p?.specialty_main || "Spécialité non renseignée",

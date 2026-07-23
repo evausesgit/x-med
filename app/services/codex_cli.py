@@ -70,8 +70,20 @@ def _parse_usage(stdout: bytes | None) -> CodexUsage:
     return usage
 
 
-def run_codex(prompt: str, schema: dict, timeout: int) -> tuple[dict, CodexUsage]:
+def run_codex(
+    prompt: str,
+    schema: dict,
+    timeout: int,
+    model: str | None = None,
+    reasoning: str | None = None,
+) -> tuple[dict, CodexUsage]:
     """Lance `codex exec` avec un schéma JSON imposé. Retourne (data, usage).
+
+    `model` et `reasoning` remplacent les défauts (settings.codex_model /
+    settings.codex_reasoning) pour cet appel — la traduction tourne sur un
+    modèle moins cher en raisonnement bas. L'effort est TOUJOURS passé
+    explicitement : sinon codex hériterait du config.toml du CODEX_HOME
+    ambiant, qui n'appartient pas à x-med.
 
     Lève `CodexCliError` si codex échoue / sortie illisible, `SearchCancelled` si
     le process a été tué par le bouton « Arrêter la recherche » (jeton d'annulation
@@ -86,8 +98,11 @@ def run_codex(prompt: str, schema: dict, timeout: int) -> tuple[dict, CodexUsage
             "--ephemeral", "-s", "read-only", "--color", "never",
             "--output-schema", str(schema_path), "-o", str(out_path),
         ]
-        if settings.codex_model:
-            cmd += ["-m", settings.codex_model]
+        if model or settings.codex_model:
+            cmd += ["-m", model or settings.codex_model]
+        effort = reasoning or settings.codex_reasoning
+        if effort:
+            cmd += ["-c", f'model_reasoning_effort="{effort}"']
         cmd.append(prompt)
         # Popen (et non subprocess.run) : le bouton « Arrêter la recherche » doit
         # pouvoir tuer le process en plein vol via l'état d'annulation partagé.
