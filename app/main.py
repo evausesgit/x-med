@@ -26,6 +26,14 @@ app.include_router(saved_searches.router, tags=["saved-searches"])
 app.include_router(digest.router, tags=["digest"])
 
 
+@app.on_event("startup")
+def _startup() -> None:
+    # Les générations de digest tournent dans des threads du process API : un
+    # redémarrage les tue sans qu'elles écrivent leur état final. On requalifie
+    # ces runs orphelins en erreur pour que le front ne polle pas dans le vide.
+    digest.mark_orphan_runs()
+
+
 @app.get("/")
 def root() -> dict:
     return {

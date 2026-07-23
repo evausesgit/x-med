@@ -207,17 +207,84 @@ export function searchPubmedDeepStream(
   return listenDeepStream(es, handlers);
 }
 
-// Digest on-demand : même pipeline et même contrat SSE que la recherche v2,
-// mais la « query » est composée CÔTÉ SERVEUR depuis le profil du médecin
-// connecté (metaprompt + facettes) — elle ne transite jamais par l'URL.
-export function digestStream(
-  days: number,
-  localToken: string,
-  handlers: DeepStreamHandlers<DeepSearchResponse>,
-): EventSource {
-  const sp = new URLSearchParams({ days: String(days), local_token: localToken });
-  const es = new EventSource(`${API_BASE}/digest/stream?${sp.toString()}`);
-  return listenDeepStream(es, handlers);
+// ---------- Digest en arrière-plan ----------
+// La génération tourne côté serveur, détachée de la page : on POSTe pour la
+// lancer, puis on POLLE le run (la table digest_runs est la source de vérité).
+// La « query » est composée CÔTÉ SERVEUR depuis le profil du médecin connecté
+// (metaprompt + facettes) — elle ne transite jamais par l'URL.
+
+export type DigestRunStatus =
+  | "running"
+  | "translating" // payload déjà disponible, traductions FR en cours
+  | "complete"
+  | "error"
+  | "stopped";
+
+export interface DigestRunSummary {
+  id: string;
+  digest_date: string; // YYYY-MM-DD (journée du digest, heure de Paris)
+  days: number;
+  status: DigestRunStatus;
+  n_results: number;
+  error: string | null;
+  created_at: string;
+  finished_at: string | null;
+}
+
+export interface DigestRun extends DigestRunSummary {
+  logs: PubmedLog[];
+  payload: DeepSearchResponse | null;
+}
+
+export interface DigestHistory {
+  // Run actif éventuel ; il peut coexister avec le digest complet du même jour
+  // (l'ancien reste affiché tant que la régénération n'a pas abouti).
+  current: DigestRunSummary | null;
+  days: DigestRunSummary[]; // dernier run complet de chaque journée, récent d'abord
+}
+
+// Lance une génération. Rejette avec le message API en cas de 409 (une
+// génération est déjà en cours) ou de profil manquant (404).
+export async function generateDigest(days: number): Promise<DigestRunSummary> {
+  const res = await fetch(`${API_BASE}/digest/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ days }),
+  });
+  if (!res.ok) {
+    const detail = await res.json().then((d) => d.detail).catch(() => null);
+    throw new Error(detail || `Erreur API (${res.status})`);
+  }
+  return res.json();
+}
+
+export async function getDigestRun(id: string): Promise<DigestRun> {
+  const res = await fetch(`${API_BASE}/digest/runs/${encodeURIComponent(id)}`);
+  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  return res.json();
+}
+
+// Best-effort : renvoie false (sans jeter) si rien n'était à annuler.
+export async function stopDigestRun(id: string): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `${API_BASE}/digest/runs/${encodeURIComponent(id)}/stop`,
+      { method: "POST" },
+    );
+    if (!res.ok) return false;
+    const data = await res.json();
+    return !!data.stopped;
+  } catch {
+    return false;
+  }
+}
+
+// null si aucun profil rattaché au compte (404) — même convention que getMe.
+export async function getDigestHistory(): Promise<DigestHistory | null> {
+  const res = await fetch(`${API_BASE}/digest/history`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  return res.json();
 }
 
 // Bouton stop : annule la requête FTS locale en cours (identifiée par le jeton

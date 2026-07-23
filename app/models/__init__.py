@@ -1,5 +1,6 @@
 from app.models.article import Article, ArticleSearch, FtpState, MeshDescriptor
 from app.models.benchmark import BenchQrel, BenchQuery, BenchResult, BenchRun
+from app.models.digest_run import DigestRun
 from app.models.doctor import Doctor, DoctorProfile
 from app.models.saved_search import SavedSearch
 from app.models.usage_event import UsageEvent
@@ -13,6 +14,7 @@ __all__ = [
     "BenchQrel",
     "BenchRun",
     "BenchResult",
+    "DigestRun",
     "Doctor",
     "DoctorProfile",
     "SavedSearch",

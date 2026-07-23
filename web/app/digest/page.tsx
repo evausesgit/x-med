@@ -1,44 +1,67 @@
 "use client";
 
 // Page « Mon Digest » — digest ON-DEMAND (décision Eva : pas de génération
-// automatique, on lance au clic pour maîtriser les tokens).
+// automatique, on lance au clic pour maîtriser les tokens), généré en
+// ARRIÈRE-PLAN côté serveur.
 //
-// Le bouton ouvre /api/digest/stream : le backend compose la « query » depuis le
-// profil du médecin CONNECTÉ (metaprompt + facettes — elle ne transite jamais
-// par l'URL) et la fait avaler par la pipeline v2 de la recherche. Ici on ne
-// fait qu'écouter le déroulé (contrat SSE partagé : log* → result →
-// translations* → complete) et adapter la réponse (deepSearchToDigestData).
+// Le bouton POSTe /api/digest/generate : le backend compose la « query » depuis
+// le profil du médecin CONNECTÉ (metaprompt + facettes — elle ne transite
+// jamais par l'URL) et lance la pipeline v2 dans un thread détaché. Ici on ne
+// fait que POLLER le run (GET /digest/runs/{id}) : quitter la page n'interrompt
+// plus rien, et on raccroche la génération en cours en revenant.
+//
+// L'historique liste le dernier run complet de chaque journée ; régénérer un
+// jour remplace son digest affiché (le backend garde l'audit des tentatives).
 // L'aperçu de démonstration reste affiché tant que rien n'a été généré.
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  digestStream,
+  generateDigest,
+  getDigestHistory,
+  getDigestRun,
   getMe,
-  stopDeepSearch,
-  type DeepSearchResponse,
+  stopDigestRun,
+  type DigestHistory,
+  type DigestRun,
+  type DigestRunSummary,
   type Doctor,
-  type PubmedLog,
 } from "@/lib/api";
 import DigestView from "./DigestView";
 import { sampleDigest } from "./sample-data";
 import { deepSearchToDigestData } from "./adapter";
 
-// Date du jour en français, ex. « Lundi 2 juin 2026 » (capitalisée).
-function todayFr(): string {
+// « Lundi 2 juin 2026 » (capitalisé).
+function formatDayFr(d: Date): string {
   const s = new Intl.DateTimeFormat("fr-FR", {
     weekday: "long",
     day: "numeric",
     month: "long",
     year: "numeric",
-  }).format(new Date());
+  }).format(d);
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-function nowHHMM(): string {
+// Depuis un YYYY-MM-DD. Midi pour éviter qu'un fuseau ne fasse basculer la
+// date affichée sur le jour d'avant.
+function dayFr(iso: string): string {
+  return formatDayFr(new Date(`${iso}T12:00:00`));
+}
+
+// « mer. 23 juil. » — libellé court des puces de l'historique.
+function dayShortFr(iso: string): string {
+  return new Intl.DateTimeFormat("fr-FR", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  }).format(new Date(`${iso}T12:00:00`));
+}
+
+function timeFr(iso: string | null): string {
+  if (!iso) return "";
   return new Intl.DateTimeFormat("fr-FR", {
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date());
+  }).format(new Date(iso));
 }
 
 // Fenêtres proposées. 7 jours peut rendre un digest vide sur une niche : dans ce
@@ -46,111 +69,145 @@ function nowHHMM(): string {
 // = un clic = une recherche, jamais deux).
 const PERIODS = [7, 30, 90] as const;
 const DEFAULT_DAYS = 30;
+const POLL_MS = 2500;
 
 export default function DigestPage() {
   const [doctor, setDoctor] = useState<Doctor | null>(null);
   const [noAccount, setNoAccount] = useState(false); // authentifié mais sans profil rattaché
   const [meError, setMeError] = useState(false);
   const [days, setDays] = useState<number>(DEFAULT_DAYS);
-  const [running, setRunning] = useState(false);
-  const [logs, setLogs] = useState<PubmedLog[]>([]);
-  const [res, setRes] = useState<DeepSearchResponse | null>(null);
-  const [generatedAt, setGeneratedAt] = useState("");
-  const [genDays, setGenDays] = useState<number>(DEFAULT_DAYS); // fenêtre du digest affiché
-  // Incrémenté à chaque résultat : sert de `key` à DigestView pour le REMONTER
-  // à la régénération — sinon sélection et analyse critique du digest précédent
-  // survivent sous les nouvelles cartes.
-  const [genId, setGenId] = useState(0);
+  const [history, setHistory] = useState<DigestHistory | null>(null);
+  // Run actif pollé (running/translating) — null quand rien ne tourne.
+  const [current, setCurrent] = useState<DigestRun | null>(null);
+  // Run affiché (payload chargé) : le digest du jour sélectionné.
+  const [view, setView] = useState<DigestRun | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const esRef = useRef<EventSource | null>(null);
-  const tokenRef = useRef<string | null>(null);
+  const pollRef = useRef<number | null>(null);
+  const mountedRef = useRef(true);
+
+  const running =
+    current !== null &&
+    (current.status === "running" || current.status === "translating");
+
+  const refreshHistory = useCallback(async (): Promise<DigestHistory | null> => {
+    const h = await getDigestHistory().catch(() => null);
+    if (mountedRef.current && h) setHistory(h);
+    return h;
+  }, []);
+
+  const openDay = useCallback(async (summary: DigestRunSummary) => {
+    setSelectedId(summary.id);
+    try {
+      const run = await getDigestRun(summary.id);
+      if (mountedRef.current) setView(run);
+    } catch {
+      if (mountedRef.current)
+        setError("Impossible de charger ce digest — rechargez la page.");
+    }
+  }, []);
+
+  // Polling en setTimeout récursif (jamais setInterval : pas de requêtes qui se
+  // chevauchent). Quitter la page arrête le POLLING, pas la génération.
+  const poll = useCallback(
+    async (id: string) => {
+      let run: DigestRun;
+      try {
+        run = await getDigestRun(id);
+      } catch {
+        // Hoquet réseau : on réessaie au prochain tick.
+        pollRef.current = window.setTimeout(() => void poll(id), POLL_MS);
+        return;
+      }
+      if (!mountedRef.current) return;
+      setCurrent(run);
+      if (run.status === "running" || run.status === "translating") {
+        pollRef.current = window.setTimeout(() => void poll(id), POLL_MS);
+        return;
+      }
+      // Terminal : le run actif disparaît ; un succès devient le digest affiché.
+      setCurrent(null);
+      if (run.status === "complete") {
+        setView(run);
+        setSelectedId(run.id);
+      } else if (run.status === "error") {
+        setError(
+          run.error || "La génération du digest a échoué. Réessayez plus tard.",
+        );
+      }
+      void refreshHistory();
+    },
+    [refreshHistory],
+  );
 
   useEffect(() => {
+    mountedRef.current = true;
     // Lecture pure : visiter le digest ne doit rien écrire en base (le
     // rattachement du compte se fait sur la page Profil).
     getMe()
       .then((d) => (d ? setDoctor(d) : setNoAccount(true)))
       .catch(() => setMeError(true));
-  }, []);
+    void (async () => {
+      const h = await refreshHistory();
+      if (!mountedRef.current || !h) return;
+      // On montre le dernier digest tout de suite, même si une régénération
+      // tourne (l'ancien reste le digest officiel tant qu'elle n'a pas abouti).
+      if (h.days.length > 0) void openDay(h.days[0]);
+      if (h.current) void poll(h.current.id);
+    })();
+    return () => {
+      mountedRef.current = false;
+      if (pollRef.current) clearTimeout(pollRef.current);
+    };
+  }, [refreshHistory, openDay, poll]);
 
-  // Démontage : fermer le flux ET arrêter la génération côté serveur
-  // (best-effort) — fermer l'onglet ne tue pas le thread producteur tout seul.
-  useEffect(
-    () => () => {
-      esRef.current?.close();
-      if (tokenRef.current) void stopDeepSearch(tokenRef.current);
-    },
-    [],
-  );
-
-  function endRun() {
-    tokenRef.current = null;
-    setRunning(false);
-  }
-
-  function generate(nDays: number) {
+  async function generate(nDays: number) {
     if (running) return;
     setDays(nDays);
-    setRunning(true);
-    setLogs([]);
     setError(null);
-    // Jeton NEUF à chaque clic : le backend refuse un jeton déjà vu (protection
-    // contre les doubles lancements à la reconnexion EventSource).
-    const token = crypto.randomUUID();
-    tokenRef.current = token;
-    esRef.current?.close();
-    esRef.current = digestStream(nDays, token, {
-      onLog: (l) => setLogs((prev) => [...prev, l]),
-      onResult: (r) => {
-        setRes(r);
-        setGenDays(nDays);
-        setGeneratedAt(nowHHMM());
-        setGenId((g) => g + 1);
-      },
-      // Les traductions FR arrivent après les résultats : on patche les hits,
-      // l'adaptateur (useMemo) reconstruit les cartes.
-      onTranslations: (fr) =>
-        setRes(
-          (prev) =>
-            prev && {
-              ...prev,
-              results: prev.results.map((h) => {
-                const t = fr[String(h.pmid)];
-                return t
-                  ? { ...h, title_fr: t.title_fr, abstract_fr: t.abstract_fr }
-                  : h;
-              }),
-            },
-        ),
-      onComplete: endRun,
-      onStopped: endRun,
-      onError: (msg) => {
-        setError(msg || "La génération du digest a échoué. Réessayez plus tard.");
-        endRun();
-      },
-    });
+    try {
+      const run = await generateDigest(nDays);
+      setCurrent({ ...run, logs: [], payload: null });
+      void poll(run.id);
+    } catch (e) {
+      // 409 : une génération tourne déjà (autre onglet, retour sur la page…)
+      // → on s'y raccroche au lieu d'afficher une erreur sèche.
+      const h = await refreshHistory();
+      if (h?.current) {
+        void poll(h.current.id);
+      } else {
+        setError(
+          e instanceof Error
+            ? e.message
+            : "La génération du digest a échoué. Réessayez plus tard.",
+        );
+      }
+    }
   }
 
   function stop() {
-    esRef.current?.close();
-    if (tokenRef.current) void stopDeepSearch(tokenRef.current);
-    endRun();
+    // Le run passera à « stopped » côté serveur ; le polling en cours le verra.
+    if (current) void stopDigestRun(current.id);
   }
 
   const profile = doctor?.profile ?? null;
+  // Pendant la phase de traduction, le payload du run en cours est déjà là :
+  // on l'affiche en direct (les traductions FR se complètent au fil des polls).
+  const displayRun = running && current?.payload ? current : view;
   const digest = useMemo(
     () =>
-      res && doctor
-        ? deepSearchToDigestData(res, doctor, {
-            date: todayFr(),
-            generated: generatedAt,
-            days: genDays,
+      displayRun?.payload && doctor
+        ? deepSearchToDigestData(displayRun.payload, doctor, {
+            date: dayFr(displayRun.digest_date),
+            generated: timeFr(displayRun.finished_at) || "en cours",
+            days: displayRun.days,
           })
         : null,
-    [res, doctor, generatedAt, genDays],
+    [displayRun, doctor],
   );
   // Génération aboutie mais aucun article retenu sur la fenêtre.
-  const emptyResult = res !== null && digest === null && !running;
+  const emptyResult =
+    !running && view !== null && view.status === "complete" && view.n_results === 0;
 
   return (
     <main className="xm-page">
@@ -195,7 +252,7 @@ export default function DigestPage() {
             type="button"
             className="primary"
             disabled={!profile}
-            onClick={() => generate(days)}
+            onClick={() => void generate(days)}
             title={
               profile
                 ? "Lancer la sélection d'articles pour votre profil"
@@ -207,20 +264,43 @@ export default function DigestPage() {
         )}
       </div>
 
+      {history !== null && history.days.length > 0 && (
+        <div
+          className="xm-method-row"
+          style={{ marginTop: 0, marginBottom: 24, gap: 8, flexWrap: "wrap" }}
+        >
+          <span className="xm-method-label">HISTORIQUE</span>
+          {history.days.map((d) => (
+            <button
+              key={d.id}
+              type="button"
+              className={d.id === selectedId ? "primary" : "xmr-act"}
+              title={`${dayFr(d.digest_date)} · ${d.n_results} articles · ${d.days} derniers jours`}
+              onClick={() => void openDay(d)}
+            >
+              {dayShortFr(d.digest_date)}
+            </button>
+          ))}
+        </div>
+      )}
+
       {running && (
         <div className="xm-live running">
           <div className="xm-live-head">
             <span className="xm-live-dot" />
-            <span className="xm-live-title">Génération du digest — en direct</span>
+            <span className="xm-live-title">
+              Génération du digest — en arrière-plan (vous pouvez quitter la
+              page, elle continuera)
+            </span>
             <span className="xm-live-spin" />
           </div>
           <div className="xm-live-body">
-            {logs.length === 0 && (
+            {(current?.logs.length ?? 0) === 0 && (
               <div className="xm-live-line">
                 Composition de la recherche à partir de votre profil…
               </div>
             )}
-            {logs.map((l, k) => (
+            {current?.logs.map((l, k) => (
               <div key={k} className="xm-live-line">
                 {l.msg}
               </div>
@@ -232,14 +312,15 @@ export default function DigestPage() {
       {error && <p className="xm-banner warn">⚠ {error}</p>}
       {emptyResult && (
         <div className="xm-banner warn">
-          Aucun article retenu sur les {genDays} derniers jours pour votre profil.
-          {genDays < 90 && (
+          Aucun article retenu sur les {view.days} derniers jours pour votre
+          profil.
+          {view.days < 90 && (
             <>
               {" "}
               <button
                 type="button"
                 className="xmr-act"
-                onClick={() => generate(90)}
+                onClick={() => void generate(90)}
               >
                 Élargir à 90 jours
               </button>
@@ -249,7 +330,7 @@ export default function DigestPage() {
       )}
 
       {digest ? (
-        <DigestView key={genId} data={digest} />
+        <DigestView key={displayRun?.id} data={digest} />
       ) : (
         !running && (
           <>
@@ -264,7 +345,10 @@ export default function DigestPage() {
                 sélection PubMed adaptée à votre profil.
               </p>
             </div>
-            <DigestView key="apercu" data={{ ...sampleDigest, date: todayFr() }} />
+            <DigestView
+              key="apercu"
+              data={{ ...sampleDigest, date: formatDayFr(new Date()) }}
+            />
           </>
         )
       )}
