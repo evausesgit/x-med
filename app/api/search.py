@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import time
 from collections.abc import Callable
+from datetime import date
 from queue import Empty, Queue
 from threading import Thread
 from typing import Literal
@@ -447,6 +448,10 @@ class DeepSearchRequest(BaseModel):
     # - POST /search/pubmed/deep/stop/{token} arrête TOUTE la recherche en cours
     #   (codex tué, pipeline stoppé au prochain jalon).
     local_token: str | None = None
+    # Mode digest : la query est un metaprompt composé depuis le profil (FR, long).
+    # L'envoyer brute à PubMed en repli n'aurait aucun sens — sans query-builder,
+    # on échoue proprement au lieu de dégrader.
+    require_builder: bool = False
 
 
 class DeepHit(BaseModel):
@@ -508,6 +513,48 @@ def _year(d: str | None) -> int | None:
         return int(str(d)[:4])
     except ValueError:
         return None
+
+
+def _date_bound(d: str | None) -> date | None:
+    """Borne 'YYYY-MM-DD' en date exacte ; 'YYYY' seul (ou invalide) → None."""
+    if not d:
+        return None
+    try:
+        return date.fromisoformat(str(d))
+    except ValueError:
+        return None
+
+
+def _window_keep(
+    pub_date: date | None,
+    pub_year: int | None,
+    date_from: str | None,
+    date_to: str | None,
+) -> tuple[bool, bool]:
+    """(garder ?, date invérifiable ?) d'un candidat LOCAL-seul vis-à-vis de la fenêtre.
+
+    Le pré-filtre local ne borne qu'à l'ANNÉE : une recherche « 30 derniers jours »
+    laissait passer des articles de janvier. Politique (accordée avec Codex,
+    recall-first) : exclusion stricte quand `pub_date` PROUVE la sortie de fenêtre ;
+    à date inconnue, on retombe sur l'année (exclusion seulement si l'année sort),
+    et on signale le candidat comme invérifiable (compteur `local_date_unverified`).
+    Les candidats venus de PubMed (A) ne passent pas ici : esearch borne au jour.
+    """
+    d_from, d_to = _date_bound(date_from), _date_bound(date_to)
+    if pub_date is not None:
+        if d_from is not None and pub_date < d_from:
+            return False, False
+        if d_to is not None and pub_date > d_to:
+            return False, False
+    unverified = pub_date is None and (date_from is not None or date_to is not None)
+    year = pub_year if pub_date is None else pub_date.year
+    yf, yt = _year(date_from), _year(date_to)
+    if year is not None:
+        if yf is not None and year < yf:
+            return False, unverified
+        if yt is not None and year > yt:
+            return False, unverified
+    return True, unverified
 
 
 def _prefilter_source(session: Session, date_from: str | None):
@@ -581,6 +628,13 @@ def _run_deep_search(
         emit("codex_done", f"🧠 Requête PubMed construite · {_fmt_tokens(qb_usage)}",
              pubmed_query=pubmed_query, mesh_terms=mesh)
     except QueryBuildError as e:
+        if req.require_builder:
+            note_limit(e)
+            raise HTTPException(
+                502,
+                "Digest indisponible : la construction de la requête PubMed "
+                f"(GPT-5.4) a échoué ({e}). Réessayez plus tard.",
+            )
         builder = "fallback"
         term = req.query
         note_limit(e)
@@ -687,6 +741,31 @@ def _run_deep_search(
         candidate_pmids.sort(key=lambda p: -rrf_score.get(p, 0.0))
     db = _fetch_articles(session, candidate_pmids)
 
+    # Fenêtre temporelle précise sur les candidats LOCAUX-seuls (les candidats A
+    # sont déjà bornés au jour par esearch ; A ∩ B garde la validation PubMed).
+    local_dropped = 0
+    local_unverified = 0
+    if req.date_from or req.date_to:
+        kept: list[int] = []
+        for p in candidate_pmids:
+            a = db.get(p)
+            if p in a_set or a is None:
+                kept.append(p)
+                continue
+            keep, unverified = _window_keep(
+                a.pub_date, a.pub_year, req.date_from, req.date_to
+            )
+            local_unverified += int(unverified and keep)
+            if keep:
+                kept.append(p)
+            else:
+                local_dropped += 1
+        if local_dropped:
+            emit("window_filter",
+                 f"📅 {local_dropped} candidats locaux écartés (hors fenêtre de dates)")
+        candidate_pmids = kept
+        local_set &= set(kept)
+
     # Enrichissement des articles de A absents de la base : best-effort. Un hoquet
     # NCBI (rate-limit, XML, réseau) ne doit pas faire échouer toute la recherche —
     # on dégrade (titre/abstract manquants) plutôt que de renvoyer un 500.
@@ -708,6 +787,19 @@ def _run_deep_search(
 
     def _abstract(p: int) -> str | None:
         return db[p].abstract if p in db else ext_abstracts.get(p)
+
+    def _judge_item(p: int) -> dict:
+        # Métadonnées en plus du texte : le juge peut appliquer les préférences
+        # de la question (journaux, niveau de preuve, récence) au lieu de deviner.
+        a, m = db.get(p), meta.get(p)
+        return {
+            "pmid": p,
+            "title": _title(p),
+            "abstract": _abstract(p),
+            "journal": (a.journal if a else (m.journal if m else None)),
+            "pub_year": (a.pub_year if a else (m.pub_year if m else None)),
+            "evidence_level": (a.evidence_level if a else None),
+        }
 
     # Candidats jugeables = ceux qui ont un abstract (codex doit lire le texte).
     # On ne juge que le PREMIER lot (`judge_batch`) ; le reste (`remaining`) est
@@ -738,8 +830,7 @@ def _run_deep_search(
     scores: dict[int, object] = {}
     try:
         scores, judge_usage = judge_articles(
-            req.query,
-            [{"pmid": p, "title": _title(p), "abstract": _abstract(p)} for p in first_batch],
+            req.query, [_judge_item(p) for p in first_batch]
         )
         codex_tokens["judge"] = judge_usage.total_tokens
         emit("judge_done", f"🧠 Jugement terminé · {_fmt_tokens(judge_usage)}")
@@ -817,6 +908,11 @@ def _run_deep_search(
             "kept_pubmed": sum(1 for h in hits if h.source == "pubmed"),
             "kept_both": sum(1 for h in hits if h.source == "both"),
             "kept_local": sum(1 for h in hits if h.source == "local"),
+            # Fenêtre de dates : locaux-seuls écartés (date prouvée hors fenêtre)
+            # et conservés sans date vérifiable (année seule) — pour mesurer le
+            # compromis recall-first avant d'envisager pub_date dans article_search.
+            "local_dropped_window": local_dropped,
+            "local_date_unverified": local_unverified,
         },
         results=hits,
         remaining=rest,
@@ -881,6 +977,17 @@ def _run_deep_more(
     def _abstract(p: int) -> str | None:
         return db[p].abstract if p in db else ext_abstracts.get(p)
 
+    def _judge_item(p: int) -> dict:
+        a, m = db.get(p), meta.get(p)
+        return {
+            "pmid": p,
+            "title": _title(p),
+            "abstract": _abstract(p),
+            "journal": (a.journal if a else (m.journal if m else None)),
+            "pub_year": (a.pub_year if a else (m.pub_year if m else None)),
+            "evidence_level": (a.evidence_level if a else None),
+        }
+
     judgeable = [p for p in pmids if (_abstract(p) or "").strip()]
     emit("judge", f"🧬 GPT-5.4 lit et juge {len(judgeable)} abstracts de plus…")
 
@@ -888,8 +995,7 @@ def _run_deep_more(
     scores: dict[int, object] = {}
     try:
         scores, judge_usage = judge_articles(
-            req.query,
-            [{"pmid": p, "title": _title(p), "abstract": _abstract(p)} for p in judgeable],
+            req.query, [_judge_item(p) for p in judgeable]
         )
         codex_tokens["judge"] = judge_usage.total_tokens
         emit("judge_done", f"🧠 Jugement terminé · {_fmt_tokens(judge_usage)}")
@@ -972,6 +1078,7 @@ def search_pubmed_deep(
             {"phase": phase, "msg": msg, "elapsed_s": round(time.monotonic() - t0, 1), **data}
         )
 
+    user = request.headers.get("x-user-email")
     try:
         result = _run_deep_search(req, session, progress)
         send_search_notification(
@@ -980,6 +1087,7 @@ def search_pubmed_deep(
             duration_s=time.monotonic() - t0,
             metrics=_deep_metrics(result),
             progress_events=progress_events,
+            user=user,
         )
         return result
     except Exception as exc:
@@ -990,6 +1098,7 @@ def search_pubmed_deep(
             metrics={"method": "v2 (filtre lexical/MeSH + jugement codex)"},
             progress_events=progress_events,
             error=str(exc),
+            user=user,
         )
         raise
 
@@ -1263,6 +1372,41 @@ def search_pubmed_deep_stream(
         query=query,
         params={"date_from": date_from, "date_to": date_to, "rrf": rrf, "stream": True},
     )
+    return deep_search_sse(
+        DeepSearchRequest(
+            query=query, date_from=date_from, date_to=date_to,
+            k_pubmed=k_pubmed, max_local=max_local,
+            rrf=rrf, judge_batch=judge_batch, local_floor=local_floor,
+            local_token=local_token,
+        ),
+        # Header posé par le proxy Next (identité vérifiée), jamais par le client.
+        notif_user=request.headers.get("x-user-email"),
+    )
+
+
+def deep_search_sse(
+    req: DeepSearchRequest,
+    notif_query: str | None = None,
+    notif_omit_pubmed_query: bool = False,
+    notif_user: str | None = None,
+) -> StreamingResponse:
+    """Machinerie SSE de la recherche v2, partagée avec le digest (/digest/stream).
+
+    Contrat d'événements : `log`* → `result` → `translations`* → `complete`
+    (ou `stopped` / `error`). Le front ne doit fermer l'EventSource que sur
+    `complete`, `stopped` ou `error` — fermer sur `result` perdrait les
+    traductions streamées ensuite.
+
+    `notif_query` : libellé compact pour la notification Telegram (le digest y met
+    « Digest on-demand · … » plutôt que le metaprompt intégral).
+    `notif_omit_pubmed_query` : retire la requête PubMed construite des métriques
+    de la notification — pour le digest, elle est dérivée du profil clinique et
+    le révélerait autant que le metaprompt lui-même.
+    `notif_user` : email du compte connecté, affiché dans la notification
+    (demande d'Eva : savoir QUI lance quoi depuis Telegram).
+    """
+    local_token = req.local_token
+    notif_query = notif_query or req.query
 
     def sse(event: str, data: dict) -> str:
         return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
@@ -1301,23 +1445,18 @@ def search_pubmed_deep_stream(
             notified = False
             try:
                 with SessionLocal() as worker_session:
-                    result = _run_deep_search(
-                        DeepSearchRequest(
-                            query=query, date_from=date_from, date_to=date_to,
-                            k_pubmed=k_pubmed, max_local=max_local,
-                            rrf=rrf, judge_batch=judge_batch, local_floor=local_floor,
-                            local_token=local_token,
-                        ),
-                        worker_session,
-                        progress,
-                    )
+                    result = _run_deep_search(req, worker_session, progress)
+                    metrics = _deep_metrics(result)
+                    if notif_omit_pubmed_query:
+                        metrics.pop("pubmed_query", None)
                     # Notif dès que la recherche a abouti (la traduction qui suit est
                     # un post-traitement best-effort, pas un échec de recherche).
                     send_search_notification(
-                        status="ok", query=query,
+                        status="ok", query=notif_query,
                         duration_s=time.monotonic() - t0,
-                        metrics=_deep_metrics(result),
+                        metrics=metrics,
                         progress_events=progress_events,
+                        user=notif_user,
                     )
                     notified = True
                     # On envoie les résultats tout de suite (traductions en cache
@@ -1326,27 +1465,31 @@ def search_pubmed_deep_stream(
                     fr = _translate_kept(result, worker_session, progress)
                     if fr:
                         events.put(("translations", fr))
+                    events.put(("complete", {}))
             except SearchCancelled:
                 # Arrêt volontaire (bouton stop) : pas une erreur. Le front a en
                 # général déjà fermé le flux ; l'événement couvre les autres cas.
                 if not notified:
                     send_search_notification(
-                        status="stopped", query=query,
+                        status="stopped", query=notif_query,
                         duration_s=time.monotonic() - t0,
                         metrics={"method": "v2 (filtre lexical/MeSH + jugement codex)"},
                         progress_events=progress_events,
+                        user=notif_user,
                     )
                 events.put(("stopped", {"msg": "⏹️ Recherche arrêtée."}))
             except Exception as exc:
                 if not notified:
                     send_search_notification(
-                        status="error", query=query,
+                        status="error", query=notif_query,
                         duration_s=time.monotonic() - t0,
                         metrics={"method": "v2 (filtre lexical/MeSH + jugement codex)"},
                         progress_events=progress_events,
                         error=str(exc),
+                        user=notif_user,
                     )
-                events.put(("error", {"msg": f"Recherche v2 indisponible : {exc}"}))
+                msg = exc.detail if isinstance(exc, HTTPException) else str(exc)
+                events.put(("error", {"msg": f"Recherche v2 indisponible : {msg}"}))
             finally:
                 if local_token:
                     search_cancel.unregister(local_token)
@@ -1424,6 +1567,7 @@ def search_pubmed_deep_more_stream(
                     fr = _translate_kept(result, worker_session, progress)
                     if fr:
                         events.put(("translations", fr))
+                    events.put(("complete", {}))
             except Exception as exc:
                 events.put(("error", {"msg": f"Jugement indisponible : {exc}"}))
             finally:

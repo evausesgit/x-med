@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import doctors, eval, me, saved_searches, search
+from app.api import digest, doctors, eval, me, saved_searches, search
 from app.config import settings
 
 app = FastAPI(title="X-Med API", version="0.1.0")
@@ -23,6 +23,7 @@ app.include_router(doctors.router, tags=["doctors"])
 app.include_router(me.router, tags=["me"])
 app.include_router(eval.router, tags=["eval"])
 app.include_router(saved_searches.router, tags=["saved-searches"])
+app.include_router(digest.router, tags=["digest"])
 
 
 @app.get("/")

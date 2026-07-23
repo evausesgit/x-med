@@ -277,7 +277,17 @@ GET    /doctors/{id}/digest        digest courant (JSON)
 GET    /doctors/{id}/history       articles déjà reçus
 POST   /search                     recherche PubMed E-utilities
 GET    /specialties                liste des spécialités disponibles
+GET    /digest/stream              digest ON-DEMAND du médecin connecté (SSE) :
+                                   query composée côté serveur depuis le profil
+                                   (metaprompt + facettes, cf. services/digest_query.py)
+                                   puis même pipeline v2 que /search/pubmed/deep/stream.
+                                   Params : days (7/30/90, défaut 30), local_token.
 ```
+
+Contrat SSE partagé recherche v2 / digest : `log`* → `result` → `translations`* →
+`complete` (ou `stopped` / `error`). Le front ne ferme l'EventSource que sur
+`complete`, `stopped` ou `error` — fermer sur `result` perdrait les traductions
+streamées ensuite.
 
 ---
 

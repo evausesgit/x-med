@@ -70,7 +70,10 @@ function DigestCard({
       why={a.why}
       spoken={a.spoken}
       mesh={a.mesh}
-      pubmedUrl={"https://pubmed.ncbi.nlm.nih.gov/?term=" + encodeURIComponent(a.en.title)}
+      pubmedUrl={
+        a.pubmedUrl ??
+        "https://pubmed.ncbi.nlm.nih.gov/?term=" + encodeURIComponent(a.en.title)
+      }
       extraActions={
         <SelectButton selected={selected} disabled={disabled} onToggle={onToggle} />
       }
@@ -195,7 +198,7 @@ export default function DigestView({ data }: { data: DigestData }) {
           <div className="xm-digest-gen">
             Généré {D.generated} CET
             <br />
-            Modèle {D.model}
+            {D.method}
           </div>
         </div>
 
