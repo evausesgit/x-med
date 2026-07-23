@@ -104,6 +104,79 @@ export async function searchPubmedDeep(
   return res.json();
 }
 
+// Handlers du contrat SSE partagé recherche v2 / digest :
+// `log`* → `result` → `translations`* → `complete` (ou `stopped` / `error`).
+export interface DeepStreamHandlers<T> {
+  onLog: (log: PubmedLog) => void;
+  onResult: (res: T) => void;
+  onError: (msg?: string) => void;
+  // Traductions FR arrivant APRÈS les résultats (au fur et à mesure).
+  onTranslations?: (
+    fr: Record<string, { title_fr: string; abstract_fr: string }>,
+  ) => void;
+  // Recherche arrêtée côté serveur (bouton stop — en général le front a déjà
+  // fermé le flux ; couvre les arrêts venus d'ailleurs, ex. autre onglet).
+  onStopped?: () => void;
+  // Fin du flux (traductions comprises) — le spinner peut s'éteindre ici.
+  onComplete?: () => void;
+}
+
+// Écoute d'un flux au contrat partagé. On ne ferme QUE sur `complete`, `stopped`
+// ou `error` : fermer sur `result` (comportement historique) perdait les
+// traductions streamées ensuite. Une coupure réseau APRÈS `result` est traitée
+// comme une fin de flux, pas comme une erreur (les résultats sont déjà là).
+function listenDeepStream<T>(es: EventSource, handlers: DeepStreamHandlers<T>): EventSource {
+  let gotResult = false;
+  es.addEventListener("log", (e) => {
+    try {
+      handlers.onLog(JSON.parse((e as MessageEvent).data));
+    } catch {
+      /* ignore une ligne malformée */
+    }
+  });
+  es.addEventListener("translations", (e) => {
+    try {
+      handlers.onTranslations?.(JSON.parse((e as MessageEvent).data));
+    } catch {
+      /* ignore */
+    }
+  });
+  es.addEventListener("result", (e) => {
+    gotResult = true;
+    try {
+      handlers.onResult(JSON.parse((e as MessageEvent).data));
+    } catch {
+      /* payload illisible : l'événement error/complete suivra */
+    }
+  });
+  es.addEventListener("complete", () => {
+    es.close();
+    handlers.onComplete?.();
+  });
+  es.addEventListener("stopped", () => {
+    handlers.onStopped?.();
+    es.close();
+  });
+  es.addEventListener("error", (e) => {
+    es.close();
+    if (gotResult) {
+      handlers.onComplete?.();
+      return;
+    }
+    const data = (e as MessageEvent).data;
+    if (data) {
+      try {
+        handlers.onError(JSON.parse(data).msg);
+      } catch {
+        handlers.onError();
+      }
+    } else {
+      handlers.onError();
+    }
+  });
+  return es;
+}
+
 // Version streaming (SSE) de la v2 : émet le déroulé via onLog puis onResult.
 // Indispensable pour les requêtes longues (codex ~1 min) : les keep-alives du
 // serveur empêchent le proxy de couper à ~30 s (ce qui donnait « Erreur API 500 »).
@@ -112,18 +185,7 @@ export function searchPubmedDeepStream(
   dateFrom: string | undefined,
   dateTo: string | undefined,
   k: number,
-  handlers: {
-    onLog: (log: PubmedLog) => void;
-    onResult: (res: DeepSearchResponse) => void;
-    onError: (msg?: string) => void;
-    // Traductions FR arrivant après les résultats (au fur et à mesure).
-    onTranslations?: (
-      fr: Record<string, { title_fr: string; abstract_fr: string }>,
-    ) => void;
-    // Recherche arrêtée côté serveur (bouton stop — en général le front a déjà
-    // fermé le flux ; couvre les arrêts venus d'ailleurs, ex. autre onglet).
-    onStopped?: () => void;
-  },
+  handlers: DeepStreamHandlers<DeepSearchResponse>,
   // Algo v2 : fusion RRF pour la sélection des candidats (tri final = score Codex).
   // `judgeBatch` = total analysé par lot · `localFloor` = minimum local garanti ·
   // `localToken` = jeton d'annulation de la requête locale (bouton stop).
@@ -142,45 +204,20 @@ export function searchPubmedDeepStream(
   if (opts.localFloor) sp.set("local_floor", String(opts.localFloor));
   if (opts.localToken) sp.set("local_token", opts.localToken);
   const es = new EventSource(`${API_BASE}/search/pubmed/deep/stream?${sp.toString()}`);
-  es.addEventListener("log", (e) => {
-    try {
-      handlers.onLog(JSON.parse((e as MessageEvent).data));
-    } catch {
-      /* ignore une ligne malformée */
-    }
-  });
-  es.addEventListener("translations", (e) => {
-    try {
-      handlers.onTranslations?.(JSON.parse((e as MessageEvent).data));
-    } catch {
-      /* ignore */
-    }
-  });
-  es.addEventListener("result", (e) => {
-    try {
-      handlers.onResult(JSON.parse((e as MessageEvent).data));
-    } finally {
-      es.close();
-    }
-  });
-  es.addEventListener("stopped", () => {
-    handlers.onStopped?.();
-    es.close();
-  });
-  es.addEventListener("error", (e) => {
-    const data = (e as MessageEvent).data;
-    if (data) {
-      try {
-        handlers.onError(JSON.parse(data).msg);
-      } catch {
-        handlers.onError();
-      }
-    } else {
-      handlers.onError();
-    }
-    es.close();
-  });
-  return es;
+  return listenDeepStream(es, handlers);
+}
+
+// Digest on-demand : même pipeline et même contrat SSE que la recherche v2,
+// mais la « query » est composée CÔTÉ SERVEUR depuis le profil du médecin
+// connecté (metaprompt + facettes) — elle ne transite jamais par l'URL.
+export function digestStream(
+  days: number,
+  localToken: string,
+  handlers: DeepStreamHandlers<DeepSearchResponse>,
+): EventSource {
+  const sp = new URLSearchParams({ days: String(days), local_token: localToken });
+  const es = new EventSource(`${API_BASE}/digest/stream?${sp.toString()}`);
+  return listenDeepStream(es, handlers);
 }
 
 // Bouton stop : annule la requête FTS locale en cours (identifiée par le jeton
@@ -222,54 +259,13 @@ export async function stopDeepSearch(token: string): Promise<boolean> {
 export function searchPubmedDeepMoreStream(
   query: string,
   pmids: number[],
-  handlers: {
-    onLog: (log: PubmedLog) => void;
-    onResult: (res: DeepMoreResponse) => void;
-    onError: (msg?: string) => void;
-    onTranslations?: (
-      fr: Record<string, { title_fr: string; abstract_fr: string }>,
-    ) => void;
-  },
+  handlers: DeepStreamHandlers<DeepMoreResponse>,
 ): EventSource {
   const sp = new URLSearchParams({ query, pmids: pmids.join(",") });
   const es = new EventSource(
     `${API_BASE}/search/pubmed/deep/more/stream?${sp.toString()}`,
   );
-  es.addEventListener("log", (e) => {
-    try {
-      handlers.onLog(JSON.parse((e as MessageEvent).data));
-    } catch {
-      /* ignore une ligne malformée */
-    }
-  });
-  es.addEventListener("translations", (e) => {
-    try {
-      handlers.onTranslations?.(JSON.parse((e as MessageEvent).data));
-    } catch {
-      /* ignore */
-    }
-  });
-  es.addEventListener("result", (e) => {
-    try {
-      handlers.onResult(JSON.parse((e as MessageEvent).data));
-    } finally {
-      es.close();
-    }
-  });
-  es.addEventListener("error", (e) => {
-    const data = (e as MessageEvent).data;
-    if (data) {
-      try {
-        handlers.onError(JSON.parse(data).msg);
-      } catch {
-        handlers.onError();
-      }
-    } else {
-      handlers.onError();
-    }
-    es.close();
-  });
-  return es;
+  return listenDeepStream(es, handlers);
 }
 
 // --- Analyse critique comparative (V1) : 2–3 articles sélectionnés → tableau ---

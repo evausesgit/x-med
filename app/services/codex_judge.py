@@ -88,10 +88,25 @@ def _render_articles(articles: list[dict]) -> str:
         abstract = (a.get("abstract") or "").strip()
         if len(abstract) > MAX_ABSTRACT_CHARS:
             abstract = abstract[:MAX_ABSTRACT_CHARS] + "…"
+        # Métadonnées optionnelles : permettent au juge d'appliquer les critères
+        # de la question qui ne se lisent pas dans l'abstract (journal, récence,
+        # niveau de preuve 1-4 dérivé des PublicationType).
+        facts = " · ".join(
+            str(v)
+            for v in (
+                a.get("journal"),
+                a.get("pub_year"),
+                f"niveau de preuve {a['evidence_level']}"
+                if a.get("evidence_level")
+                else None,
+            )
+            if v
+        )
         blocks.append(
             f"- PMID {a['pmid']}\n"
-            f"  Titre : {a.get('title') or ''}\n"
-            f"  Résumé : {abstract or '(résumé indisponible)'}"
+            + f"  Titre : {a.get('title') or ''}\n"
+            + (f"  Source : {facts}\n" if facts else "")
+            + f"  Résumé : {abstract or '(résumé indisponible)'}"
         )
     return "\n".join(blocks)
 
@@ -101,8 +116,9 @@ def judge_articles(
 ) -> tuple[dict[int, Judgement], CodexUsage]:
     """Score chaque article (par PMID) de 0 à 3 vis-à-vis de `PRM`.
 
-    `articles` : liste de dicts {pmid, title, abstract}. Retourne ({pmid: Judgement},
-    usage). Lève `JudgeError` si codex est indisponible / illisible.
+    `articles` : liste de dicts {pmid, title, abstract} + métadonnées optionnelles
+    {journal, pub_year, evidence_level}. Retourne ({pmid: Judgement}, usage).
+    Lève `JudgeError` si codex est indisponible / illisible.
     """
     if not articles:
         return {}, CodexUsage()

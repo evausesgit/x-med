@@ -14,13 +14,17 @@ export interface Article {
   /** Identifiant unique (ex. PMID ou slug) — sert de clé React + état audio */
   id: string;
   journal: string;
-  year: number;
-  /** Niveau de preuve 1..4 (1 = méta-analyse/RCT … 4 = avis) */
-  level: number;
+  /** Année de publication (null si PubMed ne la fournit pas) */
+  year: number | null;
+  /** Niveau de preuve 1..4 (1 = méta-analyse/RCT … 4 = avis) ; null si inconnu */
+  level: number | null;
   /** Pertinence pour le profil, 0..100 (jauge + barre) */
   match: number;
   /** Temps de lecture estimé, ex. "4 min" */
   read: string;
+  /** Fiche PubMed réelle de l'article (les données générées l'ont toujours ;
+      l'aperçu de démonstration retombe sur une recherche PubMed par titre) */
+  pubmedUrl?: string;
   /** Version française (traduction) */
   fr: LocalizedText;
   /** Version anglaise (source PubMed) */
@@ -38,8 +42,8 @@ export interface DigestData {
   date: string;
   /** Heure de génération, ex. "06:00" */
   generated: string;
-  /** Modèle d'embedding affiché, ex. "bge-m3" */
-  model: string;
+  /** Méthode affichée, ex. "PubMed + GPT-5.4" (la v2 n'utilise pas d'embeddings) */
+  method: string;
   doctor: { name: string; specialty: string };
   /** Thèmes du profil (puces en pied de page) */
   themes: string[];

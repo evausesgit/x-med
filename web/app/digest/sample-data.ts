@@ -7,7 +7,7 @@ import type { DigestData } from "./types";
 export const sampleDigest: DigestData = {
   date: "Jeudi 31 mai 2026",
   generated: "06:00",
-  model: "bge-m3",
+  method: "aperçu de démonstration",
   doctor: { name: "Dr Lefèvre", specialty: "Gynécologie médicale" },
   themes: ["Endométriose", "Douleur pelvienne", "Reproduction", "Inflammation", "Dépistage"],
 
