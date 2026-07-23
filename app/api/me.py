@@ -19,6 +19,7 @@ from urllib.parse import unquote
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.doctors import DoctorOut, ProfileIn, _to_out
@@ -88,14 +89,22 @@ def bootstrap_me(
         doctor = Doctor(
             email=ident.email,
             firebase_uid=ident.uid,
-            # Le nom Google sert de valeur initiale seulement ; il reste
-            # éditable ensuite sans être resynchronisé.
+            # Le nom Google sert de valeur initiale ; il n'est jamais
+            # resynchronisé ensuite.
             name=ident.name or ident.email,
         )
         session.add(doctor)
     elif doctor.firebase_uid is None:
         doctor.firebase_uid = ident.uid
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        # Deux bootstraps simultanés du même compte : l'autre requête a gagné
+        # la course à l'INSERT — on relit son résultat au lieu de renvoyer 500.
+        session.rollback()
+        doctor = _find_doctor(session, ident)
+        if doctor is None:
+            raise HTTPException(409, "Cet email est déjà rattaché à un autre compte")
     session.refresh(doctor)
     return _to_out(doctor)
 

@@ -50,6 +50,6 @@ class DoctorProfile(Base):
     preferred_journals: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
     mesh_terms_extra: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
     keywords_extra: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
-    updated_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
     doctor: Mapped["Doctor"] = relationship(back_populates="profile")
