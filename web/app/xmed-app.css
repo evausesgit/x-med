@@ -1060,6 +1060,26 @@
   color: var(--accent);
 }
 
+/* Titre de section « démonstration » : collé juste au-dessus d'un digest
+   fictif pour qu'on ne le confonde jamais avec une vraie génération. */
+.xm-demo-title {
+  margin: 4px 0 18px;
+  padding: 10px 0 10px 16px;
+  border-left: 3px solid #ecd9a6;
+}
+.xm-demo-title h2 {
+  font-family: var(--font-serif);
+  font-size: 21px;
+  margin: 0 0 6px;
+  color: var(--text);
+}
+.xm-demo-title p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
 /* ============================ RESPONSIVE ============================ */
 @media (max-width: 880px) {
   .xmr-reveal-grid {

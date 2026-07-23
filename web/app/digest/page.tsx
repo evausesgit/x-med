@@ -168,9 +168,9 @@ export default function DigestPage() {
       )}
       {doctor && profile && !digest && !running && (
         <div className="xm-banner warn" style={{ marginTop: 0 }}>
-          Aperçu de démonstration — générez votre digest pour voir une vraie
-          sélection : veille sur les {days} derniers jours, complétée par le fonds
-          local lorsque la date précise manque.
+          Aucun digest généré pour l'instant — un aperçu de démonstration est
+          affiché plus bas. Veille sur les {days} derniers jours, complétée par
+          le fonds local lorsque la date précise manque.
         </div>
       )}
 
@@ -260,7 +260,20 @@ export default function DigestPage() {
         <DigestView key={genId} data={digest} />
       ) : (
         !running && (
-          <DigestView key="apercu" data={{ ...sampleDigest, date: todayFr() }} />
+          <>
+            {/* Titre bien visible : évite toute confusion avec un vrai
+                digest — la démo ci-dessous est un profil et des articles
+                inventés, pas une sélection PubMed réelle. */}
+            <div className="xm-demo-title">
+              <h2>🧪 Aperçu de démonstration</h2>
+              <p>
+                Les articles ci-dessous sont un exemple fictif (profil « Dr
+                Lefèvre » inventé). Générez votre digest pour obtenir une
+                vraie sélection PubMed adaptée à votre profil.
+              </p>
+            </div>
+            <DigestView key="apercu" data={{ ...sampleDigest, date: todayFr() }} />
+          </>
         )
       )}
     </main>
