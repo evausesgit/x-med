@@ -70,3 +70,6 @@ Variables d'environnement (toutes optionnelles) :
 Prérequis console Firebase (une fois) : activer le fournisseur **Google**
 (Authentication → Sign-in method) et ajouter `x-med.ia-do-it.com` aux
 **domaines autorisés** (Authentication → Settings → Authorized domains).
+Pas de wildcard possible : chaque domaine de preview PR (`N.x-med.ia-do-it.com`)
+doit être ajouté puis retiré après merge — scriptable via
+`.claude/skills/firebase-preview-domains/domains.py` (add/remove/prune/list).
