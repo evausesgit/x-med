@@ -78,4 +78,5 @@ def digest_stream(
         ),
         notif_query=label,
         notif_omit_pubmed_query=True,
+        notif_user=ident.email,
     )

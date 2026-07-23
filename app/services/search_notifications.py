@@ -104,6 +104,7 @@ def _build_message(
     metrics: dict[str, Any],
     progress_events: Sequence[dict[str, Any]],
     error: str | None = None,
+    user: str | None = None,
 ) -> str:
     status_label = {
         "ok": "✅ terminée",
@@ -116,6 +117,10 @@ def _build_message(
         f"Requête: {_short(query, limit=500)}",
         f"Durée totale: {_fmt_duration(duration_s)}",
     ]
+    # Qui a lancé la recherche/le digest (email du compte Google connecté) —
+    # demande d'Eva : suivre l'activité des médecins testeurs depuis Telegram.
+    if user:
+        lines.insert(3, f"Compte: {user}")
 
     if metrics:
         method = metrics.get("method")
@@ -167,6 +172,7 @@ def send_search_notification(
     metrics: dict[str, Any] | None = None,
     progress_events: Sequence[dict[str, Any]] | None = None,
     error: str | None = None,
+    user: str | None = None,
 ) -> None:
     """Envoie une notification Hermes en arrière-plan, sans lever d'exception."""
     if not settings.search_notify_enabled:
@@ -179,6 +185,7 @@ def send_search_notification(
         metrics=metrics or {},
         progress_events=progress_events or (),
         error=error,
+        user=user,
     )
 
     def _send() -> None:

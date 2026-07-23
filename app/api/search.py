@@ -1078,6 +1078,7 @@ def search_pubmed_deep(
             {"phase": phase, "msg": msg, "elapsed_s": round(time.monotonic() - t0, 1), **data}
         )
 
+    user = request.headers.get("x-user-email")
     try:
         result = _run_deep_search(req, session, progress)
         send_search_notification(
@@ -1086,6 +1087,7 @@ def search_pubmed_deep(
             duration_s=time.monotonic() - t0,
             metrics=_deep_metrics(result),
             progress_events=progress_events,
+            user=user,
         )
         return result
     except Exception as exc:
@@ -1096,6 +1098,7 @@ def search_pubmed_deep(
             metrics={"method": "v2 (filtre lexical/MeSH + jugement codex)"},
             progress_events=progress_events,
             error=str(exc),
+            user=user,
         )
         raise
 
@@ -1375,7 +1378,9 @@ def search_pubmed_deep_stream(
             k_pubmed=k_pubmed, max_local=max_local,
             rrf=rrf, judge_batch=judge_batch, local_floor=local_floor,
             local_token=local_token,
-        )
+        ),
+        # Header posé par le proxy Next (identité vérifiée), jamais par le client.
+        notif_user=request.headers.get("x-user-email"),
     )
 
 
@@ -1383,6 +1388,7 @@ def deep_search_sse(
     req: DeepSearchRequest,
     notif_query: str | None = None,
     notif_omit_pubmed_query: bool = False,
+    notif_user: str | None = None,
 ) -> StreamingResponse:
     """Machinerie SSE de la recherche v2, partagée avec le digest (/digest/stream).
 
@@ -1396,6 +1402,8 @@ def deep_search_sse(
     `notif_omit_pubmed_query` : retire la requête PubMed construite des métriques
     de la notification — pour le digest, elle est dérivée du profil clinique et
     le révélerait autant que le metaprompt lui-même.
+    `notif_user` : email du compte connecté, affiché dans la notification
+    (demande d'Eva : savoir QUI lance quoi depuis Telegram).
     """
     local_token = req.local_token
     notif_query = notif_query or req.query
@@ -1448,6 +1456,7 @@ def deep_search_sse(
                         duration_s=time.monotonic() - t0,
                         metrics=metrics,
                         progress_events=progress_events,
+                        user=notif_user,
                     )
                     notified = True
                     # On envoie les résultats tout de suite (traductions en cache
@@ -1466,6 +1475,7 @@ def deep_search_sse(
                         duration_s=time.monotonic() - t0,
                         metrics={"method": "v2 (filtre lexical/MeSH + jugement codex)"},
                         progress_events=progress_events,
+                        user=notif_user,
                     )
                 events.put(("stopped", {"msg": "⏹️ Recherche arrêtée."}))
             except Exception as exc:
@@ -1476,6 +1486,7 @@ def deep_search_sse(
                         metrics={"method": "v2 (filtre lexical/MeSH + jugement codex)"},
                         progress_events=progress_events,
                         error=str(exc),
+                        user=notif_user,
                     )
                 msg = exc.detail if isinstance(exc, HTTPException) else str(exc)
                 events.put(("error", {"msg": f"Recherche v2 indisponible : {msg}"}))
