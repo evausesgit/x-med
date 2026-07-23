@@ -52,7 +52,10 @@ Fonctionnement :
 - `proxy.ts` (convention Next 16, ex-middleware) — vérifie cryptographiquement
   l'ID token (jose + clés publiques Google, aucun SDK Admin ni secret serveur).
   Sans jeton valide : redirection `/login?next=…` pour les pages, 401 JSON pour
-  `/api/*`.
+  `/api/*`. Sur chaque requête vérifiée, il injecte l'identité vers l'API :
+  `x-user-email`, `x-user-uid` (UID Firebase — clé de rattachement du profil
+  médecin, endpoints `/me`) et `x-user-name` (nom Google, encodé URI). Ces
+  headers sont toujours écrasés côté proxy, jamais repris du navigateur.
 - `app/login/page.tsx` — page de connexion (design system « X-Med App »),
   popup Google avec repli redirection.
 

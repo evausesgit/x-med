@@ -81,6 +81,7 @@ expliquer le score du reranker lorsqu'un tel modèle aura été évalué.
 CREATE TABLE doctors (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email           TEXT NOT NULL UNIQUE,
+    firebase_uid    TEXT UNIQUE,                    -- compte Google rattaché (NULL si créé à la main)
     name            TEXT NOT NULL,
     language        TEXT NOT NULL DEFAULT 'fr',     -- langue de réception
     digest_frequency TEXT NOT NULL DEFAULT 'daily', -- 'daily' | 'weekly'
