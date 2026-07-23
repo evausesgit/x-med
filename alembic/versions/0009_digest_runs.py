@@ -32,6 +32,9 @@ def upgrade() -> None:
             n_results   INTEGER NOT NULL DEFAULT 0,
             error       TEXT,
             created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+            -- Heartbeat : touché à chaque jalon de progression. C'est LUI (pas
+            -- created_at) qui sert à détecter les runs zombis.
+            updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
             finished_at TIMESTAMPTZ
         )
         """

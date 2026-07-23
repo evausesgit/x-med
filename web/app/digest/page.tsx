@@ -83,7 +83,15 @@ export default function DigestPage() {
   const [view, setView] = useState<DigestRun | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Verrou du POST /digest/generate : `running` ne devient vrai qu'à la
+  // réponse, un double-clic lancerait deux générations (la 2e prendrait un 409
+  // mais démarrerait sa propre boucle de polling).
+  const [launching, setLaunching] = useState(false);
   const pollRef = useRef<number | null>(null);
+  // Numéro de la boucle de polling courante : démarrer une nouvelle boucle
+  // invalide l'ancienne (sinon deux boucles pourraient poller en parallèle,
+  // et `pollRef` ne permettrait d'en annuler qu'une).
+  const pollSeqRef = useRef(0);
   const mountedRef = useRef(true);
 
   const running =
@@ -110,19 +118,22 @@ export default function DigestPage() {
   // Polling en setTimeout récursif (jamais setInterval : pas de requêtes qui se
   // chevauchent). Quitter la page arrête le POLLING, pas la génération.
   const poll = useCallback(
-    async (id: string) => {
+    async (id: string, seq: number) => {
+      const alive = () => mountedRef.current && seq === pollSeqRef.current;
+      if (!alive()) return;
       let run: DigestRun;
       try {
         run = await getDigestRun(id);
       } catch {
-        // Hoquet réseau : on réessaie au prochain tick.
-        pollRef.current = window.setTimeout(() => void poll(id), POLL_MS);
+        // Hoquet réseau : on réessaie au prochain tick (sauf page démontée).
+        if (alive())
+          pollRef.current = window.setTimeout(() => void poll(id, seq), POLL_MS);
         return;
       }
-      if (!mountedRef.current) return;
+      if (!alive()) return;
       setCurrent(run);
       if (run.status === "running" || run.status === "translating") {
-        pollRef.current = window.setTimeout(() => void poll(id), POLL_MS);
+        pollRef.current = window.setTimeout(() => void poll(id, seq), POLL_MS);
         return;
       }
       // Terminal : le run actif disparaît ; un succès devient le digest affiché.
@@ -140,6 +151,16 @@ export default function DigestPage() {
     [refreshHistory],
   );
 
+  // Point d'entrée UNIQUE du polling : invalide la boucle précédente.
+  const startPolling = useCallback(
+    (id: string) => {
+      pollSeqRef.current += 1;
+      if (pollRef.current) clearTimeout(pollRef.current);
+      void poll(id, pollSeqRef.current);
+    },
+    [poll],
+  );
+
   useEffect(() => {
     mountedRef.current = true;
     // Lecture pure : visiter le digest ne doit rien écrire en base (le
@@ -153,28 +174,29 @@ export default function DigestPage() {
       // On montre le dernier digest tout de suite, même si une régénération
       // tourne (l'ancien reste le digest officiel tant qu'elle n'a pas abouti).
       if (h.days.length > 0) void openDay(h.days[0]);
-      if (h.current) void poll(h.current.id);
+      if (h.current) startPolling(h.current.id);
     })();
     return () => {
       mountedRef.current = false;
       if (pollRef.current) clearTimeout(pollRef.current);
     };
-  }, [refreshHistory, openDay, poll]);
+  }, [refreshHistory, openDay, startPolling]);
 
   async function generate(nDays: number) {
-    if (running) return;
+    if (running || launching) return;
     setDays(nDays);
     setError(null);
+    setLaunching(true);
     try {
       const run = await generateDigest(nDays);
       setCurrent({ ...run, logs: [], payload: null });
-      void poll(run.id);
+      startPolling(run.id);
     } catch (e) {
       // 409 : une génération tourne déjà (autre onglet, retour sur la page…)
       // → on s'y raccroche au lieu d'afficher une erreur sèche.
       const h = await refreshHistory();
       if (h?.current) {
-        void poll(h.current.id);
+        startPolling(h.current.id);
       } else {
         setError(
           e instanceof Error
@@ -182,6 +204,8 @@ export default function DigestPage() {
             : "La génération du digest a échoué. Réessayez plus tard.",
         );
       }
+    } finally {
+      setLaunching(false);
     }
   }
 
@@ -234,7 +258,7 @@ export default function DigestPage() {
           id="digest-days"
           value={days}
           onChange={(e) => setDays(Number(e.target.value))}
-          disabled={running}
+          disabled={running || launching}
           style={{ width: "auto" }}
         >
           {PERIODS.map((d) => (
@@ -251,7 +275,7 @@ export default function DigestPage() {
           <button
             type="button"
             className="primary"
-            disabled={!profile}
+            disabled={!profile || launching}
             onClick={() => void generate(days)}
             title={
               profile

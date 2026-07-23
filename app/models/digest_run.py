@@ -43,4 +43,7 @@ class DigestRun(Base):
     n_results: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    # Heartbeat : touché à chaque jalon de progression — base de la détection
+    # des runs zombis (un run actif sans battement depuis 2 h est mort).
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now())
     finished_at: Mapped[datetime | None] = mapped_column()
