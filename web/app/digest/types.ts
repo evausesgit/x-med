@@ -42,7 +42,7 @@ export interface DigestData {
   date: string;
   /** Heure de génération, ex. "06:00" */
   generated: string;
-  /** Méthode affichée, ex. "PubMed + GPT-5.4" (la v2 n'utilise pas d'embeddings) */
+  /** Méthode affichée, ex. "PubMed + GPT-5.6" (la v2 n'utilise pas d'embeddings) */
   method: string;
   doctor: { name: string; specialty: string };
   /** Thèmes du profil (puces en pied de page) */

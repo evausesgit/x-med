@@ -3,7 +3,7 @@
 Le digest on-demand ne crée PAS de pipeline dédiée : il fabrique une phrase de
 recherche (metaprompt + profil sérialisé) et la fait avaler par la pipeline v2
 existante (`_run_deep_search`), exactement comme une question tapée par le
-médecin. Le query-builder GPT-5.4 en tire la requête PubMed, et le juge score
+médecin. Le query-builder GPT-5.6 en tire la requête PubMed, et le juge score
 « pertinence pour ce profil » au lieu de « pertinence pour cette question ».
 
 Décision de design (accordée avec Codex) : un seul champ query, zéro branche

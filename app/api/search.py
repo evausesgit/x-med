@@ -419,7 +419,7 @@ ProgressCallback = Callable[[str, str, dict], None]
 
 # --- Méthode v2 « PubMed + codex » : filtre lexical/MeSH → codex lit & juge ---
 # Voir PLAN_RECHERCHE_PUBMED_CODEX.md. Étapes :
-#   1. GPT-5.4 → requête structurée (keywords_en + mesh_terms) → PubMed = A
+#   1. GPT-5.6 → requête structurée (keywords_en + mesh_terms) → PubMed = A
 #   2. même requête sur la base locale (FTS + MeSH) → candidats bornés → B
 #   3. fusion A+B, dédup PMID, codex lit les abstracts et score (0-3),
 #      tri pertinence → qualité (evidence_level) → récence = C
@@ -479,8 +479,8 @@ class DeepSearchResponse(BaseModel):
     keywords_en: list[str]
     query_builder: Literal["codex", "fallback"]
     judge: Literal["codex", "skipped"]
-    codex_limit: bool = False  # quota GPT-5.4 atteint (résultats dégradés)
-    codex_tokens: dict[str, int] = {}  # tokens GPT-5.4 par étape (query/judge/total)
+    codex_limit: bool = False  # quota GPT-5.6 atteint (résultats dégradés)
+    codex_tokens: dict[str, int] = {}  # tokens GPT-5.6 par étape (query/judge/total)
     counts: dict[str, int]  # pubmed / local / merged / judgeable / judged / kept
     results: list[DeepHit]  # = C, classé
     # PMID jugeables (avec abstract) pas encore soumis à codex, dans l'ordre du
@@ -609,7 +609,7 @@ def _run_deep_search(
         if not codex_limit and is_usage_limit(str(exc)):
             codex_limit = True
             emit("codex_limit",
-                 "🚫 Limite d'usage GPT-5.4 atteinte — résultats en mode dégradé "
+                 "🚫 Limite d'usage GPT-5.6 atteinte — résultats en mode dégradé "
                  "(pas de tri intelligent ni de traduction). Réessayez plus tard.")
 
     # --- Étape 1 : requête structurée + PubMed → A ---
@@ -617,7 +617,7 @@ def _run_deep_search(
     pubmed_query: str | None = None
     mesh: list[str] = []
     keywords: list[str] = []
-    emit("codex", "🚀 Construction de la requête PubMed (GPT-5.4)…")
+    emit("codex", "🚀 Construction de la requête PubMed (GPT-5.6)…")
     try:
         pq, qb_usage = build_pubmed_query(req.query)
         pubmed_query = pq["pubmed_query"]
@@ -633,7 +633,7 @@ def _run_deep_search(
             raise HTTPException(
                 502,
                 "Digest indisponible : la construction de la requête PubMed "
-                f"(GPT-5.4) a échoué ({e}). Réessayez plus tard.",
+                f"(GPT-5.6) a échoué ({e}). Réessayez plus tard.",
             )
         builder = "fallback"
         term = req.query
@@ -822,7 +822,7 @@ def _run_deep_search(
         first_batch = sorted(keep, key=lambda p: order[p])  # garde l'ordre du vivier
     picked = set(first_batch)
     rest = [p for p in judgeable if p not in picked]
-    emit("judge", f"🧬 GPT-5.4 lit et juge {len(first_batch)} abstracts "
+    emit("judge", f"🧬 GPT-5.6 lit et juge {len(first_batch)} abstracts "
                   f"(sur {len(judgeable)} jugeables)…")
 
     # --- Étape 3 : codex lit & juge le premier lot ---
@@ -920,7 +920,7 @@ def _run_deep_search(
 
 
 def _deep_metrics(result: DeepSearchResponse) -> dict:
-    """Métriques v2 pour la notification Hermes (vrais tokens GPT-5.4)."""
+    """Métriques v2 pour la notification Hermes (vrais tokens GPT-5.6)."""
     return {
         "method": "v2 (filtre lexical/MeSH + jugement codex)",
         "pubmed_query": result.pubmed_query,
@@ -989,7 +989,7 @@ def _run_deep_more(
         }
 
     judgeable = [p for p in pmids if (_abstract(p) or "").strip()]
-    emit("judge", f"🧬 GPT-5.4 lit et juge {len(judgeable)} abstracts de plus…")
+    emit("judge", f"🧬 GPT-5.6 lit et juge {len(judgeable)} abstracts de plus…")
 
     judge_mode: Literal["codex", "skipped"] = "codex"
     scores: dict[int, object] = {}
@@ -1004,7 +1004,7 @@ def _run_deep_more(
         if is_usage_limit(str(e)):
             codex_limit = True
             emit("codex_limit",
-                 "🚫 Limite d'usage GPT-5.4 atteinte — réessayez plus tard.")
+                 "🚫 Limite d'usage GPT-5.6 atteinte — réessayez plus tard.")
         else:
             emit("judge_skip", f"⚠️ Jugement indisponible ({e})")
 
@@ -1143,7 +1143,7 @@ def _translate_kept(
     except TranslateError as e:
         if is_usage_limit(str(e)):
             progress("codex_limit",
-                     "🚫 Limite d'usage GPT-5.4 atteinte — traduction indisponible "
+                     "🚫 Limite d'usage GPT-5.6 atteinte — traduction indisponible "
                      "pour l'instant. Réessayez plus tard.", {})
         else:
             progress("translate_skip", f"⚠️ Traduction indisponible ({e})", {})
@@ -1207,7 +1207,7 @@ def translate_one(req: TranslateRequest, session: Session = Depends(get_session)
         )
     except TranslateError as e:
         if is_usage_limit(str(e)):
-            raise HTTPException(429, "Limite d'usage GPT-5.4 atteinte — réessayez plus tard.")
+            raise HTTPException(429, "Limite d'usage GPT-5.6 atteinte — réessayez plus tard.")
         raise HTTPException(502, f"Traduction indisponible : {e}")
 
     tr = fr.get(req.pmid)
@@ -1302,7 +1302,7 @@ def translate_batch(req: TranslateBatchRequest, session: Session = Depends(get_s
             fr, _ = translate_abstracts(to_translate, session)
         except TranslateError as e:
             if is_usage_limit(str(e)):
-                raise HTTPException(429, "Limite d'usage GPT-5.4 atteinte — réessayez plus tard.")
+                raise HTTPException(429, "Limite d'usage GPT-5.6 atteinte — réessayez plus tard.")
             raise HTTPException(502, f"Traduction indisponible : {e}")
         for pmid, tr in fr.items():
             out[str(pmid)] = TranslateResponse(

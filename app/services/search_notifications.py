@@ -145,7 +145,7 @@ def _build_message(
         add("Articles retenus", "relevant_total")
 
         if metrics.get("codex_limit"):
-            lines.append("⚠️ Limite d'usage GPT-5.4 atteinte (résultats dégradés)")
+            lines.append("⚠️ Limite d'usage GPT-5.6 atteinte (résultats dégradés)")
         pubmed_query = metrics.get("pubmed_query")
         if pubmed_query:
             lines.append(f"Requête PubMed construite: {_short(str(pubmed_query), limit=700)}")

@@ -24,7 +24,20 @@ class Settings(BaseSettings):
     ncbi_tool: str = "x-med"
     ncbi_email: str | None = None
     codex_bin: str = "codex"
-    codex_model: str = "gpt-5.4"
+    # Répartition par tâche (comparatif Artificial Analysis, juillet 2026) :
+    # - Terra : même prix que gpt-5.4 mais plus intelligent (Index 55 vs 51) et
+    #   ~13 % plus rapide → requête PubMed, jugement, critique.
+    # - Luna : l'intelligence de gpt-5.4 (Index 51) pour 2,5× moins cher et
+    #   ~47 % plus rapide → traduction (le poste le plus gourmand en output).
+    codex_model: str = "gpt-5.6-terra"
+    codex_model_translate: str = "gpt-5.6-luna"
+    # Effort de raisonnement PINNÉ par appel : sans ça, codex hérite du
+    # config.toml du CODEX_HOME ambiant (« high » sur le poste de dev via la
+    # config Hermes, indéterminé en prod) — la traduction tournait en high
+    # sans raison. medium = défaut OpenAI, suffisant pour requête/jugement ;
+    # low pour la traduction (tâche mécanique, gros volume d'output).
+    codex_reasoning: str = "medium"
+    codex_reasoning_translate: str = "low"
     codex_abstract_timeout: int = 900
 
     # Table étroite de recherche FTS (`article_search`) : fenêtre glissante des

@@ -1,4 +1,4 @@
-"""Traduction FR d'abstracts par le CLI codex (GPT-5.4), avec cache article_fr.
+"""Traduction FR d'abstracts par le CLI codex (GPT-5.6), avec cache article_fr.
 
 Étape 4 du plan « PubMed + codex » : on traduit en français les abstracts des
 articles retenus, pour les médecins. Les traductions sont mises en cache dans la
@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from sqlalchemy import text as sql_text
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.services.codex_cli import CodexCliError, CodexUsage, run_codex
 
 # On borne pour qu'un lot tienne dans un seul appel codex (argv + contexte).
@@ -118,7 +119,14 @@ def translate_abstracts(
 
     prompt = _PROMPT_HEAD + _render(items)
     try:
-        data, usage = run_codex(prompt, _SCHEMA, timeout)
+        # Modèle dédié (moins cher, raisonnement bas) : la traduction est le
+        # poste le plus gourmand en tokens de sortie et n'exige ni le modèle
+        # de tête ni de la réflexion.
+        data, usage = run_codex(
+            prompt, _SCHEMA, timeout,
+            model=settings.codex_model_translate,
+            reasoning=settings.codex_reasoning_translate,
+        )
     except CodexCliError as e:
         raise TranslateError(str(e)) from e
 

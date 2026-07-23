@@ -39,7 +39,7 @@ class QueryBuildError(RuntimeError):
 
 
 def is_usage_limit(text: str | None) -> bool:
-    """Vrai si le message d'erreur codex indique un dépassement de quota GPT-5.4.
+    """Vrai si le message d'erreur codex indique un dépassement de quota GPT-5.6.
 
     Partagé par les 3 appels codex (requête, jugement, traduction) pour afficher
     un bandeau explicite à l'utilisateur plutôt qu'un « mode dégradé » silencieux.

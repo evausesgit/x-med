@@ -1,4 +1,4 @@
-"""Analyse critique comparative d'un petit lot d'articles par le CLI codex (GPT-5.4).
+"""Analyse critique comparative d'un petit lot d'articles par le CLI codex (GPT-5.6).
 
 Le médecin sélectionne 2 à 3 articles dans les résultats et lance une comparaison.
 On fait LIRE à codex les abstracts des articles choisis et on lui demande de

@@ -1,4 +1,4 @@
-"""Jugement de pertinence d'un lot d'articles par le CLI codex (GPT-5.4).
+"""Jugement de pertinence d'un lot d'articles par le CLI codex (GPT-5.6).
 
 Cœur de la méthode « PubMed + codex » (cf. PLAN_RECHERCHE_PUBMED_CODEX.md,
 étapes 2-3) : plutôt que de classer le corpus par embeddings (pré-tri pgvector

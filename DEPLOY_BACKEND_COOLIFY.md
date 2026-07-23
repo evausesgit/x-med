@@ -21,7 +21,7 @@ interrompus. Un backend managé supprime cette classe de pannes.
 - Le front Coolify (réseau `10.0.1.0/24`) joint l'API via **`10.0.1.1:8800`** (IP hôte).
 - **Celery/Beat pas encore implémentés** — l'ordonnancement est un cron système. Redis
   est là mais peu/pas utilisé.
-- ⚠️ **Piège `codex`** : l'API shelle le binaire `codex` (CLI GPT-5.4, installé en **npm
+- ⚠️ **Piège `codex`** : l'API shelle le binaire `codex` (CLI GPT-5.6, installé en **npm
   global** dans `~/.npm-global/bin`) pour la recherche. Dans un conteneur, il faut
   l'**installer au build** ET gérer son **authentification** (voir §5).
 
