@@ -12,5 +12,8 @@ data/
 *.xml
 *.xml.gz
 *.log
-.claude/
+# .claude/ reste local (worktrees, réglages) SAUF les skills, versionnés
+# pour outiller les prochains agents.
+.claude/*
+!.claude/skills/
 bench/pubmed_ab_*.json
