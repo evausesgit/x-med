@@ -603,6 +603,22 @@ export async function createDoctor(body: {
   if (!res.ok) throw new Error(`Erreur API (${res.status})`);
   return res.json();
 }
+// Mon profil : le médecin rattaché au compte Google connecté (identité posée
+// par proxy.ts dans les headers, rien à envoyer côté client).
+export async function bootstrapMe(): Promise<Doctor> {
+  const res = await fetch(`${API_BASE}/me/bootstrap`, { method: "POST" });
+  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  return res.json();
+}
+export async function updateMyProfile(profile: DoctorProfile): Promise<Doctor> {
+  const res = await fetch(`${API_BASE}/me/profile`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(profile),
+  });
+  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  return res.json();
+}
 export async function updateProfile(id: string, profile: DoctorProfile): Promise<Doctor> {
   const res = await fetch(`${API_BASE}/doctors/${id}/profile`, {
     method: "PUT",

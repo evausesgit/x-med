@@ -22,6 +22,9 @@ class Doctor(Base):
         UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
     )
     email: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    # UID du compte Google (Firebase Auth) rattaché ; NULL tant que le médecin
+    # ne s'est jamais connecté (profil créé à la main via l'annuaire).
+    firebase_uid: Mapped[str | None] = mapped_column(Text, unique=True)
     name: Mapped[str] = mapped_column(Text, nullable=False)
     language: Mapped[str] = mapped_column(Text, nullable=False, server_default="fr")
     digest_frequency: Mapped[str] = mapped_column(Text, nullable=False, server_default="daily")

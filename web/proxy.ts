@@ -24,7 +24,7 @@ const ALLOWED_EMAILS = (process.env.XMED_ALLOWED_EMAILS ?? "")
   .filter(Boolean);
 
 type Session =
-  | { verdict: "ok"; email: string }
+  | { verdict: "ok"; email: string; uid: string; name: string }
   | { verdict: "anonymous" | "forbidden" };
 
 async function checkSession(req: NextRequest): Promise<Session> {
@@ -41,7 +41,12 @@ async function checkSession(req: NextRequest): Promise<Session> {
     if (ALLOWED_EMAILS.length > 0 && !ALLOWED_EMAILS.includes(email)) {
       return { verdict: "forbidden" };
     }
-    return { verdict: "ok", email };
+    return {
+      verdict: "ok",
+      email,
+      uid: payload.sub,
+      name: String(payload.name ?? ""),
+    };
   } catch {
     // Jeton absent/expiré/falsifié : on retombe sur le parcours de connexion.
     return { verdict: "anonymous" };
@@ -57,6 +62,10 @@ export async function proxy(req: NextRequest) {
     // l'usurpation, jamais relayée.
     const headers = new Headers(req.headers);
     headers.set("x-user-email", session.email);
+    // UID Firebase : clé de rattachement du profil médecin (endpoints /me).
+    headers.set("x-user-uid", session.uid);
+    // Nom Google encodé (les headers HTTP ne transportent pas les accents).
+    headers.set("x-user-name", encodeURIComponent(session.name));
     return NextResponse.next({ request: { headers } });
   }
 
