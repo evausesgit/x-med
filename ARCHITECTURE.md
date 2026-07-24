@@ -277,17 +277,36 @@ GET    /doctors/{id}/digest        digest courant (JSON)
 GET    /doctors/{id}/history       articles déjà reçus
 POST   /search                     recherche PubMed E-utilities
 GET    /specialties                liste des spécialités disponibles
-GET    /digest/stream              digest ON-DEMAND du médecin connecté (SSE) :
-                                   query composée côté serveur depuis le profil
-                                   (metaprompt + facettes, cf. services/digest_query.py)
-                                   puis même pipeline v2 que /search/pubmed/deep/stream.
-                                   Params : days (7/30/90, défaut 30), local_token.
+POST   /digest/generate            digest ON-DEMAND du médecin connecté, en
+                                   ARRIÈRE-PLAN : query composée côté serveur
+                                   depuis le profil (metaprompt + facettes, cf.
+                                   services/digest_query.py) puis même pipeline
+                                   v2 que la recherche, dans un thread détaché
+                                   de la requête. Body : days (7/30/90, défaut 30).
+GET    /digest/runs/{id}           état d'un run (statut + jalons + payload) —
+                                   pollé par le front pendant la génération
+GET    /digest/history             dernier run complet par journée + run actif
+POST   /digest/runs/{id}/stop      arrêt de la génération en cours
+POST   /search/runs                recherche v2 en ARRIÈRE-PLAN (même modèle
+                                   que le digest, cf. services/run_store.py) :
+                                   body query + dates + réglages, thread
+                                   détaché, 409 si une recherche est déjà en
+                                   cours pour le compte
+GET    /search/runs/{id}           état d'un run de recherche (pollé)
+GET    /search/runs                historique : run actif + dernières
+                                   recherches abouties du compte
+POST   /search/runs/{id}/stop      arrêt de la recherche en cours
 ```
 
-Contrat SSE partagé recherche v2 / digest : `log`* → `result` → `translations`* →
-`complete` (ou `stopped` / `error`). Le front ne ferme l'EventSource que sur
-`complete`, `stopped` ou `error` — fermer sur `result` perdrait les traductions
-streamées ensuite.
+La recherche principale et le digest ne sont PLUS en SSE : les tables
+`search_runs` / `digest_runs` sont la source de vérité et le front les polle —
+verrouiller son téléphone, changer d'app ou quitter la page n'interrompt plus
+rien, et chaque recherche aboutie devient une entrée d'historique (le digest
+« officiel » d'une journée est le dernier run `complete` de sa date). Le SSE
+subsiste pour les flux courts et interactifs (« Analyser 50 de plus »,
+analyse critique comparative) avec le contrat : `log`* → `result` →
+`translations`* → `complete` (ou `stopped` / `error`) — le front ne ferme
+l'EventSource que sur `complete`, `stopped` ou `error`.
 
 ---
 
