@@ -75,11 +75,12 @@ def get_me(
     return _to_out(doctor)
 
 
-@router.post("/me/bootstrap", response_model=DoctorOut)
-def bootstrap_me(
-    ident: Identity = Depends(current_identity),
-    session: Session = Depends(get_session),
-):
+def ensure_doctor(session: Session, ident: Identity) -> Doctor:
+    """Trouve — ou crée — le médecin du compte connecté (idempotent).
+
+    Utilisé par le bootstrap de la page Profil ET par la recherche en
+    arrière-plan (qui n'exige pas de profil rempli, juste une ligne Doctor
+    pour rattacher runs et historique au compte)."""
     doctor = _find_doctor(session, ident)
     if doctor is None:
         # L'email est UNIQUE : s'il existe déjà, c'est qu'il est rattaché à un
@@ -106,7 +107,15 @@ def bootstrap_me(
         if doctor is None:
             raise HTTPException(409, "Cet email est déjà rattaché à un autre compte")
     session.refresh(doctor)
-    return _to_out(doctor)
+    return doctor
+
+
+@router.post("/me/bootstrap", response_model=DoctorOut)
+def bootstrap_me(
+    ident: Identity = Depends(current_identity),
+    session: Session = Depends(get_session),
+):
+    return _to_out(ensure_doctor(session, ident))
 
 
 @router.put("/me/profile", response_model=DoctorOut)

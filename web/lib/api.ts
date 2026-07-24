@@ -177,36 +177,6 @@ function listenDeepStream<T>(es: EventSource, handlers: DeepStreamHandlers<T>): 
   return es;
 }
 
-// Version streaming (SSE) de la v2 : émet le déroulé via onLog puis onResult.
-// Indispensable pour les requêtes longues (codex ~1 min) : les keep-alives du
-// serveur empêchent le proxy de couper à ~30 s (ce qui donnait « Erreur API 500 »).
-export function searchPubmedDeepStream(
-  query: string,
-  dateFrom: string | undefined,
-  dateTo: string | undefined,
-  k: number,
-  handlers: DeepStreamHandlers<DeepSearchResponse>,
-  // Algo v2 : fusion RRF pour la sélection des candidats (tri final = score Codex).
-  // `judgeBatch` = total analysé par lot · `localFloor` = minimum local garanti ·
-  // `localToken` = jeton d'annulation de la requête locale (bouton stop).
-  opts: {
-    rrf?: boolean;
-    judgeBatch?: number;
-    localFloor?: number;
-    localToken?: string;
-  } = {},
-): EventSource {
-  const sp = new URLSearchParams({ query, k_pubmed: String(k) });
-  if (dateFrom) sp.set("date_from", dateFrom);
-  if (dateTo) sp.set("date_to", dateTo);
-  if (opts.rrf) sp.set("rrf", "true");
-  if (opts.judgeBatch) sp.set("judge_batch", String(opts.judgeBatch));
-  if (opts.localFloor) sp.set("local_floor", String(opts.localFloor));
-  if (opts.localToken) sp.set("local_token", opts.localToken);
-  const es = new EventSource(`${API_BASE}/search/pubmed/deep/stream?${sp.toString()}`);
-  return listenDeepStream(es, handlers);
-}
-
 // ---------- Digest en arrière-plan ----------
 // La génération tourne côté serveur, détachée de la page : on POSTe pour la
 // lancer, puis on POLLE le run (la table digest_runs est la source de vérité).
@@ -287,14 +257,78 @@ export async function getDigestHistory(): Promise<DigestHistory | null> {
   return res.json();
 }
 
-// Bouton stop : annule la requête FTS locale en cours (identifiée par le jeton
-// passé au stream). La recherche continue avec les seuls résultats PubMed.
+// ---------- Recherche en arrière-plan ----------
+// Même modèle que le digest : la recherche PubMed + IA tourne côté serveur,
+// détachée de la page — verrouiller son téléphone ou changer d'onglet ne
+// l'interrompt plus. On POSTe pour lancer, puis on POLLE le run ; chaque run
+// abouti devient une entrée de l'historique de recherche du compte.
+
+export interface SearchRunParams {
+  k_pubmed?: number;
+  rrf?: boolean;
+  judge_batch?: number;
+  local_floor?: number;
+}
+
+export interface SearchRunSummary {
+  id: string;
+  query: string;
+  date_from: string | null; // YYYY-MM-DD
+  date_to: string | null;
+  params: SearchRunParams;
+  status: DigestRunStatus; // même cycle de vie que le digest
+  n_results: number;
+  error: string | null;
+  created_at: string;
+  finished_at: string | null;
+}
+
+export interface SearchRun extends SearchRunSummary {
+  logs: PubmedLog[];
+  payload: DeepSearchResponse | null;
+}
+
+export interface SearchRunHistory {
+  current: SearchRunSummary | null; // run actif éventuel (running/translating)
+  runs: SearchRunSummary[]; // derniers runs aboutis, récent d'abord
+}
+
+// Lance une recherche en arrière-plan. Rejette avec le message API en cas de
+// 409 (une recherche est déjà en cours pour ce compte — s'y raccrocher).
+export async function createSearchRun(body: {
+  query: string;
+  date_from?: string;
+  date_to?: string;
+  k_pubmed?: number;
+  rrf?: boolean;
+  judge_batch?: number;
+  local_floor?: number;
+}): Promise<SearchRunSummary> {
+  const res = await fetch(`${API_BASE}/search/runs`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const detail = await res.json().then((d) => d.detail).catch(() => null);
+    throw new Error(detail || `Erreur API (${res.status})`);
+  }
+  return res.json();
+}
+
+export async function getSearchRun(id: string): Promise<SearchRun> {
+  const res = await fetch(`${API_BASE}/search/runs/${encodeURIComponent(id)}`);
+  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  return res.json();
+}
+
 // Best-effort : renvoie false (sans jeter) si rien n'était à annuler.
-export async function stopLocalSearch(token: string): Promise<boolean> {
+export async function stopSearchRun(id: string): Promise<boolean> {
   try {
-    const res = await fetch(`${API_BASE}/search/local/stop/${encodeURIComponent(token)}`, {
-      method: "POST",
-    });
+    const res = await fetch(
+      `${API_BASE}/search/runs/${encodeURIComponent(id)}/stop`,
+      { method: "POST" },
+    );
     if (!res.ok) return false;
     const data = await res.json();
     return !!data.stopped;
@@ -303,16 +337,20 @@ export async function stopLocalSearch(token: string): Promise<boolean> {
   }
 }
 
-// Bouton « Arrêter la recherche » : annule TOUTE la recherche PubMed + IA en
-// cours (appel codex tué, requête locale annulée, pipeline stoppé) — pour
-// corriger une faute de frappe ou reformuler sans attendre la fin.
+export async function getSearchRunHistory(): Promise<SearchRunHistory> {
+  const res = await fetch(`${API_BASE}/search/runs`);
+  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  return res.json();
+}
+
+// Bouton stop : annule la requête FTS locale en cours (identifiée par le jeton
+// passé au stream). La recherche continue avec les seuls résultats PubMed.
 // Best-effort : renvoie false (sans jeter) si rien n'était à annuler.
-export async function stopDeepSearch(token: string): Promise<boolean> {
+export async function stopLocalSearch(token: string): Promise<boolean> {
   try {
-    const res = await fetch(
-      `${API_BASE}/search/pubmed/deep/stop/${encodeURIComponent(token)}`,
-      { method: "POST" },
-    );
+    const res = await fetch(`${API_BASE}/search/local/stop/${encodeURIComponent(token)}`, {
+      method: "POST",
+    });
     if (!res.ok) return false;
     const data = await res.json();
     return !!data.stopped;

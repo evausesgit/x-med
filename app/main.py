@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import digest, doctors, eval, me, saved_searches, search
+from app.api import digest, doctors, eval, me, saved_searches, search, search_runs
 from app.config import settings
 
 app = FastAPI(title="X-Med API", version="0.1.0")
@@ -19,6 +19,7 @@ app.add_middleware(
 )
 
 app.include_router(search.router, tags=["search"])
+app.include_router(search_runs.router, tags=["search-runs"])
 app.include_router(doctors.router, tags=["doctors"])
 app.include_router(me.router, tags=["me"])
 app.include_router(eval.router, tags=["eval"])
@@ -28,10 +29,12 @@ app.include_router(digest.router, tags=["digest"])
 
 @app.on_event("startup")
 def _startup() -> None:
-    # Les générations de digest tournent dans des threads du process API : un
-    # redémarrage les tue sans qu'elles écrivent leur état final. On requalifie
-    # ces runs orphelins en erreur pour que le front ne polle pas dans le vide.
+    # Digests et recherches en arrière-plan tournent dans des threads du
+    # process API : un redémarrage les tue sans qu'ils écrivent leur état
+    # final. On requalifie ces runs orphelins en erreur pour que le front ne
+    # polle pas dans le vide.
     digest.mark_orphan_runs()
+    search_runs.mark_orphan_runs()
 
 
 @app.get("/")

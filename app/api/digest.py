@@ -5,12 +5,11 @@ pas brûler de tokens) : quand le médecin connecté clique « Générer mon dig
 on compose une query depuis son profil (metaprompt + facettes, voir
 `services/digest_query.py`) et on la fait avaler par `_run_deep_search`.
 
-Contrairement à la recherche (SSE lié à la connexion), la génération tourne dans
-un thread DÉTACHÉ de la requête HTTP : fermer l'onglet ne l'interrompt plus. La
-table `digest_runs` est la source de vérité — jalons de progression, payload,
-statut — et le front la POLLE (GET /digest/runs/{id}) au lieu d'écouter un flux.
-Cycle de vie : running → translating (payload visible, traductions FR en cours)
-→ complete ; ou error / stopped. Le digest « officiel » d'une journée est le
+La génération tourne dans un thread DÉTACHÉ de la requête HTTP : fermer
+l'onglet ne l'interrompt plus. La table `digest_runs` est la source de vérité
+et le front la POLLE (GET /digest/runs/{id}) — toute la mécanique commune avec
+la recherche en arrière-plan (états, jalons, garde zombie, corps du job) vit
+dans `services/run_store.py`. Le digest « officiel » d'une journée est le
 dernier run `complete` de cette date : régénérer remplace l'affichage du jour
 sans effacer l'audit des tentatives précédentes.
 
@@ -19,39 +18,26 @@ faire dans les logs du proxy) : le front n'envoie que `days`, le backend
 reconstruit tout. Le payload et les jalons PERSISTÉS sont assainis avant
 écriture (metaprompt remplacé par le libellé, requête PubMed/MeSH retirés) :
 la table ne doit pas exposer plus que ce que le digest affiche.
-
-⚠️ Mono-process : comme `search_cancel` et `_LOCAL_SEARCH_PIDS`, l'annulation
-suppose UN seul process uvicorn (le thread et le registre d'annulation vivent
-dans le même process que l'endpoint stop). L'exclusivité « un run actif par
-médecin », elle, est garantie en base (index unique partiel).
 """
 
 from __future__ import annotations
 
-import json
-import time
 import uuid
 from datetime import date, datetime, timedelta
 from threading import Thread
-from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select, text as sql_text, update
+from sqlalchemy import select, text as sql_text
 from sqlalchemy.exc import IntegrityError
 
 from app.api.me import Identity, _find_doctor, current_identity
-from app.api.search import (
-    DeepSearchRequest,
-    _deep_metrics,
-    _run_deep_search,
-    _translate_kept,
-)
+from app.api.search import DeepSearchRequest
 from app.db import SessionLocal
 from app.models import DigestRun, Doctor
-from app.services import search_cancel
+from app.services import run_store, search_cancel
 from app.services.digest_query import build_digest_query, digest_usage_label
-from app.services.search_cancel import SearchCancelled
+from app.services.run_store import ACTIVE_STATUSES, PARIS
 from app.services.usage_log import record_usage
 
 router = APIRouter()
@@ -59,18 +45,6 @@ router = APIRouter()
 # 30 jours par défaut (7 jours donne trop souvent zéro article sur les niches) ;
 # le front propose 7/30/90 sans jamais relancer automatiquement une recherche.
 DIGEST_DAYS_DEFAULT = 30
-
-# La journée d'un digest est celle du médecin, pas celle du serveur (UTC) : un
-# lancement à 0h30 heure française doit dater du bon jour.
-PARIS = ZoneInfo("Europe/Paris")
-
-# Un run actif sans battement de cœur (updated_at) depuis ce délai est un
-# zombie (thread tué sans écrire son état, ex. kill -9) : on le requalifie en
-# erreur pour libérer l'index unique partiel. Les jalons du pipeline arrivent
-# au pire toutes les ~2 min (jugement codex) — 2 h est très large.
-STALE_ACTIVE_AFTER = timedelta(hours=2)
-
-ACTIVE_STATUSES = ("running", "translating")
 
 
 def _paris_today() -> date:
@@ -122,171 +96,25 @@ def _require_doctor(session, ident: Identity) -> Doctor:
     return doctor
 
 
-def _set_run(run_id: uuid.UUID, **values) -> None:
-    """Écrit l'état d'un run dans une session courte dédiée (le thread de
-    génération ne doit pas committer dans la session de `_run_deep_search`).
+def _sanitize_digest_payload(label: str):
+    """Le payload est PERSISTÉ : on en retire tout ce qui révèle le profil
+    clinique (metaprompt, requête PubMed construite, facettes). Le front du
+    digest n'utilise aucun de ces champs."""
 
-    Transition CONDITIONNELLE : n'écrit que si le run est encore actif. Un run
-    requalifié en zombie (garde 2 h, redémarrage) ne peut donc pas être
-    « ressuscité » par son ancien thread qui écrirait translating/complete
-    par-dessus l'erreur — l'écriture devient un no-op."""
-    with SessionLocal() as s:
-        s.execute(
-            update(DigestRun)
-            .where(DigestRun.id == run_id, DigestRun.status.in_(ACTIVE_STATUSES))
-            .values(updated_at=datetime.now(PARIS), **values)
-        )
-        s.commit()
+    def sanitize(result) -> None:
+        result.query = label
+        result.pubmed_query = None
+        result.mesh_terms = []
+        result.keywords_en = []
 
-
-def _append_log(run_id: uuid.UUID, event: dict) -> None:
-    """Ajoute un jalon par UPDATE atomique `logs = logs || …` — pas de liste
-    JSONB mutée côté ORM (SQLAlchemy ne détecterait pas la mutation). Touche
-    aussi `updated_at` : c'est le battement de cœur du run."""
-    with SessionLocal() as s:
-        s.execute(
-            sql_text(
-                "UPDATE digest_runs SET logs = logs || CAST(:ev AS jsonb), "
-                "updated_at = now() WHERE id = :id"
-            ),
-            {"ev": json.dumps([event], ensure_ascii=False), "id": run_id},
-        )
-        s.commit()
-
-
-def _run_digest_job(
-    run_id: uuid.UUID,
-    req: DeepSearchRequest,
-    notif_query: str,
-    user_email: str,
-    cancel_state: search_cancel.CancelState,
-) -> None:
-    """Corps du run, exécuté dans un thread détaché de la requête HTTP.
-
-    Le jeton d'annulation est enregistré par l'ENDPOINT, avant le démarrage du
-    thread : un stop qui arrive entre le POST et le premier jalon trouve donc
-    toujours un état à annuler (pas de fenêtre aveugle).
-
-    Volontairement indépendant du thread qui le porte : basculer un jour sur un
-    vrai worker (Celery/RQ) reviendra à appeler cette fonction ailleurs.
-    """
-    from app.services.search_notifications import send_search_notification
-
-    token = req.local_token
-    # Contextvar par thread : les appels codex du pipeline deviennent annulables
-    # (le endpoint stop tue le sous-processus en vol).
-    search_cancel.current_search.set(cancel_state)
-
-    t0 = time.monotonic()
-    progress_events: list[dict] = []
-
-    def progress(phase: str, msg: str, data: dict) -> None:
-        # Point d'arrêt coopératif : une annulation prend effet au prochain jalon.
-        cancel_state.raise_if_cancelled()
-        elapsed = round(time.monotonic() - t0, 1)
-        # La requête PubMed et les MeSH sont dérivés du profil clinique : ils ne
-        # doivent apparaître ni dans les logs persistés ni dans la notification.
-        data = {k: v for k, v in data.items() if k not in ("pubmed_query", "mesh_terms")}
-        event = {"phase": phase, "msg": f"{msg} ({elapsed}s)", "elapsed_s": elapsed, **data}
-        progress_events.append(event)
-        _append_log(run_id, event)
-
-    notified = False
-    try:
-        with SessionLocal() as session:
-            result = _run_deep_search(req, session, progress)
-            # Le payload est PERSISTÉ : on en retire tout ce qui révèle le
-            # profil clinique (metaprompt, requête PubMed construite, facettes).
-            # Le front du digest n'utilise aucun de ces champs.
-            result.query = notif_query
-            result.pubmed_query = None
-            result.mesh_terms = []
-            result.keywords_en = []
-            metrics = _deep_metrics(result)
-            # Requête PubMed dérivée du profil clinique : elle le révélerait.
-            metrics.pop("pubmed_query", None)
-            # Notif dès que la recherche a abouti (la traduction qui suit est un
-            # post-traitement best-effort, pas un échec de génération).
-            send_search_notification(
-                status="ok", query=notif_query,
-                duration_s=time.monotonic() - t0,
-                metrics=metrics,
-                progress_events=progress_events,
-                user=user_email,
-            )
-            notified = True
-            # Payload visible dès maintenant : le médecin qui revient sur la
-            # page voit ses articles pendant que les traductions se terminent.
-            _set_run(
-                run_id,
-                status="translating",
-                payload=result.model_dump(),
-                n_results=len(result.results),
-            )
-            # Traductions best-effort : ni un échec ni un stop pendant cette
-            # phase ne doivent faire perdre le digest déjà obtenu.
-            try:
-                fr = _translate_kept(result, session, progress)
-            except Exception:
-                fr = {}
-            for h in result.results:
-                t = fr.get(str(h.pmid))
-                if t:
-                    h.title_fr = t.get("title_fr") or h.title_fr
-                    h.abstract_fr = t.get("abstract_fr") or h.abstract_fr
-            _set_run(
-                run_id,
-                status="complete",
-                payload=result.model_dump(),
-                finished_at=datetime.now(PARIS),
-            )
-    except SearchCancelled:
-        # Arrêt volontaire (bouton stop) : pas une erreur.
-        if not notified:
-            send_search_notification(
-                status="stopped", query=notif_query,
-                duration_s=time.monotonic() - t0,
-                metrics={"method": "v2 (filtre lexical/MeSH + jugement codex)"},
-                progress_events=progress_events,
-                user=user_email,
-            )
-        _set_run(run_id, status="stopped", finished_at=datetime.now(PARIS))
-    except Exception as exc:
-        if not notified:
-            send_search_notification(
-                status="error", query=notif_query,
-                duration_s=time.monotonic() - t0,
-                metrics={"method": "v2 (filtre lexical/MeSH + jugement codex)"},
-                progress_events=progress_events,
-                error=str(exc),
-                user=user_email,
-            )
-        msg = exc.detail if isinstance(exc, HTTPException) else str(exc)
-        _set_run(run_id, status="error", error=str(msg),
-                 finished_at=datetime.now(PARIS))
-    finally:
-        search_cancel.unregister(token)
+    return sanitize
 
 
 def mark_orphan_runs() -> None:
-    """Au démarrage de l'API : les runs restés actifs appartiennent à un process
-    mort (les threads ne survivent pas à un redémarrage) → erreur explicite.
-    Best-effort : une base pas encore migrée ne doit pas empêcher l'API de
-    démarrer (dev_up applique les migrations juste avant)."""
-    try:
-        with SessionLocal() as s:
-            s.execute(
-                update(DigestRun)
-                .where(DigestRun.status.in_(ACTIVE_STATUSES))
-                .values(
-                    status="error",
-                    error="Génération interrompue par un redémarrage du serveur.",
-                    finished_at=datetime.now(PARIS),
-                )
-            )
-            s.commit()
-    except Exception:
-        pass
+    """Au démarrage de l'API (les threads ne survivent pas à un redémarrage)."""
+    run_store.mark_orphans(
+        DigestRun, "Génération interrompue par un redémarrage du serveur."
+    )
 
 
 @router.post("/digest/generate", response_model=DigestRunSummary)
@@ -303,31 +131,10 @@ def generate_digest(
         doctor = _require_doctor(session, ident)
         query = build_digest_query(doctor, doctor.profile)
         label = digest_usage_label(doctor.profile, body.days)
-        # Libérer l'index unique d'un éventuel run zombie avant d'insérer :
-        # actif mais sans battement de cœur (updated_at) depuis 2 h. On annule
-        # aussi son jeton — si son thread vit encore malgré tout, il s'arrête
-        # au prochain jalon (et ses écritures d'état sont devenues des no-ops,
-        # cf. `_set_run`).
-        stale_ids = session.scalars(
-            select(DigestRun.id).where(
-                DigestRun.doctor_id == doctor.id,
-                DigestRun.status.in_(ACTIVE_STATUSES),
-                DigestRun.updated_at < datetime.now(PARIS) - STALE_ACTIVE_AFTER,
-            )
-        ).all()
-        if stale_ids:
-            session.execute(
-                update(DigestRun)
-                .where(DigestRun.id.in_(stale_ids))
-                .values(
-                    status="error",
-                    error="Génération abandonnée (aucune activité depuis 2 h).",
-                    finished_at=datetime.now(PARIS),
-                )
-            )
-            session.commit()
-            for stale_id in stale_ids:
-                search_cancel.cancel(str(stale_id))
+        run_store.requalify_stale(
+            session, DigestRun, doctor.id,
+            "Génération abandonnée (aucune activité depuis 2 h).",
+        )
 
         run = DigestRun(
             doctor_id=doctor.id, digest_date=_paris_today(), days=body.days
@@ -371,16 +178,24 @@ def generate_digest(
         if cancel_state is None:  # impossible : le run id est un UUID neuf
             raise RuntimeError("jeton de génération déjà utilisé")
         Thread(
-            target=_run_digest_job,
-            args=(summary.id, req, label, ident.email, cancel_state),
+            target=run_store.run_deep_job,
+            args=(DigestRun, summary.id, req, label, ident.email, cancel_state),
+            kwargs={
+                "sanitize": _sanitize_digest_payload(label),
+                # La requête PubMed et les MeSH sont dérivés du profil
+                # clinique : ils ne doivent apparaître ni dans les jalons
+                # persistés ni dans la notification.
+                "strip_log_keys": ("pubmed_query", "mesh_terms"),
+                "strip_metric_keys": ("pubmed_query",),
+            },
             daemon=True,
         ).start()
     except Exception as exc:
         # Sans thread, la ligne resterait `running` pour toujours (et l'index
         # unique bloquerait toute nouvelle génération) : on la clôt en erreur.
         search_cancel.unregister(str(summary.id))
-        _set_run(
-            summary.id,
+        run_store.set_run(
+            DigestRun, summary.id,
             status="error",
             error=f"Impossible de démarrer la génération : {exc}",
             finished_at=datetime.now(PARIS),

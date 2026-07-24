@@ -1,20 +1,28 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   analyzeCompareStream,
+  createSearchRun,
   DeepSearchResponse,
   Doctor,
+  getSearchRun,
+  getSearchRunHistory,
   listDoctors,
   lookupSavedSearch,
   PubmedLog,
   saveSearch,
   searchPubmedDeepMoreStream,
-  searchPubmedDeepStream,
-  stopDeepSearch,
   stopLocalSearch,
+  stopSearchRun,
 } from "@/lib/api";
-import type { CompareResult, DeepHit } from "@/lib/api";
+import type {
+  CompareResult,
+  DeepHit,
+  SearchRun,
+  SearchRunHistory,
+  SearchRunSummary,
+} from "@/lib/api";
 import Link from "next/link";
 import XMedResult, { deepRelevance, StructuredAbstract } from "./XMedResult";
 import { CritiquePanel, MAX_COMPARE, SelectButton } from "./Critique";
@@ -25,12 +33,27 @@ import { LanguageToggle, useDisplayLang, useTranslatedHits } from "./lang";
 // la requête + 420 s pour le jugement, cf. app/services/codex_*). On affiche un
 // chrono et ces repères pour que l'utilisateur sache combien patienter plutôt
 // que de se demander si « ça a planté ».
+//
+// La recherche tourne en ARRIÈRE-PLAN côté serveur (table search_runs) : ici
+// on POSTe puis on POLLE le run — verrouiller son téléphone, changer d'app ou
+// quitter la page n'interrompt plus rien, et on raccroche la recherche en
+// cours en revenant. Chaque recherche aboutie s'ajoute à l'historique.
+const POLL_MS = 2500;
 const DEEP_TYPICAL_TXT = "30 à 90 secondes";
 const DEEP_TYPICAL_S = 90; // au-delà : « un peu plus long que d'habitude »
 const DEEP_LONG_S = 180; // au-delà : on prévient que c'est une recherche longue
 // Format chrono lisible : « 12s », puis « 1 min 05s ».
 const fmtElapsed = (s: number) =>
   s < 60 ? `${s}s` : `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, "0")}s`;
+
+// « 23 juil. » — libellé court d'une entrée de l'historique des recherches.
+const dayShortFr = (iso: string) =>
+  new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" }).format(
+    new Date(iso),
+  );
+
+const truncate = (s: string, n: number) =>
+  s.length > n ? `${s.slice(0, n - 1)}…` : s;
 
 function CopyLinkButton() {
   const [copied, setCopied] = useState(false);
@@ -122,7 +145,7 @@ function LiveEvents({
   // s'attendre et n'a pas l'impression que « ça a planté ».
   const waitHint =
     elapsed < DEEP_TYPICAL_S
-      ? `⏳ Une recherche prend en général ${DEEP_TYPICAL_TXT}. Le déroulé s'affiche au fur et à mesure — inutile de relancer.`
+      ? `⏳ Une recherche prend en général ${DEEP_TYPICAL_TXT}. Elle continue en arrière-plan — vous pouvez quitter la page ou verrouiller votre téléphone, le résultat vous attendra ici.`
       : elapsed < DEEP_LONG_S
         ? `⏳ Un peu plus long que d'habitude (sujet large) — l'IA lit et juge les articles, on continue.`
         : `⏳ Recherche longue : on patiente encore un peu, elle s'arrêtera d'elle-même si elle dépasse quelques minutes.`;
@@ -290,22 +313,29 @@ export default function Home() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [codexLimit, setCodexLimit] = useState(false);
-  const esRef = useRef<EventSource | null>(null);
   const moreRef = useRef<EventSource | null>(null);
-  // Bouton stop de la requête locale (FTS) : jeton propre à chaque recherche,
-  // passé au stream pour que le backend sache quelle requête Postgres annuler.
-  // Le même jeton sert au bouton « Arrêter » global (annulation de TOUTE la
-  // recherche : codex tué + pipeline stoppé côté serveur).
-  const localTokenRef = useRef<string>("");
+  // Run en arrière-plan actuellement pollé : son id est AUSSI le jeton
+  // d'annulation côté serveur (stop global + stop de la requête FTS locale).
+  const currentRunIdRef = useRef<string | null>(null);
   const [stoppingLocal, setStoppingLocal] = useState(false);
+  // Historique des recherches abouties du compte (« Récentes »).
+  const [history, setHistory] = useState<SearchRunHistory | null>(null);
+  // Verrou du POST /search/runs : un double-clic lancerait deux recherches
+  // (la 2e prendrait un 409 mais démarrerait sa propre boucle de polling).
+  const [launching, setLaunching] = useState(false);
+  const pollRef = useRef<number | null>(null);
+  // Numéro de la boucle de polling courante : démarrer une nouvelle boucle
+  // invalide l'ancienne (sinon deux boucles pourraient poller en parallèle).
+  const pollSeqRef = useRef(0);
+  const mountedRef = useRef(true);
   // Fenêtre de garde après un clic sur « Arrêter » (voir handleStopSearch) :
   // ignore toute resoumission du formulaire (double-clic, touche Entrée) le
   // temps que le bouton reprenne son état normal.
   const [justStopped, setJustStopped] = useState(false);
   // Numéro de lancement : incrémenté à chaque recherche ET à chaque arrêt. Une
-  // étape asynchrone (lookup du cache des recherches sauvegardées) ne poursuit
-  // que si son numéro est encore le courant — sinon la recherche a été arrêtée
-  // ou remplacée entre-temps.
+  // étape asynchrone (lookup du cache des recherches sauvegardées, POST du
+  // run) ne poursuit que si son numéro est encore le courant — sinon la
+  // recherche a été arrêtée ou remplacée entre-temps.
   const runIdRef = useRef(0);
 
   // Analyse critique comparative : PMID sélectionnés (≤ MAX_COMPARE), résultat,
@@ -319,14 +349,100 @@ export default function Home() {
   const [analysisOrder, setAnalysisOrder] = useState<number[]>([]);
   const critiqueRef = useRef<EventSource | null>(null);
 
-  useEffect(
-    () => () => {
-      esRef.current?.close();
+  // Quitter la page arrête le POLLING et les flux annexes — jamais la
+  // recherche en arrière-plan elle-même.
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (pollRef.current) clearTimeout(pollRef.current);
       moreRef.current?.close();
       critiqueRef.current?.close();
+    };
+  }, []);
+
+  const refreshHistory = useCallback(async (): Promise<SearchRunHistory | null> => {
+    const h = await getSearchRunHistory().catch(() => null);
+    if (mountedRef.current && h) setHistory(h);
+    return h;
+  }, []);
+
+  // Polling en setTimeout récursif (jamais setInterval : pas de requêtes qui
+  // se chevauchent, même quand le téléphone sort de veille).
+  const poll = useCallback(
+    async (id: string, seq: number) => {
+      const alive = () => mountedRef.current && seq === pollSeqRef.current;
+      if (!alive()) return;
+      let run: SearchRun;
+      try {
+        run = await getSearchRun(id);
+      } catch {
+        // Hoquet réseau : on réessaie au prochain tick (sauf page démontée).
+        if (alive())
+          pollRef.current = window.setTimeout(() => void poll(id, seq), POLL_MS);
+        return;
+      }
+      if (!alive()) return;
+      setLogs(run.logs);
+      if (
+        run.payload?.codex_limit ||
+        run.logs.some((l) => l.phase === "codex_limit")
+      )
+        setCodexLimit(true);
+      // Payload dès la phase de traduction : les résultats s'affichent pendant
+      // que les traductions FR se complètent au fil des polls.
+      if (run.payload) {
+        setDeep(run.payload);
+        setLoading(false);
+      }
+      if (run.status === "running" || run.status === "translating") {
+        pollRef.current = window.setTimeout(() => void poll(id, seq), POLL_MS);
+        return;
+      }
+      // Terminal.
+      currentRunIdRef.current = null;
+      setLoading(false);
+      setStoppingLocal(false);
+      if (run.status === "error") {
+        setError(run.error || "La recherche a échoué. Réessayez plus tard.");
+      } else if (run.status === "stopped") {
+        setLogs([
+          ...run.logs,
+          {
+            phase: "stopped",
+            msg: "⏹️ Recherche arrêtée — corrigez votre question et relancez quand vous voulez.",
+          },
+        ]);
+      } else {
+        void refreshHistory();
+      }
     },
-    [],
+    [refreshHistory],
   );
+
+  // Point d'entrée UNIQUE du polling : invalide la boucle précédente.
+  const startPolling = useCallback(
+    (id: string) => {
+      pollSeqRef.current += 1;
+      if (pollRef.current) clearTimeout(pollRef.current);
+      void poll(id, pollSeqRef.current);
+    },
+    [poll],
+  );
+
+  // Se raccroche à un run actif (retour sur la page, 409 au lancement dans un
+  // autre onglet…) : on reprend sa question, ses dates et son déroulé.
+  function attachRun(run: SearchRunSummary) {
+    setQ(run.query);
+    if (run.date_from) setDateFrom(run.date_from);
+    if (run.date_to) setDateTo(run.date_to);
+    setError(null);
+    setDeep(null);
+    setSavedHit(null);
+    setLoading(true);
+    currentRunIdRef.current = run.id;
+    startPolling(run.id);
+  }
 
   function toggleSelected(pmid: number) {
     setSelected((prev) =>
@@ -492,108 +608,113 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
 
+  // Au chargement : historique du compte + raccrochage à la recherche en
+  // cours s'il y en a une (lancée ici même ou dans un autre onglet). L'autorun
+  // d'une URL ?q= garde la priorité — son 409 éventuel nous raccrochera.
+  useEffect(() => {
+    void (async () => {
+      const h = await refreshHistory();
+      if (!mountedRef.current || !h) return;
+      if (h.current && !autorun.current) attachRun(h.current);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Rouvre une recherche passée depuis l'historique (sans rien relancer).
+  async function openRun(summary: SearchRunSummary) {
+    if (loading || launching) return;
+    setError(null);
+    setLogs([]);
+    setSavedHit(null);
+    setLoadingMore(false);
+    clearSelection();
+    moreRef.current?.close();
+    setQ(summary.query);
+    if (summary.date_from) setDateFrom(summary.date_from);
+    if (summary.date_to) setDateTo(summary.date_to);
+    try {
+      const run = await getSearchRun(summary.id);
+      if (mountedRef.current) setDeep(run.payload);
+    } catch {
+      if (mountedRef.current)
+        setError("Impossible de rouvrir cette recherche — rechargez la page.");
+    }
+  }
+
   async function runSearch(opts: { force?: boolean } = {}) {
+    if (launching) return;
     const runId = ++runIdRef.current;
     setLoading(true);
     setError(null);
     setCodexLimit(false);
     syncUrl(q);
-    try {
-      if (!q.trim()) {
+    if (!q.trim()) {
+      setLoading(false);
+      return;
+    }
+    setDeep(null);
+    setSavedHit(null);
+    setLogs([]);
+    setLoadingMore(false);
+    clearSelection();
+    moreRef.current?.close();
+    setStoppingLocal(false);
+    // Avant tout appel codex (coûteux), on regarde si une recherche identique
+    // a déjà été sauvegardée : on réaffiche alors le snapshot.
+    // `force` (bouton « Relancer quand même ») court-circuite ce cache.
+    if (!opts.force) {
+      let existing = null;
+      try {
+        existing = await lookupSavedSearch({
+          query: q.trim(),
+          date_from: dateFrom || undefined,
+          date_to: dateTo || undefined,
+        });
+      } catch {
+        /* lookup best-effort : en cas d'échec, on relance la recherche */
+      }
+      // Arrêtée ou remplacée pendant le lookup : ne rien lancer.
+      if (runId !== runIdRef.current) return;
+      if (existing) {
+        setDeep(existing.payload);
+        setSavedHit({ id: existing.id, created_at: existing.created_at });
         setLoading(false);
         return;
       }
-      setDeep(null);
-      setSavedHit(null);
-      setLogs([]);
-      setLoadingMore(false);
-      clearSelection();
-      esRef.current?.close();
-      moreRef.current?.close();
-      localTokenRef.current =
-        typeof crypto !== "undefined" && "randomUUID" in crypto
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      setStoppingLocal(false);
-      // Recherche PubMed + IA : streaming SSE (déroulé en direct) pour ne pas
-      // se faire couper par le proxy sur les requêtes longues.
-      // Avant tout appel codex (coûteux), on regarde si une recherche identique
-      // a déjà été sauvegardée : on réaffiche alors le snapshot.
-      // `force` (bouton « Relancer quand même ») court-circuite ce cache.
-      if (!opts.force) {
-        let existing = null;
-        try {
-          existing = await lookupSavedSearch({
-            query: q.trim(),
-            date_from: dateFrom || undefined,
-            date_to: dateTo || undefined,
-          });
-        } catch {
-          /* lookup best-effort : en cas d'échec, on relance la recherche */
-        }
-        // Arrêtée ou remplacée pendant le lookup : ne pas ouvrir le stream.
-        if (runId !== runIdRef.current) return;
-        if (existing) {
-          setDeep(existing.payload);
-          setSavedHit({ id: existing.id, created_at: existing.created_at });
-          setLoading(false);
-          return;
-        }
+    }
+    // Lancement en arrière-plan : le POST rend la main tout de suite, puis on
+    // polle le run (quitter la page n'interrompt plus la recherche).
+    setLaunching(true);
+    try {
+      const run = await createSearchRun({
+        query: q.trim(),
+        date_from: dateFrom || undefined,
+        date_to: dateTo || undefined,
+        k_pubmed: algoRef.current === "v2" ? 50 : 20,
+        rrf: algoRef.current === "v2",
+        judge_batch: judgeBatch,
+        local_floor: algoRef.current === "v2" ? localFloor : 0,
+      });
+      // Arrêtée pendant le POST (bouton « Arrêter ») : on annule le run
+      // fraîchement créé au lieu de le laisser tourner pour rien.
+      if (runId !== runIdRef.current) {
+        void stopSearchRun(run.id);
+        return;
       }
-      esRef.current = searchPubmedDeepStream(
-        q.trim(),
-        dateFrom || undefined,
-        dateTo || undefined,
-        algoRef.current === "v2" ? 50 : 20,
-        {
-          onLog: (log) => {
-            setLogs((prev) => [...prev, log]);
-            if (log.phase === "codex_limit") setCodexLimit(true);
-          },
-          onResult: (res) => {
-            setDeep(res);
-            if (res.codex_limit) setCodexLimit(true);
-            setLoading(false);
-          },
-          onError: (msg) => {
-            if (msg && /usage limit|limite d'usage|rate limit/i.test(msg))
-              setCodexLimit(true);
-            setError(msg || "La recherche a échoué.");
-            setLoading(false);
-          },
-          // Recherche arrêtée côté serveur (normalement le clic sur « Arrêter »
-          // a déjà tout remis en état ici — filet de sécurité).
-          onStopped: () => setLoading(false),
-          // Traductions FR qui arrivent après les résultats : on les fusionne.
-          onTranslations: (fr) =>
-            setDeep((prev) =>
-              prev
-                ? {
-                    ...prev,
-                    results: prev.results.map((r) =>
-                      fr[String(r.pmid)]
-                        ? {
-                            ...r,
-                            abstract_fr: fr[String(r.pmid)].abstract_fr,
-                            title_fr: fr[String(r.pmid)].title_fr || r.title_fr,
-                          }
-                        : r,
-                    ),
-                  }
-                : prev,
-            ),
-        },
-        {
-          rrf: algoRef.current === "v2",
-          judgeBatch,
-          localFloor: algoRef.current === "v2" ? localFloor : 0,
-          localToken: localTokenRef.current,
-        },
-      );
+      currentRunIdRef.current = run.id;
+      startPolling(run.id);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Erreur inconnue");
-      setDeep(null);
-      setLoading(false);
+      // 409 : une recherche tourne déjà (autre onglet, retour sur la page…)
+      // → on s'y raccroche au lieu d'afficher une erreur sèche.
+      const h = await getSearchRunHistory().catch(() => null);
+      if (h?.current) {
+        attachRun(h.current);
+      } else {
+        setError(e instanceof Error ? e.message : "La recherche a échoué.");
+        setLoading(false);
+      }
+    } finally {
+      setLaunching(false);
     }
   }
 
@@ -604,21 +725,23 @@ export default function Home() {
     loading && logs.length > 0 && logs[logs.length - 1].phase === "filter_start";
 
   async function handleStopLocal() {
+    if (!currentRunIdRef.current) return;
     setStoppingLocal(true);
-    const ok = await stopLocalSearch(localTokenRef.current);
+    // Le run id est le jeton d'annulation de la requête FTS locale.
+    const ok = await stopLocalSearch(currentRunIdRef.current);
     // Rien n'était à annuler (requête déjà terminée) : on réactive le bouton,
     // le log de clôture qui arrive le fera disparaître de toute façon.
     if (!ok) setStoppingLocal(false);
   }
 
   // Bouton « Arrêter » global : abandonne TOUTE la recherche PubMed + IA en cours
-  // (faute de frappe, envie de reformuler…). On coupe le flux SSE, on demande au
-  // serveur de tuer l'appel codex + la requête locale (best-effort, sans attendre
-  // la réponse), et la barre redevient utilisable immédiatement.
+  // (faute de frappe, envie de reformuler…). On demande au serveur de tuer
+  // l'appel codex + la requête locale (best-effort, sans attendre la réponse) ;
+  // le polling encore actif verra le statut `stopped` — la barre, elle,
+  // redevient utilisable immédiatement.
   function handleStopSearch() {
-    runIdRef.current++; // invalide le lookup de cache éventuellement en vol
-    esRef.current?.close();
-    void stopDeepSearch(localTokenRef.current);
+    runIdRef.current++; // invalide le lookup de cache / POST éventuellement en vol
+    if (currentRunIdRef.current) void stopSearchRun(currentRunIdRef.current);
     setLoading(false);
     setStoppingLocal(false);
     // Fenêtre de garde : sans elle, le bouton « Arrêter » redevient « Explorer →»
@@ -762,6 +885,30 @@ export default function Home() {
         (mots-clés + MeSH), puis GPT-5.6 lit et juge uniquement ces candidats —
         rapide, insensible à la largeur de la période.
       </p>
+
+      {/* Historique : recherches abouties du compte, rouvertes sans relancer
+          (le résultat complet attend en base — aucun nouvel appel codex). */}
+      {history !== null && history.runs.length > 0 && (
+        <div
+          className="xm-method-row"
+          style={{ marginTop: 14, gap: 8, flexWrap: "wrap" }}
+        >
+          <span className="xm-method-label">RÉCENTES</span>
+          {history.runs.slice(0, 8).map((r) => (
+            <button
+              key={r.id}
+              type="button"
+              className="xmr-act"
+              disabled={loading || launching}
+              title={`${r.query} · ${dayShortFr(r.created_at)} · ${r.n_results} article(s) retenu(s)`}
+              onClick={() => void openRun(r)}
+            >
+              {truncate(r.query, 40)}
+              <span style={{ color: "var(--faint)" }}> · {dayShortFr(r.created_at)}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {codexLimit && (
         <div className="xm-banner error" role="alert">

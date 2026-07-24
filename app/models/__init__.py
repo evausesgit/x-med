@@ -3,6 +3,7 @@ from app.models.benchmark import BenchQrel, BenchQuery, BenchResult, BenchRun
 from app.models.digest_run import DigestRun
 from app.models.doctor import Doctor, DoctorProfile
 from app.models.saved_search import SavedSearch
+from app.models.search_run import SearchRun
 from app.models.usage_event import UsageEvent
 
 __all__ = [
@@ -18,5 +19,6 @@ __all__ = [
     "Doctor",
     "DoctorProfile",
     "SavedSearch",
+    "SearchRun",
     "UsageEvent",
 ]
