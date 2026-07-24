@@ -318,7 +318,15 @@ export async function createSearchRun(body: {
 
 export async function getSearchRun(id: string): Promise<SearchRun> {
   const res = await fetch(`${API_BASE}/search/runs/${encodeURIComponent(id)}`);
-  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  if (!res.ok) {
+    // Le statut HTTP permet au polling de distinguer un hoquet réseau (on
+    // réessaie) d'une erreur définitive comme 401/404 (on abandonne le suivi).
+    const err = new Error(`Erreur API (${res.status})`) as Error & {
+      status?: number;
+    };
+    err.status = res.status;
+    throw err;
+  }
   return res.json();
 }
 

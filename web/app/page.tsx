@@ -318,6 +318,8 @@ export default function Home() {
   // d'annulation côté serveur (stop global + stop de la requête FTS locale).
   const currentRunIdRef = useRef<string | null>(null);
   const [stoppingLocal, setStoppingLocal] = useState(false);
+  // Stop global demandé, en attente de confirmation par le polling.
+  const [stoppingRun, setStoppingRun] = useState(false);
   // Historique des recherches abouties du compte (« Récentes »).
   const [history, setHistory] = useState<SearchRunHistory | null>(null);
   // Verrou du POST /search/runs : un double-clic lancerait deux recherches
@@ -376,7 +378,22 @@ export default function Home() {
       let run: SearchRun;
       try {
         run = await getSearchRun(id);
-      } catch {
+      } catch (e) {
+        const status = (e as { status?: number }).status;
+        if (status === 401 || status === 403 || status === 404) {
+          // Erreur définitive (session expirée, run inconnu) : réessayer ne
+          // changera rien — on abandonne le suivi au lieu de laisser `loading`
+          // bloqué pour toujours. La recherche elle-même continue côté serveur.
+          if (alive()) {
+            currentRunIdRef.current = null;
+            setLoading(false);
+            setStoppingRun(false);
+            setError(
+              "Impossible de suivre la recherche en cours — rechargez la page pour la retrouver.",
+            );
+          }
+          return;
+        }
         // Hoquet réseau : on réessaie au prochain tick (sauf page démontée).
         if (alive())
           pollRef.current = window.setTimeout(() => void poll(id, seq), POLL_MS);
@@ -405,6 +422,7 @@ export default function Home() {
       currentRunIdRef.current = null;
       setLoading(false);
       setStoppingLocal(false);
+      setStoppingRun(false);
       if (run.status === "error") {
         setError(run.error || "La recherche a échoué. Réessayez plus tard.");
       } else if (run.status === "stopped") {
@@ -415,6 +433,13 @@ export default function Home() {
             msg: "⏹️ Recherche arrêtée — corrigez votre question et relancez quand vous voulez.",
           },
         ]);
+        // Fenêtre de garde : le bouton redevient « Explorer » exactement sous
+        // le curseur — on fige un court instant pour éviter qu'un double-clic
+        // relance aussitôt une recherche complète.
+        setJustStopped(true);
+        window.setTimeout(() => {
+          if (mountedRef.current) setJustStopped(false);
+        }, 600);
       } else {
         void refreshHistory();
       }
@@ -761,31 +786,21 @@ export default function Home() {
     if (!ok) setStoppingLocal(false);
   }
 
-  // Bouton « Arrêter » global : abandonne TOUTE la recherche PubMed + IA en cours
-  // (faute de frappe, envie de reformuler…). On demande au serveur de tuer
-  // l'appel codex + la requête locale (best-effort, sans attendre la réponse) ;
-  // le polling encore actif verra le statut `stopped` — la barre, elle,
-  // redevient utilisable immédiatement.
+  // Bouton « Arrêter » global : abandonne TOUTE la recherche PubMed + IA en
+  // cours (faute de frappe, envie de reformuler…). Le serveur fait la
+  // transition SQL `stopped` immédiatement ; on laisse le POLLING constater
+  // l'état terminal au lieu de remettre l'UI en idle nous-mêmes — si le stop
+  // échoue (réseau), le run est toujours actif et l'UI doit continuer de le
+  // dire, sinon on retombe sur le 409-raccrochage qu'on vient d'éviter.
   function handleStopSearch() {
+    if (!currentRunIdRef.current || stoppingRun) return;
     runIdRef.current++; // invalide le lookup de cache / POST éventuellement en vol
-    if (currentRunIdRef.current) void stopSearchRun(currentRunIdRef.current);
-    setLoading(false);
-    setStoppingLocal(false);
-    // Fenêtre de garde : sans elle, le bouton « Arrêter » redevient « Explorer →»
-    // (submit) au même endroit sous le curseur au rendu suivant. Un double-clic
-    // (réflexe naturel quand l'arrêt semble ne rien faire) atterrit alors sur
-    // « Explorer » et relance aussitôt une recherche complète — d'où l'impression
-    // que le bouton stop « relance une recherche ». On bloque les resoumissions
-    // pendant un court instant le temps que l'utilisateur voie que c'est arrêté.
-    setJustStopped(true);
-    window.setTimeout(() => setJustStopped(false), 600);
-    setLogs((prev) => [
-      ...prev,
-      {
-        phase: "stopped",
-        msg: "⏹️ Recherche arrêtée — corrigez votre question et relancez quand vous voulez.",
-      },
-    ]);
+    setStoppingRun(true);
+    void stopSearchRun(currentRunIdRef.current).then((ok) => {
+      // false = rien à arrêter (déjà terminal : le poll conclut) OU échec
+      // réseau (le run tourne encore) : on réactive le bouton pour réessayer.
+      if (!ok && mountedRef.current) setStoppingRun(false);
+    });
   }
 
   return (
@@ -814,9 +829,10 @@ export default function Home() {
             type="button"
             className="xm-explore xm-explore-stop"
             onClick={handleStopSearch}
+            disabled={stoppingRun}
             title="Arrêter la recherche en cours (pour corriger ou changer votre question)"
           >
-            ⏹ Arrêter
+            {stoppingRun ? "⏹ Arrêt…" : "⏹ Arrêter"}
           </button>
         ) : justStopped ? (
           // Fenêtre de garde : le bouton reste visiblement « arrêté » un court
