@@ -104,6 +104,7 @@ function LiveEvents({
   variant,
   logs,
   stopLocal,
+  startedAt,
 }: {
   running: boolean;
   variant: "pubmed" | "other";
@@ -112,6 +113,10 @@ function LiveEvents({
   // requête FTS locale tourne (annulable côté Postgres, la recherche continue
   // ensuite avec PubMed seul).
   stopLocal?: { stopping: boolean; onStop: () => void } | null;
+  // Début RÉEL de la recherche (epoch ms) — en se raccrochant à un run en
+  // arrière-plan, le chrono doit repartir du `created_at` du run, pas du
+  // montage du composant (sinon il retombe à zéro à chaque retour sur la page).
+  startedAt?: number | null;
 }) {
   const [i, setI] = useState(0);
   const isPubmed = variant === "pubmed";
@@ -121,19 +126,20 @@ function LiveEvents({
     return () => clearInterval(t);
   }, [isPubmed]);
 
-  // Chrono « la recherche tourne depuis… » : repart de zéro à chaque lancement et
-  // se fige quand la recherche se termine (running repasse à false).
+  // Chrono « la recherche tourne depuis… » : compté depuis `startedAt` (le
+  // vrai début du run) quand il est fourni, sinon depuis le montage. Se fige
+  // quand la recherche se termine (running repasse à false). Clampé à ≥ 0
+  // (horloge client légèrement en avance sur celle du serveur).
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     if (!running) return;
-    setElapsed(0);
-    const start = Date.now();
-    const t = setInterval(
-      () => setElapsed(Math.round((Date.now() - start) / 1000)),
-      1000,
-    );
+    const base = startedAt ?? Date.now();
+    const tick = () =>
+      setElapsed(Math.max(0, Math.round((Date.now() - base) / 1000)));
+    tick();
+    const t = setInterval(tick, 1000);
     return () => clearInterval(t);
-  }, [running]);
+  }, [running, startedAt]);
 
   const title =
     variant === "pubmed"
@@ -320,6 +326,10 @@ export default function Home() {
   const [stoppingLocal, setStoppingLocal] = useState(false);
   // Stop global demandé, en attente de confirmation par le polling.
   const [stoppingRun, setStoppingRun] = useState(false);
+  // Début réel de l'activité affichée par le chrono « en direct » (epoch ms) :
+  // clic local d'abord, puis recalé sur le `created_at` du run — pour qu'un
+  // retour sur la page raccroche le chrono là où il en est, pas à zéro.
+  const [runStartedAt, setRunStartedAt] = useState<number | null>(null);
   // Historique des recherches abouties du compte (« Récentes »).
   const [history, setHistory] = useState<SearchRunHistory | null>(null);
   // Verrou du POST /search/runs : un double-clic lancerait deux recherches
@@ -400,6 +410,8 @@ export default function Home() {
         return;
       }
       if (!alive()) return;
+      // `created_at` est constant pour un run donné : setState no-op ensuite.
+      setRunStartedAt(new Date(run.created_at).getTime());
       setLogs(run.logs);
       if (
         run.payload?.codex_limit ||
@@ -467,6 +479,7 @@ export default function Home() {
     setDeep(null);
     setSavedHit(null);
     setLoading(true);
+    setRunStartedAt(new Date(run.created_at).getTime());
     currentRunIdRef.current = run.id;
     startPolling(run.id);
   }
@@ -543,6 +556,7 @@ export default function Home() {
     if (!deep?.remaining?.length || loadingMore || loading) return;
     const next = deep.remaining.slice(0, 50);
     setLoadingMore(true);
+    setRunStartedAt(Date.now()); // le chrono repart pour ce lot
     setError(null);
     moreRef.current?.close();
     moreRef.current = searchPubmedDeepMoreStream(q.trim(), next, {
@@ -697,6 +711,7 @@ export default function Home() {
     const to = opts.dateTo ?? (dateTo || undefined);
     const runId = ++runIdRef.current;
     setLoading(true);
+    setRunStartedAt(Date.now());
     setError(null);
     setCodexLimit(false);
     syncUrl(query, from, to);
@@ -970,6 +985,7 @@ export default function Home() {
           running={loading || loadingMore}
           variant="pubmed"
           logs={logs}
+          startedAt={runStartedAt}
           stopLocal={
             localSearching
               ? { stopping: stoppingLocal, onStop: handleStopLocal }
