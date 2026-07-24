@@ -120,12 +120,23 @@ def create_search_run(
         )
         session.add(run)
         try:
-            session.commit()
+            # L'INSERT part ici — l'index unique partiel se prononce au flush.
+            session.flush()
         except IntegrityError:
             session.rollback()
             raise HTTPException(
                 409, "Une recherche est déjà en cours pour votre compte."
             )
+        # Jeton d'annulation enregistré AVANT que la ligne soit visible des
+        # autres transactions (commit) : un stop venu d'un autre onglet qui
+        # découvre le run trouve toujours un état à annuler.
+        cancel_state = search_cancel.register(str(run.id))
+        try:
+            session.commit()
+        except Exception:
+            session.rollback()
+            search_cancel.unregister(str(run.id))
+            raise
         session.refresh(run)
         summary = SearchRunSummary.model_validate(run)
 
@@ -150,9 +161,6 @@ def create_search_run(
         # Le run id sert de jeton d'annulation (stop + pg_cancel du FTS local).
         local_token=str(summary.id),
     )
-    # Le jeton d'annulation est enregistré AVANT le démarrage du thread : un
-    # stop qui arrive juste après le POST trouve toujours un état à annuler.
-    cancel_state = search_cancel.register(str(summary.id))
     try:
         if cancel_state is None:  # impossible : le run id est un UUID neuf
             raise RuntimeError("jeton de recherche déjà utilisé")
@@ -198,15 +206,19 @@ def get_search_run(
 def stop_search_run(
     run_id: uuid.UUID, ident: Identity = Depends(current_identity)
 ):
-    """Arrête la recherche en cours : l'appel codex en vol est tué, la requête
-    FTS locale annulée (pg_cancel_backend), le pipeline s'arrête au prochain
-    jalon. Sans run actif sous ce jeton, ne fait rien (stopped=False)."""
+    """Arrête la recherche en cours. Transition SQL D'ABORD (la table est la
+    source de vérité) : le run passe `stopped` immédiatement — l'index unique
+    est libéré, on peut relancer sans attendre que le thread observe
+    l'annulation. Puis, best-effort : codex en vol tué, requête FTS locale
+    annulée (pg_cancel_backend). `stopped` reflète la transition SQL — False
+    si le run était déjà terminal."""
     from app.api.search import _LOCAL_SEARCH_PIDS
 
     with SessionLocal() as session:
         _get_own_run(session, ident, run_id)
     token = str(run_id)
-    stopped = search_cancel.cancel(token)
+    stopped = run_store.stop_run(SearchRun, run_id)
+    search_cancel.cancel(token)
     pid = _LOCAL_SEARCH_PIDS.get(token)
     if pid is not None:
         with SessionLocal() as s:

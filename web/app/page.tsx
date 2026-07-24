@@ -390,11 +390,13 @@ export default function Home() {
       )
         setCodexLimit(true);
       // Payload dès la phase de traduction : les résultats s'affichent pendant
-      // que les traductions FR se complètent au fil des polls.
-      if (run.payload) {
-        setDeep(run.payload);
-        setLoading(false);
-      }
+      // que les traductions FR se complètent au fil des polls. `loading` reste
+      // vrai jusqu'au statut TERMINAL : le serveur n'accepte qu'une recherche
+      // active par compte, l'UI ne doit pas prétendre le contraire (sinon un
+      // « 50 de plus », un snapshot de cache ou une recherche rouverte se
+      // feraient écraser par le poll suivant, et une resoumission finirait en
+      // 409-raccrochage sur le run qu'on regarde déjà).
+      if (run.payload) setDeep(run.payload);
       if (run.status === "running" || run.status === "translating") {
         pollRef.current = window.setTimeout(() => void poll(id, seq), POLL_MS);
         return;
@@ -510,8 +512,10 @@ export default function Home() {
     );
 
   // « Analyser 50 de plus » : juge le prochain lot de `remaining` puis fusionne.
+  // Bloqué tant qu'un run est actif (`loading`) : la fusion locale serait
+  // écrasée par le prochain poll du run.
   function loadMore() {
-    if (!deep?.remaining?.length || loadingMore) return;
+    if (!deep?.remaining?.length || loadingMore || loading) return;
     const next = deep.remaining.slice(0, 50);
     setLoadingMore(true);
     setError(null);
@@ -569,11 +573,11 @@ export default function Home() {
     });
   }
 
-  function syncUrl(query: string) {
+  function syncUrl(query: string, from?: string, to?: string) {
     const sp = new URLSearchParams();
     if (query.trim()) sp.set("q", query.trim());
-    if (dateFrom) sp.set("from", dateFrom);
-    if (dateTo) sp.set("to", dateTo);
+    if (from ?? dateFrom) sp.set("from", from ?? dateFrom);
+    if (to ?? dateTo) sp.set("to", to ?? dateTo);
     window.history.replaceState(null, "", `?${sp.toString()}`);
   }
 
@@ -587,6 +591,11 @@ export default function Home() {
     setAlgo(v);
   }
 
+  // Une URL ?q= lance la recherche au chargement — avec les valeurs EXPLICITES
+  // de l'URL, pas l'état React (l'ancien enchaînement setQ → effet [q]
+  // s'exécutait avec la closure du premier rendu, donc q encore vide, et
+  // l'autorun ne partait jamais). Le ref reste vrai : il signale à l'effet
+  // historique de ne pas raccrocher un ancien run par-dessus ce lancement.
   const autorun = useRef(false);
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
@@ -598,15 +607,14 @@ export default function Home() {
     if (query) {
       setQ(query);
       autorun.current = true;
+      void runSearch({
+        query,
+        dateFrom: from ?? undefined,
+        dateTo: to ?? undefined,
+      });
     }
-  }, []);
-
-  useEffect(() => {
-    if (!autorun.current) return;
-    autorun.current = false;
-    runSearch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q]);
+  }, []);
 
   // Au chargement : historique du compte + raccrochage à la recherche en
   // cours s'il y en a une (lancée ici même ou dans un autre onglet). L'autorun
@@ -621,34 +629,53 @@ export default function Home() {
   }, []);
 
   // Rouvre une recherche passée depuis l'historique (sans rien relancer).
+  // On vide le payload courant AVANT le GET (la nouvelle question ne doit
+  // jamais coiffer l'ancien résultat, même le temps du chargement), et le
+  // numéro de lancement ordonne deux clics rapides ou un openRun doublé d'une
+  // nouvelle recherche : seule la dernière action applique sa réponse.
   async function openRun(summary: SearchRunSummary) {
     if (loading || launching) return;
+    const runId = ++runIdRef.current;
     setError(null);
     setLogs([]);
     setSavedHit(null);
     setLoadingMore(false);
     clearSelection();
     moreRef.current?.close();
+    setDeep(null);
+    // On rejoue le contexte complet du run : question, dates ET réglages.
     setQ(summary.query);
-    if (summary.date_from) setDateFrom(summary.date_from);
-    if (summary.date_to) setDateTo(summary.date_to);
+    setDateFrom(summary.date_from ?? "");
+    setDateTo(summary.date_to ?? "");
+    switchAlgo(summary.params.rrf ? "v2" : "v1");
+    if (summary.params.judge_batch) setJudgeBatch(summary.params.judge_batch);
+    if (summary.params.local_floor != null)
+      setLocalFloor(summary.params.local_floor);
     try {
       const run = await getSearchRun(summary.id);
-      if (mountedRef.current) setDeep(run.payload);
+      if (mountedRef.current && runId === runIdRef.current)
+        setDeep(run.payload);
     } catch {
-      if (mountedRef.current)
+      if (mountedRef.current && runId === runIdRef.current)
         setError("Impossible de rouvrir cette recherche — rechargez la page.");
     }
   }
 
-  async function runSearch(opts: { force?: boolean } = {}) {
+  // `opts.query`/`dateFrom`/`dateTo` : valeurs explicites pour les lancements
+  // qui ne peuvent pas lire l'état React (autorun ?q= au premier rendu).
+  async function runSearch(
+    opts: { force?: boolean; query?: string; dateFrom?: string; dateTo?: string } = {},
+  ) {
     if (launching) return;
+    const query = (opts.query ?? q).trim();
+    const from = opts.dateFrom ?? (dateFrom || undefined);
+    const to = opts.dateTo ?? (dateTo || undefined);
     const runId = ++runIdRef.current;
     setLoading(true);
     setError(null);
     setCodexLimit(false);
-    syncUrl(q);
-    if (!q.trim()) {
+    syncUrl(query, from, to);
+    if (!query) {
       setLoading(false);
       return;
     }
@@ -666,9 +693,9 @@ export default function Home() {
       let existing = null;
       try {
         existing = await lookupSavedSearch({
-          query: q.trim(),
-          date_from: dateFrom || undefined,
-          date_to: dateTo || undefined,
+          query,
+          date_from: from,
+          date_to: to,
         });
       } catch {
         /* lookup best-effort : en cas d'échec, on relance la recherche */
@@ -687,9 +714,9 @@ export default function Home() {
     setLaunching(true);
     try {
       const run = await createSearchRun({
-        query: q.trim(),
-        date_from: dateFrom || undefined,
-        date_to: dateTo || undefined,
+        query,
+        date_from: from,
+        date_to: to,
         k_pubmed: algoRef.current === "v2" ? 50 : 20,
         rrf: algoRef.current === "v2",
         judge_batch: judgeBatch,

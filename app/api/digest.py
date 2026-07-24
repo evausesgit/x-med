@@ -141,12 +141,23 @@ def generate_digest(
         )
         session.add(run)
         try:
-            session.commit()
+            # L'INSERT part ici — l'index unique partiel se prononce au flush.
+            session.flush()
         except IntegrityError:
             session.rollback()
             raise HTTPException(
                 409, "Une génération de digest est déjà en cours pour votre profil."
             )
+        # Jeton d'annulation enregistré AVANT que la ligne soit visible des
+        # autres transactions (commit) : un stop venu d'un autre onglet qui
+        # découvre le run trouve toujours un état à annuler.
+        cancel_state = search_cancel.register(str(run.id))
+        try:
+            session.commit()
+        except Exception:
+            session.rollback()
+            search_cancel.unregister(str(run.id))
+            raise
         session.refresh(run)
         summary = DigestRunSummary.model_validate(run)
 
@@ -171,9 +182,6 @@ def generate_digest(
         local_token=str(summary.id),
         require_builder=True,
     )
-    # Le jeton d'annulation est enregistré AVANT le démarrage du thread : un
-    # stop qui arrive juste après le POST trouve toujours un état à annuler.
-    cancel_state = search_cancel.register(str(summary.id))
     try:
         if cancel_state is None:  # impossible : le run id est un UUID neuf
             raise RuntimeError("jeton de génération déjà utilisé")
@@ -187,6 +195,9 @@ def generate_digest(
                 # persistés ni dans la notification.
                 "strip_log_keys": ("pubmed_query", "mesh_terms"),
                 "strip_metric_keys": ("pubmed_query",),
+                # Un stop pendant la traduction ne perd pas le digest déjà
+                # obtenu : le run finit `complete`, sans les traductions.
+                "keep_result_on_stop": True,
             },
             daemon=True,
         ).start()
@@ -228,20 +239,24 @@ def get_digest_run(
 def stop_digest_run(
     run_id: uuid.UUID, ident: Identity = Depends(current_identity)
 ):
-    """Arrête la génération en cours : l'appel codex en vol est tué, la requête
-    FTS locale annulée (pg_cancel_backend), le pipeline s'arrête au prochain
-    jalon. Sans run actif sous ce jeton, ne fait rien (stopped=False)."""
+    """Arrête la génération en cours. Transition SQL d'abord (la table est la
+    source de vérité) — mais UNIQUEMENT depuis `running` : pendant
+    `translating`, le digest est déjà acquis et un stop ne doit pas le perdre
+    (le run finira `complete`, sans les traductions — l'annulation du jeton
+    interrompt quand même la traduction en vol). Puis, best-effort : codex
+    tué, requête FTS locale annulée (pg_cancel_backend)."""
     from app.api.search import _LOCAL_SEARCH_PIDS
 
     with SessionLocal() as session:
         _get_own_run(session, ident, run_id)
     token = str(run_id)
-    stopped = search_cancel.cancel(token)
+    stopped = run_store.stop_run(DigestRun, run_id, from_statuses=("running",))
+    cancelled = search_cancel.cancel(token)
     pid = _LOCAL_SEARCH_PIDS.get(token)
     if pid is not None:
         with SessionLocal() as s:
             s.scalar(sql_text("SELECT pg_cancel_backend(:pid)"), {"pid": pid})
-    return StopRunResponse(stopped=stopped)
+    return StopRunResponse(stopped=stopped or cancelled)
 
 
 @router.get("/digest/history", response_model=DigestHistory)
