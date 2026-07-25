@@ -1,5 +1,11 @@
 // Appels relatifs : ils passent par le proxy Next (/api → FastAPI), donc ils
 // fonctionnent quel que soit l'hôte depuis lequel le navigateur ouvre le site.
+//
+// Les messages d'erreur remontent tels quels à l'écran : ils sont traduits via
+// `tr()`, la variante hors React de la traduction (ce module n'est pas un
+// composant et n'a donc pas accès au contexte i18n — voir lib/locale.ts).
+import { tr, type Locale } from "./locale";
+
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "/api";
 
 export interface ArticleResult {
@@ -100,7 +106,7 @@ export async function searchPubmedDeep(
       k_pubmed: k,
     }),
   });
-  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  if (!res.ok) throw new Error(tr("common.apiError", { status: res.status }));
   return res.json();
 }
 
@@ -223,14 +229,14 @@ export async function generateDigest(days: number): Promise<DigestRunSummary> {
   });
   if (!res.ok) {
     const detail = await res.json().then((d) => d.detail).catch(() => null);
-    throw new Error(detail || `Erreur API (${res.status})`);
+    throw new Error(detail || tr("common.apiError", { status: res.status }));
   }
   return res.json();
 }
 
 export async function getDigestRun(id: string): Promise<DigestRun> {
   const res = await fetch(`${API_BASE}/digest/runs/${encodeURIComponent(id)}`);
-  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  if (!res.ok) throw new Error(tr("common.apiError", { status: res.status }));
   return res.json();
 }
 
@@ -253,7 +259,7 @@ export async function stopDigestRun(id: string): Promise<boolean> {
 export async function getDigestHistory(): Promise<DigestHistory | null> {
   const res = await fetch(`${API_BASE}/digest/history`);
   if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  if (!res.ok) throw new Error(tr("common.apiError", { status: res.status }));
   return res.json();
 }
 
@@ -311,7 +317,7 @@ export async function createSearchRun(body: {
   });
   if (!res.ok) {
     const detail = await res.json().then((d) => d.detail).catch(() => null);
-    throw new Error(detail || `Erreur API (${res.status})`);
+    throw new Error(detail || tr("common.apiError", { status: res.status }));
   }
   return res.json();
 }
@@ -321,7 +327,7 @@ export async function getSearchRun(id: string): Promise<SearchRun> {
   if (!res.ok) {
     // Le statut HTTP permet au polling de distinguer un hoquet réseau (on
     // réessaie) d'une erreur définitive comme 401/404 (on abandonne le suivi).
-    const err = new Error(`Erreur API (${res.status})`) as Error & {
+    const err = new Error(tr("common.apiError", { status: res.status })) as Error & {
       status?: number;
     };
     err.status = res.status;
@@ -347,7 +353,7 @@ export async function stopSearchRun(id: string): Promise<boolean> {
 
 export async function getSearchRunHistory(): Promise<SearchRunHistory> {
   const res = await fetch(`${API_BASE}/search/runs`);
-  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  if (!res.ok) throw new Error(tr("common.apiError", { status: res.status }));
   return res.json();
 }
 
@@ -464,8 +470,8 @@ export async function translateAbstract(
   });
   if (!res.ok) {
     if (res.status === 429)
-      throw new Error("Limite d'usage GPT-5.6 atteinte — réessayez plus tard.");
-    throw new Error(`Erreur API (${res.status})`);
+      throw new Error(tr("common.usageLimit"));
+    throw new Error(tr("common.apiError", { status: res.status }));
   }
   return res.json();
 }
@@ -489,8 +495,8 @@ export async function translateBatch(
   });
   if (!res.ok) {
     if (res.status === 429)
-      throw new Error("Limite d'usage GPT-5.6 atteinte — réessayez plus tard.");
-    throw new Error(`Erreur API (${res.status})`);
+      throw new Error(tr("common.usageLimit"));
+    throw new Error(tr("common.apiError", { status: res.status }));
   }
   const data = await res.json();
   return data.translations ?? {};
@@ -518,7 +524,7 @@ export async function searchMesh(p: SearchParams): Promise<SearchResponse> {
   qs.set("limit", String(p.limit ?? 20));
   qs.set("offset", String(p.offset ?? 0));
   const res = await fetch(`${API_BASE}/search/mesh?${qs.toString()}`);
-  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  if (!res.ok) throw new Error(tr("common.apiError", { status: res.status }));
   return res.json();
 }
 
@@ -583,7 +589,7 @@ export async function searchHybrid(
 ): Promise<SearchResponse> {
   const qs = new URLSearchParams({ q, model, limit: String(limit) });
   const res = await fetch(`${API_BASE}/search/hybrid?${qs.toString()}`);
-  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  if (!res.ok) throw new Error(tr("common.apiError", { status: res.status }));
   return res.json();
 }
 
@@ -600,7 +606,7 @@ export async function searchSemantic(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query, model, k }),
   });
-  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  if (!res.ok) throw new Error(tr("common.apiError", { status: res.status }));
   return res.json();
 }
 
@@ -656,7 +662,7 @@ export async function listEvalQueries(): Promise<EvalQueryProgress[]> {
 }
 export async function getEvalPool(queryId: number): Promise<EvalPool> {
   const res = await fetch(`${API_BASE}/eval/pool/${queryId}`);
-  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  if (!res.ok) throw new Error(tr("common.apiError", { status: res.status }));
   return res.json();
 }
 export async function annotate(
@@ -670,7 +676,7 @@ export async function annotate(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query_id, pmid, grade, annotator }),
   });
-  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  if (!res.ok) throw new Error(tr("common.apiError", { status: res.status }));
 }
 
 // ---------- Médecins / profils ----------
@@ -709,7 +715,7 @@ export async function createDoctor(body: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  if (!res.ok) throw new Error(tr("common.apiError", { status: res.status }));
   return res.json();
 }
 // Mon profil, en LECTURE PURE : null si aucun médecin rattaché au compte (404).
@@ -718,14 +724,26 @@ export async function createDoctor(body: {
 export async function getMe(): Promise<Doctor | null> {
   const res = await fetch(`${API_BASE}/me`);
   if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  if (!res.ok) throw new Error(tr("common.apiError", { status: res.status }));
   return res.json();
 }
 // Mon profil : le médecin rattaché au compte Google connecté (identité posée
 // par proxy.ts dans les headers, rien à envoyer côté client).
 export async function bootstrapMe(): Promise<Doctor> {
   const res = await fetch(`${API_BASE}/me/bootstrap`, { method: "POST" });
-  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  if (!res.ok) throw new Error(tr("common.apiError", { status: res.status }));
+  return res.json();
+}
+// Langue du compte : interface ET traduction automatique des articles. Écrite
+// sur le profil pour que la préférence suive le médecin d'un appareil à
+// l'autre (le cookie, lui, ne sert qu'au rendu serveur sans « flash »).
+export async function updateMyLanguage(language: Locale): Promise<Doctor> {
+  const res = await fetch(`${API_BASE}/me/language`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ language }),
+  });
+  if (!res.ok) throw new Error(tr("common.apiError", { status: res.status }));
   return res.json();
 }
 export async function updateMyProfile(profile: DoctorProfile): Promise<Doctor> {
@@ -734,7 +752,7 @@ export async function updateMyProfile(profile: DoctorProfile): Promise<Doctor> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(profile),
   });
-  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  if (!res.ok) throw new Error(tr("common.apiError", { status: res.status }));
   return res.json();
 }
 export async function updateProfile(id: string, profile: DoctorProfile): Promise<Doctor> {
@@ -743,7 +761,7 @@ export async function updateProfile(id: string, profile: DoctorProfile): Promise
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(profile),
   });
-  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  if (!res.ok) throw new Error(tr("common.apiError", { status: res.status }));
   return res.json();
 }
 
@@ -776,7 +794,7 @@ export async function saveSearch(body: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  if (!res.ok) throw new Error(tr("common.apiError", { status: res.status }));
   return res.json();
 }
 
@@ -804,11 +822,11 @@ export async function lookupSavedSearch(params: {
 
 export async function getSavedSearch(id: string): Promise<SavedSearchDetail> {
   const res = await fetch(`${API_BASE}/saved-searches/${id}`);
-  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  if (!res.ok) throw new Error(tr("common.apiError", { status: res.status }));
   return res.json();
 }
 
 export async function deleteSavedSearch(id: string): Promise<void> {
   const res = await fetch(`${API_BASE}/saved-searches/${id}`, { method: "DELETE" });
-  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  if (!res.ok) throw new Error(tr("common.apiError", { status: res.status }));
 }

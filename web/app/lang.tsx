@@ -1,44 +1,61 @@
 "use client";
 
-// Langue d'affichage des articles (titre + résumé), partagée par la vue de
-// recherche (page.tsx) et les recherches sauvegardées (recherches/*). C'est une
-// préférence de l'app, persistée dans localStorage — pas un état de page. Quand
-// l'utilisateur choisit le français, on traduit à la demande, en un seul appel
-// par lot, et le cache global (table article_fr) sert les vues suivantes.
+// Langue d'affichage des ARTICLES (titre + résumé), partagée par la vue de
+// recherche (page.tsx) et les recherches sauvegardées (recherches/*).
+//
+// Deux niveaux, comme demandé côté produit :
+//   • par défaut, les articles suivent la langue du COMPTE (préférence de
+//     profil) — la traduction est donc automatique, sans rien demander ;
+//   • la bascule présente sur chaque carte est une dérogation « à la demande »,
+//     mémorisée localement et effacée dès qu'on change la langue du compte.
+//
+// L'anglais est la langue SOURCE des abstracts PubMed : l'afficher ne coûte
+// aucun appel. Passer au français déclenche une traduction en un seul appel par
+// lot, mise en cache globalement (table article_fr) pour les vues suivantes.
 import { useCallback, useEffect, useState } from "react";
 import { DeepHit, translateBatch, TranslationResult } from "@/lib/api";
+import { useT } from "@/lib/i18n";
+import {
+  readDisplayLangOverride,
+  writeDisplayLangOverride,
+  type Locale,
+} from "@/lib/locale";
 
-export type DisplayLang = "fr" | "en";
+export type DisplayLang = Locale;
 
-const STORAGE_KEY = "xmed.displayLang";
-
-// Défaut : français (produit FR-first pour des médecins francophones). Bascule en
-// anglais = afficher l'original, coût nul.
-export function useDisplayLang(): [DisplayLang, (l: DisplayLang) => void] {
-  const [lang, setLangState] = useState<DisplayLang>("fr");
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved === "fr" || saved === "en") setLangState(saved);
-    } catch {
-      // localStorage indisponible (SSR, navigation privée) : on garde le défaut.
-    }
-  }, []);
-
-  const setLang = useCallback((l: DisplayLang) => {
-    setLangState(l);
-    try {
-      localStorage.setItem(STORAGE_KEY, l);
-    } catch {
-      // ignore : la préférence ne sera juste pas mémorisée.
-    }
-  }, []);
-
-  return [lang, setLang];
+// Le cache de traduction actuel (article_fr) ne stocke que le français ; en
+// anglais on sert l'original. Ajouter une 3e langue demandera d'étendre le
+// stockage ET l'endpoint /translate — d'où ce test explicite plutôt qu'un
+// « tout sauf l'anglais » qui laisserait croire que ça marche déjà.
+function isTranslatable(lang: DisplayLang): boolean {
+  return lang === "fr";
 }
 
-// Sélecteur Français / English. Réutilise le style `.xmr-langtoggle` existant.
+/**
+ * Langue d'affichage courante et façon d'en déroger ponctuellement.
+ * Retourne `[lang, setLang]` : `lang` vaut la dérogation si elle existe,
+ * sinon la langue du compte.
+ */
+export function useDisplayLang(): [DisplayLang, (l: DisplayLang) => void] {
+  const { locale } = useT();
+  const [override, setOverride] = useState<DisplayLang | null>(null);
+
+  // Au montage : on récupère la dérogation éventuelle. Quand la langue du
+  // compte change, le sélecteur de langue a déjà effacé cette dérogation
+  // (lib/i18n.tsx) : relire donne `null`, donc on retombe sur le compte.
+  useEffect(() => {
+    setOverride(readDisplayLangOverride());
+  }, [locale]);
+
+  const setLang = useCallback((l: DisplayLang) => {
+    setOverride(l);
+    writeDisplayLangOverride(l);
+  }, []);
+
+  return [override ?? locale, setLang];
+}
+
+// Sélecteur Français / English d'une carte de résultat.
 export function LanguageToggle({
   lang,
   onChange,
@@ -48,15 +65,16 @@ export function LanguageToggle({
   onChange: (l: DisplayLang) => void;
   busy?: boolean;
 }) {
+  const { t } = useT();
   return (
-    <div className="xmr-langtoggle" role="group" aria-label="Langue d'affichage">
+    <div className="xmr-langtoggle" role="group" aria-label={t("lang.groupLabel")}>
       <button
         type="button"
         className={lang === "fr" ? "on" : ""}
         disabled={busy}
         onClick={() => onChange("fr")}
       >
-        {busy ? "Traduction…" : "Français"}
+        {busy ? t("lang.translating") : t("lang.french")}
       </button>
       <button
         type="button"
@@ -64,7 +82,7 @@ export function LanguageToggle({
         disabled={busy}
         onClick={() => onChange("en")}
       >
-        English
+        {t("lang.english")}
       </button>
     </div>
   );
@@ -73,22 +91,23 @@ export function LanguageToggle({
 export interface DisplayedHit {
   title: string;
   abstract: string | null;
-  /** true si le texte FR affiché est bien une traduction (et pas un repli EN). */
+  /** true si le texte affiché est bien une traduction (et pas un repli EN). */
   translated: boolean;
 }
 
-// Gère la traduction FR d'une liste d'articles selon la langue choisie : quand on
-// passe en FR, traduit (en un seul appel) ceux qui n'ont pas encore de version FR,
-// puis `resolve(hit)` rend le titre/résumé dans la bonne langue. En EN, ne touche
-// à rien (aucun appel). Idempotent : ce qui est déjà traduit (cache snapshot ou
-// appel précédent) n'est jamais retraduit.
+// Gère la traduction d'une liste d'articles selon la langue d'affichage : quand
+// celle-ci demande une traduction, traduit (en un seul appel) ceux qui n'en ont
+// pas encore, puis `resolve(hit)` rend le titre/résumé dans la bonne langue. En
+// anglais, ne touche à rien (aucun appel). Idempotent : ce qui est déjà traduit
+// (cache snapshot ou appel précédent) n'est jamais retraduit.
 export function useTranslatedHits(hits: DeepHit[], lang: DisplayLang) {
+  const { t } = useT();
   const [extra, setExtra] = useState<Record<number, TranslationResult>>({});
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    if (lang !== "fr") return;
+    if (!isTranslatable(lang)) return;
     const need = hits.filter(
       (h) =>
         h.abstract && // rien à traduire sans abstract source
@@ -118,7 +137,8 @@ export function useTranslatedHits(hits: DeepHit[], lang: DisplayLang) {
           });
         })
         .catch((e) => {
-          if (alive) setErr(e instanceof Error ? e.message : "Échec de la traduction.");
+          if (alive)
+            setErr(e instanceof Error ? e.message : t("lang.translationFailed"));
         })
         .finally(() => {
           if (alive) setBusy(false);
@@ -135,7 +155,7 @@ export function useTranslatedHits(hits: DeepHit[], lang: DisplayLang) {
 
   const resolve = useCallback(
     (h: DeepHit): DisplayedHit => {
-      if (lang !== "fr") {
+      if (!isTranslatable(lang)) {
         return { title: h.title, abstract: h.abstract, translated: false };
       }
       const o = extra[h.pmid];

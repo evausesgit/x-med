@@ -8,12 +8,14 @@ import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { getSavedSearch, SavedSearchDetail } from "@/lib/api";
 import { fmtDate, ResultDetail, ShareButton } from "../shared";
+import { useT } from "@/lib/i18n";
 
 export default function SharedSearchPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const { t, tp, tag } = useT();
   const { id } = use(params);
   const [search, setSearch] = useState<SavedSearchDetail | null>(null);
   const [status, setStatus] = useState<"loading" | "ok" | "notfound">("loading");
@@ -38,24 +40,22 @@ export default function SharedSearchPage({
   return (
     <main className="container">
       <p className="meta">
-        <Link href="/recherches">← Toutes les recherches sauvegardées</Link>
+        <Link href="/recherches">{t("saved.backToAll")}</Link>
       </p>
 
-      {status === "loading" && <p className="meta">Chargement…</p>}
+      {status === "loading" && <p className="meta">{t("common.loading")}</p>}
 
       {status === "notfound" && (
-        <p className="notice">
-          Cette recherche sauvegardée est introuvable. Le lien est peut-être
-          erroné ou la recherche a été supprimée.
-        </p>
+        <p className="notice">{t("saved.notFound")}</p>
       )}
 
       {status === "ok" && search && (
         <>
           <h1>{search.query}</h1>
           <div className="journal">
-            👤 {search.doctor_name || "Sans profil"} · {search.n_results}{" "}
-            article(s) · {fmtDate(search.created_at)}
+            👤 {search.doctor_name || t("saved.noProfile")} ·{" "}
+            {tp("saved.articles", search.n_results)} ·{" "}
+            {fmtDate(search.created_at, tag)}
           </div>
           <div className="saved-actions" style={{ margin: "12px 0" }}>
             <ShareButton id={search.id} />

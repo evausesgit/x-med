@@ -9,23 +9,37 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { LocaleSwitcher, useT } from "@/lib/i18n";
+import type { MessageKey } from "@/lib/locale";
 
-type MenuItem = { label: string; href: string; tag?: string; external?: boolean };
+type MenuItem = {
+  labelKey: MessageKey;
+  href: string;
+  /** `internal` = outil d'équipe (page non traduite), `↗` = lien sortant. */
+  tag?: "internal" | "↗";
+  external?: boolean;
+};
 
 // Pages secondaires regroupées dans le menu déroulant.
 const MENU: MenuItem[] = [
-  { label: "Sauvegardées", href: "/recherches" },
-  { label: "Profils", href: "/profil" },
-  { label: "Annoter", href: "/annotate", tag: "interne" },
-  { label: "Évaluation", href: "/evaluation", tag: "interne" },
-  { label: "Vectorisation", href: "/embeddings", tag: "interne" },
-  { label: "Comment ça marche", href: "/architecture" },
-  { label: "Visite guidée", href: "/recherche-guidee/index.html", tag: "↗", external: true },
+  { labelKey: "nav.saved", href: "/recherches" },
+  { labelKey: "nav.profiles", href: "/profil" },
+  { labelKey: "nav.annotate", href: "/annotate", tag: "internal" },
+  { labelKey: "nav.evaluation", href: "/evaluation", tag: "internal" },
+  { labelKey: "nav.vectorization", href: "/embeddings", tag: "internal" },
+  { labelKey: "nav.howItWorks", href: "/architecture" },
+  {
+    labelKey: "nav.guidedTour",
+    href: "/recherche-guidee/index.html",
+    tag: "↗",
+    external: true,
+  },
 ];
 
 export default function Nav() {
   const pathname = usePathname();
   const { user, signOutUser } = useAuth();
+  const { t } = useT();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -58,7 +72,7 @@ export default function Nav() {
   return (
     <nav className="xm-nav">
       <div className="xm-nav-inner">
-        <Link href="/" className="xm-brand" aria-label="X-Med — accueil">
+        <Link href="/" className="xm-brand" aria-label={t("nav.home")}>
           <span className="xm-logo" aria-hidden="true">
             ✕
           </span>
@@ -67,20 +81,18 @@ export default function Nav() {
 
         <div className="xm-nav-right">
           <Link href="/" className={`xm-navlink ${isSearch ? "on" : ""}`}>
-            Recherche
+            {t("nav.search")}
           </Link>
           <Link href="/digest" className={`xm-navlink ${isDigest ? "on" : ""}`}>
-            Mon Digest
+            {t("nav.digest")}
           </Link>
-          <span className="xm-lang" title="Langue de l’interface">
-            FR
-          </span>
+          <LocaleSwitcher />
 
           <div className="xm-menu-wrap" ref={wrapRef}>
             <button
               type="button"
               className="xm-menu-btn"
-              aria-label="Plus de pages"
+              aria-label={t("nav.more")}
               aria-haspopup="true"
               aria-controls="xm-more-menu"
               aria-expanded={open}
@@ -92,20 +104,22 @@ export default function Nav() {
             </button>
             {open && (
               <div className="xm-menu" id="xm-more-menu">
-                <div className="xm-menu-head">Plus de pages</div>
-                {MENU.map((item) =>
-                  item.external ? (
+                <div className="xm-menu-head">{t("nav.more")}</div>
+                {MENU.map((item) => {
+                  const label = t(item.labelKey);
+                  const tag = item.tag === "internal" ? t("nav.internalTag") : item.tag;
+                  return item.external ? (
                     <a key={item.href} className="xm-menu-item" href={item.href}>
-                      {item.label}
-                      {item.tag && <span className="xm-menu-tag">{item.tag}</span>}
+                      {label}
+                      {tag && <span className="xm-menu-tag">{tag}</span>}
                     </a>
                   ) : (
                     <Link key={item.href} className="xm-menu-item" href={item.href}>
-                      {item.label}
-                      {item.tag && <span className="xm-menu-tag">{item.tag}</span>}
+                      {label}
+                      {tag && <span className="xm-menu-tag">{tag}</span>}
                     </Link>
-                  ),
-                )}
+                  );
+                })}
                 {user && (
                   <div className="xm-menu-user">
                     <div className="xm-menu-user-mail" title={user.email ?? undefined}>
@@ -116,7 +130,7 @@ export default function Nav() {
                       className="xm-menu-signout"
                       onClick={signOutUser}
                     >
-                      Se déconnecter
+                      {t("nav.signOut")}
                     </button>
                   </div>
                 )}

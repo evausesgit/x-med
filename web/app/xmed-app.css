@@ -66,6 +66,9 @@
   color: var(--text);
   font-weight: 600;
 }
+/* Sélecteur de langue de l'interface : bascule EN ⇄ FR. C'était une simple
+   pastille figée « FR » ; c'est désormais un bouton, d'où la remise à plat des
+   styles natifs (fond, hauteur mini) pour garder exactement la même allure. */
 .xm-lang {
   font-family: var(--font-mono);
   font-size: 12px;
@@ -73,7 +76,15 @@
   border: 1px solid var(--line-strong);
   border-radius: 6px;
   color: var(--muted);
-  cursor: default;
+  background: transparent;
+  min-height: 0;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.xm-lang:hover {
+  color: var(--text);
+  border-color: var(--accent);
 }
 .xm-menu-wrap {
   position: relative;

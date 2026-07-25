@@ -12,6 +12,8 @@
    `children` pour que chaque appelant garde sa logique. */
 
 import { useEffect, useRef, useState } from "react";
+import { useT } from "@/lib/i18n";
+import { localeTag, type Locale, type Translate } from "@/lib/locale";
 
 export type Tier = "high" | "mid" | "low" | "off";
 
@@ -58,6 +60,8 @@ export interface XMedResultProps {
   why?: string[];
   /** texte lu à voix haute (bouton « Écouter ») — omis si absent */
   spoken?: string | null;
+  /** langue du texte lu (défaut : langue de l'interface) */
+  spokenLang?: Locale;
   /** libellé de la zone repliée (défaut « Résumé & abstract ») */
   revealLabel?: string;
   /** nœud supplémentaire dans l'en-tête replié (ex. bascule FR/EN du digest) */
@@ -69,11 +73,11 @@ export interface XMedResultProps {
   children?: React.ReactNode;
 }
 
-const EV: Record<number, { label: string; cls: string }> = {
-  1: { label: "Niv. 1 · preuve élevée", cls: "xmr-ev1" },
-  2: { label: "Niv. 2 · modérée", cls: "xmr-ev2" },
-  3: { label: "Niv. 3 · cas", cls: "xmr-ev3" },
-  4: { label: "Niv. 4 · avis", cls: "xmr-ev4" },
+const EV: Record<number, { labelKey: Parameters<Translate>[0]; cls: string }> = {
+  1: { labelKey: "result.evidence1", cls: "xmr-ev1" },
+  2: { labelKey: "result.evidence2", cls: "xmr-ev2" },
+  3: { labelKey: "result.evidence3", cls: "xmr-ev3" },
+  4: { labelKey: "result.evidence4", cls: "xmr-ev4" },
 };
 
 // Couleurs de la pastille de pertinence selon le palier (cf. design tier()).
@@ -95,18 +99,22 @@ const ARROW = (
 );
 const PUB = (t: string) => "https://pubmed.ncbi.nlm.nih.gov/?term=" + encodeURIComponent(t);
 
-// Synthèse vocale FR navigateur (réutilisée du digest).
+// Synthèse vocale navigateur (réutilisée du digest). La voix suit la langue du
+// texte AFFICHÉ, pas celle de l'interface : lire un abstract anglais avec une
+// voix française le rendrait incompréhensible.
 const TTS = {
   ok: typeof window !== "undefined" && "speechSynthesis" in window,
-  speak(text: string, onend: () => void) {
+  speak(text: string, locale: Locale, onend: () => void) {
     if (!this.ok) {
       setTimeout(onend, 50);
       return;
     }
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
-    u.lang = "fr-FR";
-    const v = (window.speechSynthesis.getVoices() || []).find((x) => /fr/i.test(x.lang));
+    u.lang = localeTag(locale);
+    const v = (window.speechSynthesis.getVoices() || []).find((x) =>
+      x.lang?.toLowerCase().startsWith(locale),
+    );
     if (v) u.voice = v;
     u.onend = onend;
     u.onerror = onend;
@@ -120,17 +128,25 @@ const TTS = {
 // Pertinence codex → format de carte. Le palier vient du score 0–3 (stable) ;
 // l'anneau affiche le pourcentage fin `relevancePct` 0–100 quand il est dispo
 // (sinon repli sur le 0–3 — recherches sauvegardées antérieures sans ce champ).
-export function deepRelevance(score: number, relevancePct?: number | null): Relevance {
+export function deepRelevance(
+  score: number,
+  relevancePct: number | null | undefined,
+  // `t` est passé par l'appelant : cette fonction est pure (pas un composant),
+  // elle ne peut donc pas lire le contexte i18n elle-même.
+  t: Translate,
+): Relevance {
   const pct =
     relevancePct != null
       ? Math.max(0, Math.min(100, Math.round(relevancePct)))
       : Math.round((score / 3) * 100);
   const tier: Tier = score >= 3 ? "high" : score >= 2 ? "mid" : "low";
-  const label = score >= 3 ? "Très pertinent" : score >= 2 ? "Pertinent" : "Partiel";
+  const label = t(
+    score >= 3 ? "result.tierHigh" : score >= 2 ? "result.tierMid" : "result.tierLow",
+  );
   const title =
     relevancePct != null
-      ? `Pertinence ${pct} % · score codex ${score}/3.`
-      : `Score codex : ${score} / 3 (grille 0–3).`;
+      ? t("result.relevanceTitle", { pct, score })
+      : t("result.relevanceTitleShort", { score });
   return { pct, tier, label, title };
 }
 
@@ -159,19 +175,27 @@ export function abstractSections(
 
 // Rendu « Résumé structuré » partagé par le digest et la recherche : à fournir en
 // `children` de la carte avec `revealBodyClassName="xmr-sections"`. L'étiquette
-// FR (« traduit en français ») n'apparaît que pour un abstract traduit.
+// « traduit en … » n'apparaît que pour un abstract réellement traduit.
 export function StructuredAbstract({
   abstract,
   translated,
+  lang,
 }: {
   abstract: string;
   translated?: boolean;
+  /** Langue du texte affiché (nommée dans l'étiquette de traduction). */
+  lang?: Locale;
 }) {
+  const { t, locale } = useT();
+  const shown = lang ?? locale;
   return (
     <>
       {translated && (
         <div className="abstract-fr-label" style={{ marginBottom: 8 }}>
-          📄 Résumé (traduit en français)
+          📄{" "}
+          {t("lang.translatedLabel", {
+            language: t(`lang.languageName.${shown}`),
+          })}
         </div>
       )}
       {abstractSections(abstract).map((s, i) => (
@@ -200,17 +224,21 @@ export default function XMedResult({
   mesh,
   sourceTitle,
   readTime,
-  ringCaption = "Pertinence pour votre question",
+  ringCaption,
   featured,
   why,
   spoken,
-  revealLabel = "Résumé & abstract",
+  spokenLang,
+  revealLabel,
   revealHead,
   revealBodyClassName = "xmr-abstract",
   children,
 }: XMedResultProps) {
+  const { t, locale } = useT();
   const [open, setOpen] = useState(false);
   const [speaking, setSpeaking] = useState(false);
+  const caption = ringCaption ?? t("result.ringCaption");
+  const revealTitle = revealLabel ?? t("result.defaultRevealLabel");
 
   // Anneau : anime le remplissage 0 → pct.
   const pct = relevance?.pct ?? 0;
@@ -242,12 +270,12 @@ export default function XMedResult({
       return;
     }
     setSpeaking(true);
-    TTS.speak(spoken, () => setSpeaking(false));
+    TTS.speak(spoken, spokenLang ?? locale, () => setSpeaking(false));
   }
 
   return (
     <article ref={wrapRef} className={`xmr-card ${featured ? "featured" : ""}`} onClick={cardClick}>
-      {featured && <div className="xmr-feat-kicker">★ Le plus pertinent</div>}
+      {featured && <div className="xmr-feat-kicker">{t("result.featured")}</div>}
 
       <div className={`xmr-grid ${relevance ? "" : "no-ring"}`}>
         <div className="xmr-head">
@@ -262,7 +290,7 @@ export default function XMedResult({
                 {relevance.label}
               </span>
             )}
-            {ev && <span className={`xmr-ev ${ev.cls}`}>{ev.label}</span>}
+            {ev && <span className={`xmr-ev ${ev.cls}`}>{t(ev.labelKey)}</span>}
           </div>
           <h3 className="xmr-title">
             <a href={pubmedUrl} target="_blank" rel="noreferrer">
@@ -270,13 +298,15 @@ export default function XMedResult({
             </a>
           </h3>
           <div className="xmr-journal">
-            {journal || "Journal inconnu"}
+            {journal || t("result.unknownJournal")}
             {year ? ` · ${year}` : ""}
             {sourceTag ? ` · ${sourceTag}` : ""}
           </div>
           {contribution ? (
             <p className="xmr-contribution">
-              <span className="xmr-contribution-label">Apport</span>
+              <span className="xmr-contribution-label">
+                {t("result.contributionLabel")}
+              </span>
               {contribution}
             </p>
           ) : null}
@@ -293,10 +323,10 @@ export default function XMedResult({
             >
               <div className="xmr-ring-inner">
                 <span className="xmr-ring-val">{relevance.pct}</span>
-                <span className="xmr-ring-unit">% match</span>
+                <span className="xmr-ring-unit">{t("result.ringUnit")}</span>
               </div>
             </div>
-            <span className="xmr-ring-cap">{ringCaption}</span>
+            <span className="xmr-ring-cap">{caption}</span>
           </div>
         )}
       </div>
@@ -321,11 +351,11 @@ export default function XMedResult({
             aria-expanded={open}
           >
             <span className="caret">⌄</span>
-            {open ? "Masquer le résumé" : revealLabel}
+            {open ? t("result.hideSummary") : revealTitle}
           </button>
         )}
         <a className="xmr-act accent" href={pubmedUrl} target="_blank" rel="noreferrer">
-          Lire sur PubMed {ARROW}
+          {t("result.readOnPubmed")} {ARROW}
         </a>
         {spoken && (
           <button
@@ -337,7 +367,7 @@ export default function XMedResult({
               <path d="M4 9v6h4l5 4V5L8 9z" />
               <path d="M16 8.5a5 5 0 0 1 0 7" />
             </svg>
-            {speaking ? "Arrêter" : "Écouter"}
+            {speaking ? t("result.stopListening") : t("result.listen")}
           </button>
         )}
         {readTime && (
@@ -346,7 +376,7 @@ export default function XMedResult({
               <circle cx="12" cy="12" r="9" />
               <path d="M12 7v5l3 2" />
             </svg>
-            {readTime} de lecture
+            {t("result.readTime", { time: readTime })}
           </span>
         )}
       </div>
@@ -354,9 +384,13 @@ export default function XMedResult({
       {open && hasReveal && (
         <div className="xmr-reveal">
           <div className="xmr-reveal-head">
-            <span className="xmr-reveal-label">{revealLabel}</span>
+            <span className="xmr-reveal-label">{revealTitle}</span>
             {revealHead}
-            {sourceTitle && <span className="xmr-source">Source : {sourceTitle}</span>}
+            {sourceTitle && (
+              <span className="xmr-source">
+                {t("result.source", { title: sourceTitle })}
+              </span>
+            )}
           </div>
           <div className={`xmr-reveal-grid ${why && why.length ? "" : "single"}`}>
             <div className={revealBodyClassName}>{children}</div>
@@ -367,9 +401,9 @@ export default function XMedResult({
                     <svg>
                       <path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8z" />
                     </svg>
-                    Résumé IA
+                    {t("result.aiSummary")}
                   </span>
-                  <span className="xmr-ia-dis">à vérifier</span>
+                  <span className="xmr-ia-dis">{t("result.toVerify")}</span>
                 </div>
                 <ul className="xmr-ia-list">
                   {why.map((w, i) => (

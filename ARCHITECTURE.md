@@ -83,7 +83,7 @@ CREATE TABLE doctors (
     email           TEXT NOT NULL UNIQUE,
     firebase_uid    TEXT UNIQUE,                    -- compte Google rattaché (NULL si créé à la main)
     name            TEXT NOT NULL,
-    language        TEXT NOT NULL DEFAULT 'fr',     -- langue de réception
+    language        TEXT NOT NULL DEFAULT 'en',     -- 'en' | 'fr' : interface + traductions
     digest_frequency TEXT NOT NULL DEFAULT 'daily', -- 'daily' | 'weekly'
     created_at      TIMESTAMPTZ DEFAULT now()
 );

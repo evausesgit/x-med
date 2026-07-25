@@ -14,7 +14,9 @@ Quand on implémente une fonctionnalité, **`ARCHITECTURE.md` et `PIPELINE_EMBED
 
 ## De quoi il s'agit
 
-X-Med est un service de veille médicale : il ingère quotidiennement les nouveaux articles PubMed, les filtre selon le profil d'un médecin, puis génère un digest email personnalisé (résumé + traduction). La langue de travail du projet (docs, copie produit, résumés générés) est le **français**.
+X-Med est un service de veille médicale : il ingère quotidiennement les nouveaux articles PubMed, les filtre selon le profil d'un médecin, puis génère un digest email personnalisé (résumé + traduction).
+
+**Langues.** La langue de travail interne (docs, commentaires de code, échanges) reste le **français**. Le **produit**, lui, est bilingue : l'**anglais est la langue principale** de l'interface, le français est au choix. Voir § Interface bilingue.
 
 ## Architecture — le flux de bout en bout
 
@@ -47,6 +49,42 @@ un agent sans ce dossier, `codex` est introuvable et `/search/pubmed/deep` renvo
 `scripts/dev_up.sh` force désormais `~/.npm-global/bin` dans le PATH ; **toujours
 redémarrer le backend via ce script** (et pas un `uvicorn` lancé à la main) pour garantir
 que `codex` est résolvable. Vérifier avec `command -v codex` avant de soupçonner le code.
+
+## Interface bilingue (anglais principal, français au choix)
+
+Le front est traduit via un catalogue maison, sans dépendance ni routage par
+locale (tout le site est derrière le login : l'argument SEO ne s'applique pas).
+
+- `web/lib/messages/en.ts` — catalogue de **référence** : il définit le type
+  `Messages`, donc une clé oubliée dans `fr.ts` est une **erreur TypeScript**.
+- `web/lib/locale.ts` — noyau sans React : types, résolution des clés (`t`/`tp`,
+  variables `{nom}`, pluriels), langue active de module pour le code non-React
+  (messages d'erreur de `lib/api.ts`), cookie `xmed.locale`.
+- `web/lib/i18n.tsx` — `I18nProvider`, hook `useT()`, sélecteur `LocaleSwitcher`.
+- `web/lib/server-locale.ts` — lecture du cookie côté serveur.
+
+**Autorité de la langue** : profil du médecin (`doctors.language`) > cookie
+`xmed.locale` > anglais. Le cookie est lu dans le layout serveur, ce qui évite
+un « flash » d'anglais et donne le bon `<html lang>` ; le provider corrige au
+montage si le compte dit autre chose. Changer de langue écrit le cookie **et**
+`PUT /me/language`, pour que la préférence suive le médecin d'un appareil à
+l'autre.
+
+**Défaut** : `doctors.language` vaut `'en'` pour les nouveaux comptes
+(migration `0011`) ; les comptes existants gardent `'fr'` — seul le DÉFAUT de
+la colonne change, aucune ligne n'est réécrite.
+
+**Périmètre traduit** : pages médecin (recherche, digest, profil, recherches
+sauvegardées, connexion, « Comment ça marche ») + navigation. Les outils
+internes (`/annotate`, `/evaluation`, `/embeddings`) restent en français.
+
+**Contenu des articles** : les abstracts PubMed sont en anglais — les afficher
+ne coûte donc **aucun appel de traduction**. Le français passe par `codex` avec
+cache en base (`article_fr`) ; par défaut la traduction suit la langue du
+compte, et la bascule de chaque carte permet une dérogation à la demande.
+⚠️ Le cache ne stocke QUE le français : ajouter une 3e langue demandera
+d'étendre `article_fr` (→ `article_translation(pmid, lang)`) et les endpoints
+`/translate` + `/translate/batch`.
 
 ## Stack cible (à respecter lors de l'implémentation)
 

@@ -11,6 +11,8 @@
    analyse_critique_criteres.md. */
 
 import type { CompareResult, CompareRow } from "@/lib/api";
+import { useT } from "@/lib/i18n";
+import type { MessageKey } from "@/lib/locale";
 
 export const MAX_COMPARE = 3;
 
@@ -24,6 +26,7 @@ export function SelectButton({
   disabled: boolean;
   onToggle: () => void;
 }) {
+  const { t } = useT();
   return (
     <button
       type="button"
@@ -33,25 +36,25 @@ export function SelectButton({
       aria-pressed={selected}
       title={
         disabled
-          ? `Limite de ${MAX_COMPARE} articles atteinte`
+          ? t("critique.selectLimit", { max: MAX_COMPARE })
           : selected
-            ? "Retirer de la sélection"
-            : "Ajouter à l'analyse critique"
+            ? t("critique.selectRemove")
+            : t("critique.selectAdd")
       }
     >
       <span className={`xm-select-box ${selected ? "on" : ""}`}>{selected ? "✓" : ""}</span>
-      {selected ? "Sélectionné" : "Comparer"}
+      {selected ? t("critique.selected") : t("critique.compare")}
     </button>
   );
 }
 
 // Les axes V1 et leur libellé (ordre du tableau).
-const AXES: { key: keyof CompareRow; label: string }[] = [
-  { key: "study_type", label: "Type d'étude / niveau de preuve" },
-  { key: "population", label: "Population (n + profil)" },
-  { key: "primary_outcome", label: "Critère de jugement principal" },
-  { key: "effect_size", label: "Taille d'effet" },
-  { key: "limits", label: "Limites" },
+const AXES: { key: keyof CompareRow; labelKey: MessageKey }[] = [
+  { key: "study_type", labelKey: "critique.axisStudyType" },
+  { key: "population", labelKey: "critique.axisPopulation" },
+  { key: "primary_outcome", labelKey: "critique.axisPrimaryOutcome" },
+  { key: "effect_size", labelKey: "critique.axisEffectSize" },
+  { key: "limits", labelKey: "critique.axisLimits" },
 ];
 
 // Tableau comparatif : colonnes = articles (dans l'ordre de sélection), lignes = axes.
@@ -63,6 +66,7 @@ export function CritiqueTable({
   // PMID dans l'ordre de sélection du médecin (pour stabiliser les colonnes).
   order: number[];
 }) {
+  const { t } = useT();
   const byPmid = new Map(result.rows.map((r) => [r.pmid, r]));
   const cols = order.map((p) => byPmid.get(p)).filter((r): r is CompareRow => !!r);
   if (cols.length === 0) return null;
@@ -72,10 +76,12 @@ export function CritiqueTable({
       <table className="xm-critique-table">
         <thead>
           <tr>
-            <th className="xm-ct-axis">Critère</th>
+            <th className="xm-ct-axis">{t("critique.axisHeader")}</th>
             {cols.map((c, i) => (
               <th key={c.pmid}>
-                <span className="xm-ct-colno">Article {i + 1}</span>
+                <span className="xm-ct-colno">
+                  {t("critique.columnNo", { n: i + 1 })}
+                </span>
                 <a
                   href={`https://pubmed.ncbi.nlm.nih.gov/${c.pmid}/`}
                   target="_blank"
@@ -92,7 +98,7 @@ export function CritiqueTable({
           {AXES.map((ax) => (
             <tr key={ax.key}>
               <th scope="row" className="xm-ct-axis">
-                {ax.label}
+                {t(ax.labelKey)}
               </th>
               {cols.map((c) => (
                 <td key={c.pmid}>{String(c[ax.key] ?? "")}</td>
@@ -113,29 +119,25 @@ export function CritiquePanel({
   result: CompareResult;
   order: number[];
 }) {
+  const { t } = useT();
   return (
     <div className="xm-critique">
       <div className="xm-critique-head">
-        <h2 className="xm-critique-title">Analyse critique comparative</h2>
-        <p className="xm-critique-sub">
-          Lecture critique générée par l&apos;IA à partir des résumés PubMed — un
-          appui à la lecture, pas une validation clinique. Les mentions
-          «&nbsp;Non précisé dans le résumé&nbsp;» signalent une information absente
-          de l&apos;abstract.
-        </p>
+        <h2 className="xm-critique-title">{t("critique.title")}</h2>
+        <p className="xm-critique-sub">{t("critique.subtitle")}</p>
       </div>
 
       <CritiqueTable result={result} order={order} />
 
       {result.concordance && (
         <div className="xm-critique-block">
-          <h3>Concordance entre les articles</h3>
+          <h3>{t("critique.concordance")}</h3>
           <p>{result.concordance}</p>
         </div>
       )}
       {result.synthesis && (
         <div className="xm-critique-block accent">
-          <h3>À retenir en pratique</h3>
+          <h3>{t("critique.synthesis")}</h3>
           <p>{result.synthesis}</p>
         </div>
       )}

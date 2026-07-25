@@ -20,10 +20,12 @@ import {
 } from "../lang";
 import XMedResult, { deepRelevance, StructuredAbstract } from "../XMedResult";
 import { CritiquePanel, MAX_COMPARE, SelectButton } from "../Critique";
+import { useT } from "@/lib/i18n";
 
-export function fmtDate(iso: string) {
+/** Date/heure d'une recherche sauvegardée, dans la locale demandée. */
+export function fmtDate(iso: string, tag: string) {
   try {
-    return new Date(iso).toLocaleString("fr-FR", {
+    return new Date(iso).toLocaleString(tag, {
       dateStyle: "medium",
       timeStyle: "short",
     });
@@ -50,6 +52,7 @@ export function HitCard({
   // Bouton de sélection « Comparer » injecté par ResultDetail (analyse critique).
   extraActions?: React.ReactNode;
 }) {
+  const { t } = useT();
   return (
     <XMedResult
       rank={rank}
@@ -58,32 +61,38 @@ export function HitCard({
       year={hit.pub_year}
       level={hit.evidence_level}
       relevance={
-        hit.score != null ? deepRelevance(hit.score, hit.relevance_pct) : undefined
+        hit.score != null ? deepRelevance(hit.score, hit.relevance_pct, t) : undefined
       }
       contribution={hit.reason}
       extraActions={extraActions}
-      sourceTag={
+      sourceTag={t(
         hit.source === "both"
-          ? "A · PubMed + B · local"
+          ? "search.sourceBoth"
           : hit.source === "pubmed"
-            ? "A · PubMed"
-            : "B · local"
-      }
+            ? "search.sourcePubmed"
+            : "search.sourceLocal",
+      )}
       pubmedUrl={hit.pubmed_url}
       sourceTitle={hit.title}
-      revealLabel="Résumé structuré"
+      revealLabel={t("search.revealLabel")}
       revealBodyClassName="xmr-sections"
       revealHead={<LanguageToggle lang={lang} onChange={onLang} busy={busy} />}
       spoken={display.abstract ?? hit.reason ?? undefined}
+      spokenLang={lang}
     >
       {display.abstract ? (
-        <StructuredAbstract abstract={display.abstract} translated={display.translated} />
+        <StructuredAbstract
+          abstract={display.abstract}
+          translated={display.translated}
+          lang={lang}
+        />
       ) : undefined}
     </XMedResult>
   );
 }
 
 export function ResultDetail({ payload }: { payload: DeepSearchResponse }) {
+  const { t, tp } = useT();
   const [lang, setLang] = useDisplayLang();
   const { resolve, busy } = useTranslatedHits(payload.results, lang);
 
@@ -132,7 +141,7 @@ export function ResultDetail({ payload }: { payload: DeepSearchResponse }) {
       onResult: (res) => {
         if (res.codex_limit) {
           setAnalysisError(
-            "Limite d'usage GPT-5.6 atteinte — réessayez l'analyse plus tard.",
+            t("common.usageLimit"),
           );
         } else {
           setAnalysis(res);
@@ -140,7 +149,7 @@ export function ResultDetail({ payload }: { payload: DeepSearchResponse }) {
         setAnalyzing(false);
       },
       onError: (msg) => {
-        setAnalysisError(msg || "L'analyse critique a échoué.");
+        setAnalysisError(msg || t("critique.failed"));
         setAnalyzing(false);
       },
     });
@@ -150,15 +159,15 @@ export function ResultDetail({ payload }: { payload: DeepSearchResponse }) {
     <div className="saved-detail">
       {payload.pubmed_query && (
         <details className="explanation">
-          <summary>Requête PubMed générée + mots-clés</summary>
+          <summary>{t("search.generatedQuery")}</summary>
           <p className="abstract" style={{ fontFamily: "monospace", fontSize: 13 }}>
             {payload.pubmed_query}
           </p>
           {payload.keywords_en?.length > 0 && (
             <div className="tags">
-              {payload.keywords_en.slice(0, 12).map((t) => (
-                <span className="tag" key={t}>
-                  {t}
+              {payload.keywords_en.slice(0, 12).map((kw) => (
+                <span className="tag" key={kw}>
+                  {kw}
                 </span>
               ))}
             </div>
@@ -166,15 +175,16 @@ export function ResultDetail({ payload }: { payload: DeepSearchResponse }) {
         </details>
       )}
       {payload.results.length === 0 ? (
-        <p className="notice">Aucun article dans cette recherche sauvegardée.</p>
+        <p className="notice">{t("saved.emptyPayload")}</p>
       ) : (
         <>
           {/* Barre d'analyse critique : apparaît dès qu'un article est coché. */}
           {selected.length > 0 && (
             <div className="xm-compare-bar">
               <span className="xm-compare-count">
-                <strong>{selected.length}</strong> / {MAX_COMPARE} sélectionné
-                {selected.length > 1 ? "s" : ""} pour l&apos;analyse
+                {tp("critique.selectedCount", selected.length, {
+                  max: MAX_COMPARE,
+                })}
               </span>
               <span className="xm-compare-actions">
                 <button
@@ -182,16 +192,16 @@ export function ResultDetail({ payload }: { payload: DeepSearchResponse }) {
                   className="primary"
                   disabled={selected.length < 2 || analyzing}
                   onClick={runAnalysis}
-                  title={
+                  title={t(
                     selected.length < 2
-                      ? "Sélectionnez au moins 2 articles"
-                      : "Lancer l'analyse critique comparative"
-                  }
+                      ? "critique.runTitleTooFew"
+                      : "critique.runTitle",
+                  )}
                 >
-                  {analyzing ? "Analyse en cours…" : "🔬 Analyser la sélection"}
+                  {analyzing ? t("critique.liveEmpty") : t("critique.run")}
                 </button>
                 <button type="button" className="xmr-act" onClick={clearSelection}>
-                  Effacer
+                  {t("critique.clear")}
                 </button>
               </span>
             </div>
@@ -202,12 +212,12 @@ export function ResultDetail({ payload }: { payload: DeepSearchResponse }) {
             <div className="xm-live running">
               <div className="xm-live-head">
                 <span className="xm-live-dot" />
-                <span className="xm-live-title">Analyse critique — en direct</span>
+                <span className="xm-live-title">{t("critique.liveTitle")}</span>
                 <span className="xm-live-spin" />
               </div>
               <div className="xm-live-body">
                 {analysisLogs.length === 0 && (
-                  <div className="xm-live-line">Analyse en cours…</div>
+                  <div className="xm-live-line">{t("critique.liveEmpty")}</div>
                 )}
                 {analysisLogs.map((l, k) => (
                   <div key={k} className="xm-live-line">
@@ -250,6 +260,7 @@ export function ResultDetail({ payload }: { payload: DeepSearchResponse }) {
 // (/recherches/{id}) dans le presse-papiers. Le lien est partageable tel quel —
 // l'endpoint GET /saved-searches/{id} n'a pas de contrôle d'accès.
 export function ShareButton({ id }: { id: string }) {
+  const { t } = useT();
   const [copied, setCopied] = useState(false);
   async function share() {
     const url = `${window.location.origin}/recherches/${id}`;
@@ -260,12 +271,12 @@ export function ShareButton({ id }: { id: string }) {
     } catch {
       // Presse-papiers indisponible (http non sécurisé, vieux navigateur) :
       // on montre le lien à copier à la main.
-      window.prompt("Copiez ce lien pour le partager :", url);
+      window.prompt(t("saved.sharePrompt"), url);
     }
   }
   return (
     <button type="button" onClick={share}>
-      {copied ? "✅ Lien copié" : "🔗 Partager"}
+      {copied ? t("saved.shared") : t("saved.share")}
     </button>
   );
 }

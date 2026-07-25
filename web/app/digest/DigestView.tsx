@@ -17,13 +17,26 @@ import { useEffect, useRef, useState } from "react";
 import XMedResult, { StructuredAbstract, type Relevance } from "../XMedResult";
 import { CritiquePanel, MAX_COMPARE, SelectButton } from "../Critique";
 import { analyzeCompareStream, type CompareResult, type PubmedLog } from "@/lib/api";
+import { useT } from "@/lib/i18n";
+import type { Locale, Translate } from "@/lib/locale";
 import type { Article, DigestData } from "./types";
 
 // Pertinence pour le profil (0–100) → format commun de la carte.
-function digestRelevance(match: number): Relevance {
+function digestRelevance(match: number, t: Translate): Relevance {
   const tier: Relevance["tier"] = match >= 85 ? "high" : match >= 70 ? "mid" : "low";
-  const label = match >= 85 ? "Très pertinent" : match >= 70 ? "Pertinent" : "Lié";
-  return { pct: match, tier, label, title: `Pertinence pour votre profil : ${match}%` };
+  const label = t(
+    match >= 85
+      ? "result.tierHigh"
+      : match >= 70
+        ? "result.tierMid"
+        : "result.tierRelated",
+  );
+  return {
+    pct: match,
+    tier,
+    label,
+    title: t("result.relevanceProfileTitle", { pct: match }),
+  };
 }
 
 // Une carte de digest : conserve l'état de langue, qui pilote à la fois la
@@ -42,33 +55,37 @@ function DigestCard({
   onToggle: () => void;
   disabled: boolean;
 }) {
-  const [lang, setLang] = useState<"fr" | "en">("fr");
-  const t = a[lang];
+  const { t, locale } = useT();
+  // La face affichée suit la langue du compte ; la bascule ci-dessous reste
+  // disponible pour lire l'autre version à la demande, carte par carte.
+  const [lang, setLang] = useState<Locale>(locale);
+  useEffect(() => setLang(locale), [locale]);
+  const face = a[lang];
   const langToggle = (
-    <div className="xmr-langtoggle">
+    <div className="xmr-langtoggle" role="group" aria-label={t("lang.groupLabel")}>
       <button type="button" className={lang === "fr" ? "on" : ""} onClick={() => setLang("fr")}>
-        Français
+        {t("lang.french")}
       </button>
       <button type="button" className={lang === "en" ? "on" : ""} onClick={() => setLang("en")}>
-        English
+        {t("lang.english")}
       </button>
     </div>
   );
   return (
     <XMedResult
       rank={rank}
-      title={t.title}
+      title={face.title}
       journal={a.journal}
       year={a.year}
       level={a.level}
-      relevance={digestRelevance(a.match)}
-      contribution={t.stand}
+      relevance={digestRelevance(a.match, t)}
+      contribution={face.stand}
       sourceTitle={a.en.title}
       readTime={a.read}
-      ringCaption="Pertinence pour votre profil"
+      ringCaption={t("result.ringCaptionProfile")}
       featured={rank === 1}
-      why={a.why}
-      spoken={a.spoken}
+      why={face.why}
+      spoken={face.spoken}
       mesh={a.mesh}
       pubmedUrl={
         a.pubmedUrl ??
@@ -77,26 +94,30 @@ function DigestCard({
       extraActions={
         <SelectButton selected={selected} disabled={disabled} onToggle={onToggle} />
       }
-      revealLabel="Résumé structuré"
+      spokenLang={lang}
+      revealLabel={t("search.revealLabel")}
       revealHead={langToggle}
       revealBodyClassName="xmr-sections"
     >
-      <StructuredAbstract abstract={t.abstract} />
+      <StructuredAbstract abstract={face.abstract} lang={lang} />
     </XMedResult>
   );
 }
 
 // Déroulé live de l'analyse critique codex (mêmes classes que la recherche).
 function CritiqueLive({ logs }: { logs: PubmedLog[] }) {
+  const { t } = useT();
   return (
     <div className="xm-live running">
       <div className="xm-live-head">
         <span className="xm-live-dot" />
-        <span className="xm-live-title">Analyse critique — en direct</span>
+        <span className="xm-live-title">{t("critique.liveTitle")}</span>
         <span className="xm-live-spin" />
       </div>
       <div className="xm-live-body">
-        {logs.length === 0 && <div className="xm-live-line">Lecture des abstracts par codex…</div>}
+        {logs.length === 0 && (
+          <div className="xm-live-line">{t("critique.liveReading")}</div>
+        )}
         {logs.map((l, k) => (
           <div key={k} className="xm-live-line">
             {l.msg}
@@ -108,6 +129,7 @@ function CritiqueLive({ logs }: { logs: PubmedLog[] }) {
 }
 
 export default function DigestView({ data }: { data: DigestData }) {
+  const { t, tp } = useT();
   const D = data;
   // Le digest présente l'article phare puis le reste de la sélection.
   const articles = [D.lead, ...D.articles];
@@ -156,9 +178,7 @@ export default function DigestView({ data }: { data: DigestData }) {
     setAnalysisLogs([]);
     critiqueRef.current?.close();
     if (pmids.some((p) => !Number.isFinite(p))) {
-      setAnalysisError(
-        "L'analyse critique compare de vrais articles PubMed. Disponible dès que votre digest sera généré — l'aperçu de démonstration ne contient pas d'articles réels.",
-      );
+      setAnalysisError(t("critique.demoUnavailable"));
       setAnalyzing(false);
       return;
     }
@@ -167,14 +187,14 @@ export default function DigestView({ data }: { data: DigestData }) {
       onLog: (log) => setAnalysisLogs((prev) => [...prev, log]),
       onResult: (res) => {
         if (res.codex_limit) {
-          setAnalysisError("Limite d'usage GPT-5.6 atteinte — réessayez l'analyse plus tard.");
+          setAnalysisError(t("common.usageLimit"));
         } else {
           setAnalysis(res);
         }
         setAnalyzing(false);
       },
       onError: (msg) => {
-        setAnalysisError(msg || "L'analyse critique a échoué.");
+        setAnalysisError(msg || t("critique.failed"));
         setAnalyzing(false);
       },
     });
@@ -187,30 +207,33 @@ export default function DigestView({ data }: { data: DigestData }) {
           <div>
             <div className="xm-digest-kicker">
               <span className="dot" />
-              Mon Digest · {D.date}
+              {t("digest.kicker", { date: D.date })}
             </div>
-            <h1 className="xm-digest-title">Votre veille du jour</h1>
+            <h1 className="xm-digest-title">{t("digest.headTitle")}</h1>
             <p className="xm-digest-sub">
-              {articles.length} articles choisis pour votre profil — {D.doctor.name},{" "}
-              {D.doctor.specialty}.
+              {t("digest.headSub", {
+                count: articles.length,
+                name: D.doctor.name,
+                specialty: D.doctor.specialty,
+              })}
             </p>
           </div>
           <div className="xm-digest-gen">
-            Généré {D.generated} CET
+            {t("digest.generatedAt", { time: D.generated })}
             <br />
             {D.method}
           </div>
         </div>
 
         <div className="xm-digest-themes">
-          <span className="xm-digest-themes-label">VOS THÈMES</span>
-          {D.themes.map((t) => (
-            <span className="xm-theme" key={t}>
-              {t}
+          <span className="xm-digest-themes-label">{t("digest.themesLabel")}</span>
+          {D.themes.map((theme) => (
+            <span className="xm-theme" key={theme}>
+              {theme}
             </span>
           ))}
           <a className="xm-theme-link" href="/profil">
-            ajuster mes thèmes →
+            {t("digest.adjustThemes")}
           </a>
         </div>
       </div>
@@ -219,8 +242,7 @@ export default function DigestView({ data }: { data: DigestData }) {
       {selected.length > 0 && (
         <div className="xm-compare-bar">
           <span className="xm-compare-count">
-            <strong>{selected.length}</strong> / {MAX_COMPARE} sélectionné
-            {selected.length > 1 ? "s" : ""} pour l&apos;analyse
+            {tp("critique.selectedCount", selected.length, { max: MAX_COMPARE })}
           </span>
           <span className="xm-compare-actions">
             <button
@@ -228,16 +250,16 @@ export default function DigestView({ data }: { data: DigestData }) {
               className="primary"
               disabled={selected.length < 2 || analyzing}
               onClick={runAnalysis}
-              title={
+              title={t(
                 selected.length < 2
-                  ? "Sélectionnez au moins 2 articles"
-                  : "Lancer l'analyse critique comparative"
-              }
+                  ? "critique.runTitleTooFew"
+                  : "critique.runTitle",
+              )}
             >
-              {analyzing ? "Analyse en cours…" : "🔬 Analyser la sélection"}
+              {analyzing ? t("critique.liveEmpty") : t("critique.run")}
             </button>
             <button type="button" className="xmr-act" onClick={clearSelection}>
-              Effacer
+              {t("critique.clear")}
             </button>
           </span>
         </div>
@@ -260,10 +282,7 @@ export default function DigestView({ data }: { data: DigestData }) {
         ))}
       </div>
 
-      <p className="xm-disclaimer">
-        Sélection établie pour votre profil — un appui à la veille, pas une validation
-        clinique.
-      </p>
+      <p className="xm-disclaimer">{t("digest.disclaimer")}</p>
     </div>
   );
 }

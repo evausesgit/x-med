@@ -27,6 +27,7 @@ import Link from "next/link";
 import XMedResult, { deepRelevance, StructuredAbstract } from "./XMedResult";
 import { CritiquePanel, MAX_COMPARE, SelectButton } from "./Critique";
 import { LanguageToggle, useDisplayLang, useTranslatedHits } from "./lang";
+import { useT } from "@/lib/i18n";
 
 // Durée d'une recherche PubMed + IA (jugement codex). En pratique 30–90 s ; le
 // backend laisse beaucoup plus avant d'abandonner (timeouts codex : 180 s pour
@@ -39,16 +40,15 @@ import { LanguageToggle, useDisplayLang, useTranslatedHits } from "./lang";
 // quitter la page n'interrompt plus rien, et on raccroche la recherche en
 // cours en revenant. Chaque recherche aboutie s'ajoute à l'historique.
 const POLL_MS = 2500;
-const DEEP_TYPICAL_TXT = "30 à 90 secondes";
 const DEEP_TYPICAL_S = 90; // au-delà : « un peu plus long que d'habitude »
 const DEEP_LONG_S = 180; // au-delà : on prévient que c'est une recherche longue
 // Format chrono lisible : « 12s », puis « 1 min 05s ».
 const fmtElapsed = (s: number) =>
   s < 60 ? `${s}s` : `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, "0")}s`;
 
-// « 23 juil. » — libellé court d'une entrée de l'historique des recherches.
-const dayShortFr = (iso: string) =>
-  new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" }).format(
+// « 23 juil. » / « Jul 23 » — libellé court d'une entrée de l'historique.
+const dayShort = (iso: string, tag: string) =>
+  new Intl.DateTimeFormat(tag, { day: "numeric", month: "short" }).format(
     new Date(iso),
   );
 
@@ -56,6 +56,7 @@ const truncate = (s: string, n: number) =>
   s.length > n ? `${s.slice(0, n - 1)}…` : s;
 
 function CopyLinkButton() {
+  const { t } = useT();
   const [copied, setCopied] = useState(false);
   return (
     <button
@@ -75,7 +76,7 @@ function CopyLinkButton() {
         <path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1" />
         <path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1" />
       </svg>
-      {copied ? "Lien copié" : "Copier le lien"}
+      {copied ? t("search.linkCopied") : t("search.copyLink")}
     </button>
   );
 }
@@ -118,12 +119,13 @@ function LiveEvents({
   // montage du composant (sinon il retombe à zéro à chaque retour sur la page).
   startedAt?: number | null;
 }) {
+  const { t } = useT();
   const [i, setI] = useState(0);
   const isPubmed = variant === "pubmed";
   useEffect(() => {
     if (isPubmed) return; // les lignes viennent du serveur (SSE)
-    const t = setInterval(() => setI((n) => (n + 1) % MESH_SAMPLES.length), 1300);
-    return () => clearInterval(t);
+    const timer = setInterval(() => setI((n) => (n + 1) % MESH_SAMPLES.length), 1300);
+    return () => clearInterval(timer);
   }, [isPubmed]);
 
   // Chrono « la recherche tourne depuis… » : compté depuis `startedAt` (le
@@ -137,32 +139,29 @@ function LiveEvents({
     const tick = () =>
       setElapsed(Math.max(0, Math.round((Date.now() - base) / 1000)));
     tick();
-    const t = setInterval(tick, 1000);
-    return () => clearInterval(t);
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
   }, [running, startedAt]);
 
-  const title =
-    variant === "pubmed"
-      ? "Pré-filtre local puis jugement par codex"
-      : "Recherche en cours";
+  const title = t(variant === "pubmed" ? "search.livePubmed" : "search.liveOther");
   const queryLog = logs.find((l) => l.pubmed_query);
 
   // Message de patience adapté au temps écoulé : l'utilisateur sait à quoi
   // s'attendre et n'a pas l'impression que « ça a planté ».
   const waitHint =
     elapsed < DEEP_TYPICAL_S
-      ? `⏳ Une recherche prend en général ${DEEP_TYPICAL_TXT}. Elle continue en arrière-plan — vous pouvez quitter la page ou verrouiller votre téléphone, le résultat vous attendra ici.`
+      ? t("search.waitShort", { typical: t("search.typicalDuration") })
       : elapsed < DEEP_LONG_S
-        ? `⏳ Un peu plus long que d'habitude (sujet large) — l'IA lit et juge les articles, on continue.`
-        : `⏳ Recherche longue : on patiente encore un peu, elle s'arrêtera d'elle-même si elle dépasse quelques minutes.`;
+        ? t("search.waitMedium")
+        : t("search.waitLong");
 
   return (
     <div className={`xm-live ${running ? "running" : ""}`}>
       <div className="xm-live-head">
         <span className="xm-live-dot" />
         <span className="xm-live-title">
-          Déroulé de la recherche
-          {running ? ` — en direct · ${fmtElapsed(elapsed)}` : ""}
+          {t("search.liveTitle")}
+          {running ? t("search.liveLive", { elapsed: fmtElapsed(elapsed) }) : ""}
         </span>
         {running && <span className="xm-live-spin" />}
       </div>
@@ -183,8 +182,8 @@ function LiveEvents({
                 disabled={stopLocal.stopping}
               >
                 {stopLocal.stopping
-                  ? "Arrêt de la recherche locale…"
-                  : "⏹ Arrêter la recherche locale (continuer avec PubMed seul)"}
+                  ? t("search.stoppingLocal")
+                  : t("search.stopLocal")}
               </button>
             )}
             {queryLog?.pubmed_query && (
@@ -219,6 +218,7 @@ function SaveSearchBar({
   dateTo: string;
   alreadySavedId?: string;
 }) {
+  const { t } = useT();
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [doctorId, setDoctorId] = useState("");
   const [busy, setBusy] = useState(false);
@@ -247,7 +247,7 @@ function SaveSearchBar({
       });
       setSavedId(s.id);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Échec de la sauvegarde");
+      setError(e instanceof Error ? e.message : t("search.saveFailed"));
     } finally {
       setBusy(false);
     }
@@ -255,13 +255,13 @@ function SaveSearchBar({
 
   return (
     <div className="save-bar">
-      <label className="save-bar-label">Profil</label>
+      <label className="save-bar-label">{t("search.saveProfile")}</label>
       <select
         value={doctorId}
         onChange={(e) => setDoctorId(e.target.value)}
         disabled={busy || !!savedId}
       >
-        <option value="">— Aucun profil —</option>
+        <option value="">{t("search.saveNoProfile")}</option>
         {doctors.map((d) => (
           <option key={d.id} value={d.id}>
             {d.name}
@@ -271,11 +271,12 @@ function SaveSearchBar({
       </select>
       {savedId ? (
         <span className="meta" style={{ margin: 0 }}>
-          ✓ Sauvegardée — <Link href="/recherches">voir mes recherches</Link>
+          {t("search.saveDone")}{" "}
+          <Link href="/recherches">{t("search.saveSeeAll")}</Link>
         </span>
       ) : (
         <button type="button" className="primary" onClick={save} disabled={busy}>
-          {busy ? "…" : "💾 Sauvegarder cette recherche"}
+          {busy ? t("common.working") : t("search.saveButton")}
         </button>
       )}
       {error && (
@@ -296,6 +297,7 @@ const SearchIcon = (
 );
 
 export default function Home() {
+  const { t, tp, tag } = useT();
   const [q, setQ] = useState("");
 
   const [dateFrom, setDateFrom] = useState("2025-01-01");
@@ -399,7 +401,7 @@ export default function Home() {
             setLoading(false);
             setStoppingRun(false);
             setError(
-              "Impossible de suivre la recherche en cours — rechargez la page pour la retrouver.",
+              t("search.trackFailed"),
             );
           }
           return;
@@ -436,13 +438,13 @@ export default function Home() {
       setStoppingLocal(false);
       setStoppingRun(false);
       if (run.status === "error") {
-        setError(run.error || "La recherche a échoué. Réessayez plus tard.");
+        setError(run.error || t("search.runFailed"));
       } else if (run.status === "stopped") {
         setLogs([
           ...run.logs,
           {
             phase: "stopped",
-            msg: "⏹️ Recherche arrêtée — corrigez votre question et relancez quand vous voulez.",
+            msg: t("search.stoppedNotice"),
           },
         ]);
         // Fenêtre de garde : le bouton redevient « Explorer » exactement sous
@@ -517,7 +519,7 @@ export default function Home() {
       onResult: (res) => {
         if (res.codex_limit) {
           setAnalysisError(
-            "Limite d'usage GPT-5.6 atteinte — réessayez l'analyse plus tard.",
+            t("common.usageLimit"),
           );
         } else {
           setAnalysis(res);
@@ -525,7 +527,7 @@ export default function Home() {
         setAnalyzing(false);
       },
       onError: (msg) => {
-        setAnalysisError(msg || "L'analyse critique a échoué.");
+        setAnalysisError(msg || t("critique.failed"));
         setAnalyzing(false);
       },
     });
@@ -589,7 +591,7 @@ export default function Home() {
       onError: (msg) => {
         if (msg && /usage limit|limite d'usage|rate limit/i.test(msg))
           setCodexLimit(true);
-        setError(msg || "L'analyse du lot suivant a échoué.");
+        setError(msg || t("search.moreFailed"));
         setLoadingMore(false);
       },
       onTranslations: (fr) =>
@@ -696,7 +698,7 @@ export default function Home() {
         setDeep(run.payload);
     } catch {
       if (mountedRef.current && runId === runIdRef.current)
-        setError("Impossible de rouvrir cette recherche — rechargez la page.");
+        setError(t("search.reopenFailed"));
     }
   }
 
@@ -777,7 +779,7 @@ export default function Home() {
       if (h?.current) {
         attachRun(h.current);
       } else {
-        setError(e instanceof Error ? e.message : "La recherche a échoué.");
+        setError(e instanceof Error ? e.message : t("search.runFailed"));
         setLoading(false);
       }
     } finally {
@@ -820,7 +822,7 @@ export default function Home() {
 
   return (
     <main className="xm-page">
-      <h1 className="xm-hero">Que recherchez-vous aujourd’hui, Docteur&nbsp;?</h1>
+      <h1 className="xm-hero">{t("search.hero")}</h1>
 
       <form
         className="xm-searchbar"
@@ -833,7 +835,7 @@ export default function Home() {
         {SearchIcon}
         <input
           type="text"
-          placeholder="Décrivez votre question clinique en français…"
+          placeholder={t("search.placeholder")}
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
@@ -845,19 +847,19 @@ export default function Home() {
             className="xm-explore xm-explore-stop"
             onClick={handleStopSearch}
             disabled={stoppingRun}
-            title="Arrêter la recherche en cours (pour corriger ou changer votre question)"
+            title={t("search.stopTitle")}
           >
-            {stoppingRun ? "⏹ Arrêt…" : "⏹ Arrêter"}
+            {stoppingRun ? t("search.stopping") : t("search.stop")}
           </button>
         ) : justStopped ? (
           // Fenêtre de garde : le bouton reste visiblement « arrêté » un court
           // instant plutôt que de redevenir aussitôt cliquable au même endroit.
           <button type="button" className="xm-explore" disabled>
-            ⏹ Arrêté
+            {t("search.stopped")}
           </button>
         ) : (
           <button type="submit" className="xm-explore" disabled={loading}>
-            {loading ? "…" : "Explorer →"}
+            {loading ? t("common.working") : t("search.explore")}
           </button>
         )}
       </form>
@@ -875,22 +877,22 @@ export default function Home() {
 
         <div
           className="xm-algo-toggle"
-          title="v1 = tri par score IA · v2 = tri par pertinence PubMed (Best Match) + vivier PubMed élargi"
+          title={t("search.sortTitle")}
         >
-          <span className="xm-method-label">TRI</span>
+          <span className="xm-method-label">{t("search.sortLabel")}</span>
           <button
             type="button"
             className={`xm-chip ${algo === "v1" ? "on" : ""}`}
             onClick={() => switchAlgo("v1")}
           >
-            v1 · score IA
+            {t("search.sortV1")}
           </button>
           <button
             type="button"
             className={`xm-chip ${algo === "v2" ? "on" : ""}`}
             onClick={() => switchAlgo("v2")}
           >
-            v2 · fusion RRF
+            {t("search.sortV2")}
           </button>
         </div>
       </div>
@@ -900,7 +902,7 @@ export default function Home() {
         <div className="xm-sliders">
           <label className="xm-slider">
             <span>
-              Analysés par lot : <strong>{judgeBatch}</strong>
+              {t("search.judgeBatch")} <strong>{judgeBatch}</strong>
             </span>
             <input
               type="range"
@@ -917,7 +919,7 @@ export default function Home() {
           </label>
           <label className="xm-slider">
             <span>
-              Minimum local garanti : <strong>{localFloor}</strong>
+              {t("search.localFloor")} <strong>{localFloor}</strong>
             </span>
             <input
               type="range"
@@ -928,10 +930,7 @@ export default function Home() {
               onChange={(e) => setLocalFloor(Number(e.target.value))}
             />
           </label>
-          <span className="xm-slider-hint">
-            RRF choisit les candidats · le tri reste par score Codex · appliqué à la
-            prochaine recherche
-          </span>
+          <span className="xm-slider-hint">{t("search.slidersHint")}</span>
         </div>
       )}
 
@@ -939,9 +938,7 @@ export default function Home() {
         className="meta"
         style={{ margin: "12px 2px 0", color: "var(--faint)", fontSize: 12.5 }}
       >
-        L’IA construit une requête experte, on pré-filtre la base en local
-        (mots-clés + MeSH), puis GPT-5.6 lit et juge uniquement ces candidats —
-        rapide, insensible à la largeur de la période.
+        {t("search.method")}
       </p>
 
       {/* Historique : recherches abouties du compte, rouvertes sans relancer
@@ -951,18 +948,25 @@ export default function Home() {
           className="xm-method-row"
           style={{ marginTop: 14, gap: 8, flexWrap: "wrap" }}
         >
-          <span className="xm-method-label">RÉCENTES</span>
+          <span className="xm-method-label">{t("search.recent")}</span>
           {history.runs.slice(0, 8).map((r) => (
             <button
               key={r.id}
               type="button"
               className="xmr-act"
               disabled={loading || launching}
-              title={`${r.query} · ${dayShortFr(r.created_at)} · ${r.n_results} article(s) retenu(s)`}
+              title={t("search.recentTitle", {
+                query: r.query,
+                date: dayShort(r.created_at, tag),
+                count: r.n_results,
+              })}
               onClick={() => void openRun(r)}
             >
               {truncate(r.query, 40)}
-              <span style={{ color: "var(--faint)" }}> · {dayShortFr(r.created_at)}</span>
+              <span style={{ color: "var(--faint)" }}>
+                {" "}
+                · {dayShort(r.created_at, tag)}
+              </span>
             </button>
           ))}
         </div>
@@ -970,11 +974,8 @@ export default function Home() {
 
       {codexLimit && (
         <div className="xm-banner error" role="alert">
-          🚫 <b>Limite d’usage GPT-5.6 atteinte.</b> Les recherches «&nbsp;PubMed +
-          codex&nbsp;» reposent sur GPT-5.6 (construction de la requête, tri et
-          traduction) : le quota est épuisé pour le moment. Les résultats sont en{" "}
-          <b>mode dégradé</b> (sans tri intelligent ni traduction FR). Réessayez un
-          peu plus tard.
+          🚫 <b>{t("search.codexLimitTitle")}</b> {t("search.codexLimitBefore")}{" "}
+          <b>{t("search.codexLimitDegraded")}</b> {t("search.codexLimitAfter")}
         </div>
       )}
 
@@ -999,18 +1000,26 @@ export default function Home() {
         <>
           <div className="xm-results-head">
             <span className="xm-results-count">
-              {deep.counts.kept ?? 0} retenu(s) · {deep.counts.judged ?? 0} jugés codex ·{" "}
-              {deep.counts.merged ?? 0} fusionnés
+              {t("search.countsSummary", {
+                kept: deep.counts.kept ?? 0,
+                judged: deep.counts.judged ?? 0,
+                merged: deep.counts.merged ?? 0,
+              })}
               {deep.counts.kept_local != null && (
                 <>
                   {" · "}
                   <span className="xm-src pm">
-                    {deep.counts.kept_pubmed ?? 0} PubMed
+                    {t("search.countsPubmed", { count: deep.counts.kept_pubmed ?? 0 })}
                   </span>
                   {" · "}
-                  <span className="xm-src lo">{deep.counts.kept_local ?? 0} local</span>
+                  <span className="xm-src lo">
+                    {t("search.countsLocal", { count: deep.counts.kept_local ?? 0 })}
+                  </span>
                   {(deep.counts.kept_both ?? 0) > 0 && (
-                    <> · {deep.counts.kept_both} les deux</>
+                    <>
+                      {" · "}
+                      {t("search.countsBoth", { count: deep.counts.kept_both ?? 0 })}
+                    </>
                   )}
                 </>
               )}
@@ -1024,20 +1033,20 @@ export default function Home() {
               style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}
             >
               <span>
-                💾 Résultat déjà sauvegardé le{" "}
-                {new Date(savedHit.created_at).toLocaleDateString("fr-FR", {
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                })}{" "}
-                — affiché sans relancer codex.
+                {t("search.alreadySaved", {
+                  date: new Date(savedHit.created_at).toLocaleDateString(tag, {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  }),
+                })}
               </span>
               <button
                 type="button"
                 style={{ minHeight: 32, padding: "4px 12px" }}
                 onClick={() => runSearch({ force: true })}
               >
-                Relancer quand même
+                {t("search.rerunAnyway")}
               </button>
             </p>
           )}
@@ -1054,15 +1063,15 @@ export default function Home() {
 
           {deep.pubmed_query && (
             <details className="explanation">
-              <summary>Requête PubMed générée + mots-clés</summary>
+              <summary>{t("search.generatedQuery")}</summary>
               <p className="abstract" style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}>
                 {deep.pubmed_query}
               </p>
               {deep.keywords_en.length > 0 && (
                 <div className="tags">
-                  {deep.keywords_en.slice(0, 12).map((t) => (
-                    <span className="tag" key={t}>
-                      {t}
+                  {deep.keywords_en.slice(0, 12).map((kw) => (
+                    <span className="tag" key={kw}>
+                      {kw}
                     </span>
                   ))}
                 </div>
@@ -1071,20 +1080,19 @@ export default function Home() {
           )}
 
           {deep.judge === "skipped" && (
-            <p className="xm-banner warn">
-              ⚠ codex indisponible : tri lexical de repli (pas de jugement de pertinence).
-            </p>
+            <p className="xm-banner warn">{t("search.judgeSkipped")}</p>
           )}
           {deep.results.length === 0 && (
-            <p className="xm-banner warn">Aucun article jugé pertinent pour cette recherche.</p>
+            <p className="xm-banner warn">{t("search.noResults")}</p>
           )}
 
           {/* Barre d'analyse critique : apparaît dès qu'un article est coché. */}
           {selected.length > 0 && (
             <div className="xm-compare-bar">
               <span className="xm-compare-count">
-                <strong>{selected.length}</strong> / {MAX_COMPARE} sélectionné
-                {selected.length > 1 ? "s" : ""} pour l&apos;analyse
+                {tp("critique.selectedCount", selected.length, {
+                  max: MAX_COMPARE,
+                })}
               </span>
               <span className="xm-compare-actions">
                 <button
@@ -1092,16 +1100,16 @@ export default function Home() {
                   className="primary"
                   disabled={selected.length < 2 || analyzing}
                   onClick={runAnalysis}
-                  title={
+                  title={t(
                     selected.length < 2
-                      ? "Sélectionnez au moins 2 articles"
-                      : "Lancer l'analyse critique comparative"
-                  }
+                      ? "critique.runTitleTooFew"
+                      : "critique.runTitle",
+                  )}
                 >
-                  {analyzing ? "Analyse en cours…" : "🔬 Analyser la sélection"}
+                  {analyzing ? t("critique.liveEmpty") : t("critique.run")}
                 </button>
                 <button type="button" className="xmr-act" onClick={clearSelection}>
-                  Effacer
+                  {t("critique.clear")}
                 </button>
               </span>
             </div>
@@ -1127,7 +1135,7 @@ export default function Home() {
                   level={r.evidence_level}
                   relevance={
                     r.score != null
-                      ? deepRelevance(r.score, r.relevance_pct)
+                      ? deepRelevance(r.score, r.relevance_pct, t)
                       : undefined
                   }
                   contribution={r.reason}
@@ -1140,24 +1148,29 @@ export default function Home() {
                       onToggle={() => toggleSelected(r.pmid)}
                     />
                   }
-                  sourceTag={
+                  sourceTag={t(
                     r.source === "both"
-                      ? "A · PubMed + B · local"
+                      ? "search.sourceBoth"
                       : r.source === "pubmed"
-                        ? "A · PubMed"
-                        : "B · local"
-                  }
+                        ? "search.sourcePubmed"
+                        : "search.sourceLocal",
+                  )}
                   pubmedUrl={r.pubmed_url}
                   sourceTitle={r.title}
-                  revealLabel="Résumé structuré"
+                  revealLabel={t("search.revealLabel")}
                   revealBodyClassName="xmr-sections"
                   revealHead={
                     <LanguageToggle lang={lang} onChange={setLang} busy={translating} />
                   }
                   spoken={d.abstract ?? r.reason ?? undefined}
+                  spokenLang={lang}
                 >
                   {d.abstract ? (
-                    <StructuredAbstract abstract={d.abstract} translated={d.translated} />
+                    <StructuredAbstract
+                      abstract={d.abstract}
+                      translated={d.translated}
+                      lang={lang}
+                    />
                   ) : undefined}
                 </XMedResult>
               );
@@ -1173,21 +1186,20 @@ export default function Home() {
                 onClick={loadMore}
               >
                 {loadingMore
-                  ? "Analyse en cours…"
-                  : `Analyser ${Math.min(50, deep.remaining!.length)} de plus`}
+                  ? t("search.analysing")
+                  : t("search.analyseMore", {
+                      count: Math.min(50, deep.remaining!.length),
+                    })}
               </button>
               <p className="meta" style={{ marginTop: 6 }}>
-                {deep.remaining!.length} abstract(s) pré-filtré(s) restant(s) à juger.
+                {t("search.remaining", { count: deep.remaining!.length })}
               </p>
             </div>
           )}
         </>
       )}
 
-      <p className="xm-disclaimer">
-        Pertinence jugée par l’IA à partir des abstracts PubMed — un appui à la
-        lecture, pas une validation clinique.
-      </p>
+      <p className="xm-disclaimer">{t("search.disclaimer")}</p>
     </main>
   );
 }

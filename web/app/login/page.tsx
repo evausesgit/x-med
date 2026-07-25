@@ -17,6 +17,8 @@ import {
   signOut,
 } from "firebase/auth";
 import { getFirebaseAuth, setSessionCookie } from "@/lib/firebase";
+import { useT } from "@/lib/i18n";
+import type { Translate } from "@/lib/locale";
 
 // Ne suit que des chemins internes : évite les redirections ouvertes via ?next=.
 function safeNext(raw: string | null): string {
@@ -24,21 +26,23 @@ function safeNext(raw: string | null): string {
   return raw;
 }
 
-function frenchError(e: unknown): string | null {
+// Message lisible pour un échec Firebase Auth. `t` est passé par l'appelant :
+// cette fonction est pure, elle ne peut pas lire le contexte i18n elle-même.
+function authError(e: unknown, t: Translate): string | null {
   const code = (e as { code?: string })?.code ?? "";
   if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
     return null; // fermeture volontaire : pas une erreur à afficher
   }
   if (code === "auth/network-request-failed") {
-    return "Connexion impossible : vérifiez votre accès réseau puis réessayez.";
+    return t("login.errNetwork");
   }
   if (code === "auth/unauthorized-domain") {
-    return "Ce domaine n'est pas autorisé dans la configuration Firebase du projet.";
+    return t("login.errUnauthorizedDomain");
   }
   if (code === "auth/operation-not-allowed") {
-    return "La connexion Google n'est pas activée sur le projet Firebase.";
+    return t("login.errOperationNotAllowed");
   }
-  return "La connexion a échoué. Réessayez, ou contactez l'équipe X-Med.";
+  return t("login.errGeneric");
 }
 
 function GoogleMark() {
@@ -68,6 +72,7 @@ function GoogleMark() {
 // Coquille de la carte : partagée entre le fallback Suspense (HTML prérendu,
 // évite un écran blanc avant hydratation) et la page interactive.
 function LoginCard({ children }: { children: React.ReactNode }) {
+  const { t } = useT();
   return (
     <main className="xm-login">
       <div className="xm-login-card">
@@ -75,7 +80,7 @@ function LoginCard({ children }: { children: React.ReactNode }) {
           ✕
         </span>
         <div className="xm-login-wordmark">X&#8209;Med</div>
-        <p className="xm-login-tagline">Explorez la recherche médicale</p>
+        <p className="xm-login-tagline">{t("login.tagline")}</p>
         {children}
       </div>
     </main>
@@ -83,6 +88,7 @@ function LoginCard({ children }: { children: React.ReactNode }) {
 }
 
 function LoginInner() {
+  const { t } = useT();
   const params = useSearchParams();
   const nextUrl = safeNext(params.get("next"));
   const denied = params.get("denied") === "1";
@@ -97,7 +103,7 @@ function LoginInner() {
   useEffect(() => {
     const auth = getFirebaseAuth();
     // Récupère l'issue d'un éventuel signInWithRedirect (repli sans popup).
-    getRedirectResult(auth).catch((e) => setError(frenchError(e)));
+    getRedirectResult(auth).catch((e) => setError(authError(e, t)));
     const unsub = onIdTokenChanged(auth, async (u) => {
       if (u && !denied) {
         setSessionCookie(await u.getIdToken());
@@ -127,7 +133,7 @@ function LoginInner() {
         await signInWithRedirect(auth, provider);
         return;
       }
-      setError(frenchError(e));
+      setError(authError(e, t));
       setBusy(false);
     }
   }
@@ -144,25 +150,20 @@ function LoginInner() {
     <LoginCard>
       <>
         {checking ? (
-          <p className="xm-login-sub">Vérification de la session…</p>
+          <p className="xm-login-sub">{t("login.checking")}</p>
         ) : denied && deniedEmail ? (
           <>
             <p className="xm-login-sub">
-              Le compte <strong>{deniedEmail}</strong> n&apos;a pas accès à
-              X&#8209;Med. Contactez l&apos;équipe pour être ajouté, ou
-              connectez-vous avec un autre compte.
+              {t("login.deniedIntro", { email: deniedEmail })}
             </p>
             <button type="button" className="xm-login-btn" onClick={switchAccount}>
               <GoogleMark />
-              Changer de compte
+              {t("login.switchAccount")}
             </button>
           </>
         ) : (
           <>
-            <p className="xm-login-sub">
-              Connectez-vous pour accéder à la recherche, à vos profils et à
-              votre digest personnalisé.
-            </p>
+            <p className="xm-login-sub">{t("login.intro")}</p>
             <button
               type="button"
               className="xm-login-btn"
@@ -170,17 +171,24 @@ function LoginInner() {
               disabled={busy}
             >
               <GoogleMark />
-              {busy ? "Connexion…" : "Continuer avec Google"}
+              {busy ? t("login.busy") : t("login.button")}
             </button>
           </>
         )}
 
         {error && <p className="xm-login-err">{error}</p>}
 
-        <p className="xm-login-foot">
-          Accès protégé — vos recherches et votre profil restent privés.
-        </p>
+        <p className="xm-login-foot">{t("login.footer")}</p>
       </>
+    </LoginCard>
+  );
+}
+
+function LoginFallback() {
+  const { t } = useT();
+  return (
+    <LoginCard>
+      <p className="xm-login-sub">{t("login.checking")}</p>
     </LoginCard>
   );
 }
@@ -189,13 +197,7 @@ export default function LoginPage() {
   // useSearchParams exige une frontière Suspense au prérendu (Next 16). Le
   // fallback reprend la carte pour que le HTML statique ne soit jamais vide.
   return (
-    <Suspense
-      fallback={
-        <LoginCard>
-          <p className="xm-login-sub">Vérification de la session…</p>
-        </LoginCard>
-      }
-    >
+    <Suspense fallback={<LoginFallback />}>
       <LoginInner />
     </Suspense>
   );
