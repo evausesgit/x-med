@@ -8,6 +8,10 @@ export interface LocalizedText {
   stand: string;
   /** Abstract complet (révélé au clic sur la carte) */
   abstract: string;
+  /** Résumé IA en puces (3–4 lignes) */
+  why: string[];
+  /** Texte lu à voix haute par la synthèse vocale, dans cette langue */
+  spoken: string;
 }
 
 export interface Article {
@@ -29,10 +33,6 @@ export interface Article {
   fr: LocalizedText;
   /** Version anglaise (source PubMed) */
   en: LocalizedText;
-  /** Résumé IA en puces (3–4 lignes) */
-  why: string[];
-  /** Texte lu à voix haute (synthèse vocale FR) */
-  spoken: string;
   /** Termes MeSH (chips, révélés au clic sur la carte) */
   mesh: string[];
 }

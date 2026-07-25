@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_session
 from app.models import Doctor, DoctorProfile
+from app.models.doctor import DEFAULT_LANGUAGE, LANGUAGE_PATTERN
 
 router = APIRouter()
 
@@ -40,7 +41,7 @@ class ProfileOut(ProfileIn):
 class DoctorIn(BaseModel):
     email: str
     name: str
-    language: str = "fr"
+    language: str = Field(default=DEFAULT_LANGUAGE, pattern=LANGUAGE_PATTERN)
     digest_frequency: str = Field(default="daily", pattern="^(daily|weekly)$")
     profile: ProfileIn | None = None
 

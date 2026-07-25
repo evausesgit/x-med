@@ -10,6 +10,7 @@ pour les profils saisis à la main avant l'arrivée de l'auth.
   la page profil ; idempotent).
 - GET  /me           : lecture pure, 404 si aucun médecin rattaché.
 - PUT  /me/profile   : met à jour le profil du médecin connecté uniquement.
+- PUT  /me/language  : langue de l'interface et des traductions automatiques.
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ from __future__ import annotations
 from urllib.parse import unquote
 
 from fastapi import APIRouter, Depends, Header, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -25,6 +26,7 @@ from sqlalchemy.orm import Session
 from app.api.doctors import DoctorOut, ProfileIn, _to_out
 from app.db import get_session
 from app.models import Doctor, DoctorProfile
+from app.models.doctor import LANGUAGE_PATTERN
 
 router = APIRouter()
 
@@ -116,6 +118,31 @@ def bootstrap_me(
     session: Session = Depends(get_session),
 ):
     return _to_out(ensure_doctor(session, ident))
+
+
+class LanguageIn(BaseModel):
+    # Validée contre les langues réellement servies par l'interface : une
+    # valeur inconnue mettrait le front en repli anglais sans rien dire.
+    language: str = Field(pattern=LANGUAGE_PATTERN)
+
+
+@router.put("/me/language", response_model=DoctorOut)
+def update_my_language(
+    body: LanguageIn,
+    ident: Identity = Depends(current_identity),
+    session: Session = Depends(get_session),
+):
+    """Langue du compte : interface + traduction automatique des articles.
+
+    `ensure_doctor` plutôt que `_find_doctor` : on veut pouvoir choisir sa
+    langue dès la première visite, avant même d'avoir rempli un profil médical
+    (la page Profil n'est pas un passage obligé pour lire le site).
+    """
+    doctor = ensure_doctor(session, ident)
+    doctor.language = body.language
+    session.commit()
+    session.refresh(doctor)
+    return _to_out(doctor)
 
 
 @router.put("/me/profile", response_model=DoctorOut)

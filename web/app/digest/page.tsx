@@ -27,12 +27,14 @@ import {
   type Doctor,
 } from "@/lib/api";
 import DigestView from "./DigestView";
-import { sampleDigest } from "./sample-data";
+import { useT } from "@/lib/i18n";
+import { sampleDigestFor } from "./sample-data";
 import { deepSearchToDigestData } from "./adapter";
 
-// « Lundi 2 juin 2026 » (capitalisé).
-function formatDayFr(d: Date): string {
-  const s = new Intl.DateTimeFormat("fr-FR", {
+// « Lundi 2 juin 2026 » / « Monday, June 2, 2026 » (capitalisé : en français
+// Intl rend « lundi » en minuscule, or c'est un début de phrase).
+function formatDay(d: Date, tag: string): string {
+  const s = new Intl.DateTimeFormat(tag, {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -43,22 +45,22 @@ function formatDayFr(d: Date): string {
 
 // Depuis un YYYY-MM-DD. Midi pour éviter qu'un fuseau ne fasse basculer la
 // date affichée sur le jour d'avant.
-function dayFr(iso: string): string {
-  return formatDayFr(new Date(`${iso}T12:00:00`));
+function day(iso: string, tag: string): string {
+  return formatDay(new Date(`${iso}T12:00:00`), tag);
 }
 
 // « mer. 23 juil. » — libellé court des puces de l'historique.
-function dayShortFr(iso: string): string {
-  return new Intl.DateTimeFormat("fr-FR", {
+function dayShort(iso: string, tag: string): string {
+  return new Intl.DateTimeFormat(tag, {
     weekday: "short",
     day: "numeric",
     month: "short",
   }).format(new Date(`${iso}T12:00:00`));
 }
 
-function timeFr(iso: string | null): string {
+function time(iso: string | null, tag: string): string {
   if (!iso) return "";
-  return new Intl.DateTimeFormat("fr-FR", {
+  return new Intl.DateTimeFormat(tag, {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(iso));
@@ -72,6 +74,7 @@ const DEFAULT_DAYS = 30;
 const POLL_MS = 2500;
 
 export default function DigestPage() {
+  const { t, tag, locale } = useT();
   const [doctor, setDoctor] = useState<Doctor | null>(null);
   const [noAccount, setNoAccount] = useState(false); // authentifié mais sans profil rattaché
   const [meError, setMeError] = useState(false);
@@ -111,7 +114,7 @@ export default function DigestPage() {
       if (mountedRef.current) setView(run);
     } catch {
       if (mountedRef.current)
-        setError("Impossible de charger ce digest — rechargez la page.");
+        setError(t("digest.loadRunFailed"));
     }
   }, []);
 
@@ -142,9 +145,7 @@ export default function DigestPage() {
         setView(run);
         setSelectedId(run.id);
       } else if (run.status === "error") {
-        setError(
-          run.error || "La génération du digest a échoué. Réessayez plus tard.",
-        );
+        setError(run.error || t("digest.genFailed"));
       }
       void refreshHistory();
     },
@@ -199,9 +200,7 @@ export default function DigestPage() {
         startPolling(h.current.id);
       } else {
         setError(
-          e instanceof Error
-            ? e.message
-            : "La génération du digest a échoué. Réessayez plus tard.",
+          e instanceof Error ? e.message : t("digest.genFailed"),
         );
       }
     } finally {
@@ -222,12 +221,14 @@ export default function DigestPage() {
     () =>
       displayRun?.payload && doctor
         ? deepSearchToDigestData(displayRun.payload, doctor, {
-            date: dayFr(displayRun.digest_date),
-            generated: timeFr(displayRun.finished_at) || "en cours",
+            date: day(displayRun.digest_date, tag),
+            generated:
+              time(displayRun.finished_at, tag) || t("digest.inProgress"),
             days: displayRun.days,
+            t,
           })
         : null,
-    [displayRun, doctor],
+    [displayRun, doctor, tag, t],
   );
   // Génération aboutie mais aucun article retenu sur la fenêtre.
   const emptyResult =
@@ -237,14 +238,13 @@ export default function DigestPage() {
     <main className="xm-page">
       {meError && (
         <div className="xm-banner warn" style={{ marginTop: 0 }}>
-          Impossible de charger votre profil — reconnectez-vous puis rechargez la
-          page.
+          {t("digest.meError")}
         </div>
       )}
       {(noAccount || (doctor && !profile)) && (
         <div className="xm-banner warn" style={{ marginTop: 0 }}>
-          Votre digest se personnalise à partir de votre profil.{" "}
-          <Link href="/profil">Créer mon profil →</Link>
+          {t("digest.noProfile")}{" "}
+          <Link href="/profil">{t("digest.createProfile")}</Link>
         </div>
       )}
       <div
@@ -252,7 +252,7 @@ export default function DigestPage() {
         style={{ marginTop: 0, marginBottom: 24, gap: 10 }}
       >
         <label htmlFor="digest-days" className="xm-method-label">
-          PÉRIODE
+          {t("digest.periodLabel")}
         </label>
         <select
           id="digest-days"
@@ -263,13 +263,13 @@ export default function DigestPage() {
         >
           {PERIODS.map((d) => (
             <option key={d} value={d}>
-              {d} derniers jours
+              {t("digest.lastDays", { count: d })}
             </option>
           ))}
         </select>
         {running ? (
           <button type="button" className="xmr-act" onClick={stop}>
-            ⏹ Arrêter
+            {t("digest.stop")}
           </button>
         ) : (
           <button
@@ -277,13 +277,11 @@ export default function DigestPage() {
             className="primary"
             disabled={!profile || launching}
             onClick={() => void generate(days)}
-            title={
-              profile
-                ? "Lancer la sélection d'articles pour votre profil"
-                : "Créez d'abord votre profil"
-            }
+            title={t(
+              profile ? "digest.generateTitle" : "digest.generateNoProfile",
+            )}
           >
-            ✨ Générer mon digest
+            {t("digest.generate")}
           </button>
         )}
       </div>
@@ -293,16 +291,20 @@ export default function DigestPage() {
           className="xm-method-row"
           style={{ marginTop: 0, marginBottom: 24, gap: 8, flexWrap: "wrap" }}
         >
-          <span className="xm-method-label">HISTORIQUE</span>
+          <span className="xm-method-label">{t("digest.historyLabel")}</span>
           {history.days.map((d) => (
             <button
               key={d.id}
               type="button"
               className={d.id === selectedId ? "primary" : "xmr-act"}
-              title={`${dayFr(d.digest_date)} · ${d.n_results} articles · ${d.days} derniers jours`}
+              title={t("digest.historyTitle", {
+                date: day(d.digest_date, tag),
+                count: d.n_results,
+                days: d.days,
+              })}
               onClick={() => void openDay(d)}
             >
-              {dayShortFr(d.digest_date)}
+              {dayShort(d.digest_date, tag)}
             </button>
           ))}
         </div>
@@ -312,16 +314,13 @@ export default function DigestPage() {
         <div className="xm-live running">
           <div className="xm-live-head">
             <span className="xm-live-dot" />
-            <span className="xm-live-title">
-              Génération du digest — en arrière-plan (vous pouvez quitter la
-              page, elle continuera)
-            </span>
+            <span className="xm-live-title">{t("digest.runningTitle")}</span>
             <span className="xm-live-spin" />
           </div>
           <div className="xm-live-body">
             {(current?.logs.length ?? 0) === 0 && (
               <div className="xm-live-line">
-                Composition de la recherche à partir de votre profil…
+                {t("digest.runningFirstLine")}
               </div>
             )}
             {current?.logs.map((l, k) => (
@@ -336,8 +335,7 @@ export default function DigestPage() {
       {error && <p className="xm-banner warn">⚠ {error}</p>}
       {emptyResult && (
         <div className="xm-banner warn">
-          Aucun article retenu sur les {view.days} derniers jours pour votre
-          profil.
+          {t("digest.emptyResult", { days: view.days })}
           {view.days < 90 && (
             <>
               {" "}
@@ -346,7 +344,7 @@ export default function DigestPage() {
                 className="xmr-act"
                 onClick={() => void generate(90)}
               >
-                Élargir à 90 jours
+                {t("digest.widen")}
               </button>
             </>
           )}
@@ -361,17 +359,15 @@ export default function DigestPage() {
             {/* Grosse bannière : tout ce qui suit est un exemple inventé,
                 pas une sélection PubMed réelle. */}
             <div className="xm-demo-title">
-              <h2>🧪 Ceci est un aperçu de démonstration</h2>
-              <p>
-                Tout ce qui s&apos;affiche ci-dessous est un exemple fictif —
-                profil « Dr Lefèvre » et articles inventés. Cliquez sur
-                «&nbsp;✨ Générer mon digest&nbsp;» pour obtenir une vraie
-                sélection PubMed adaptée à votre profil.
-              </p>
+              <h2>{t("digest.demoTitle")}</h2>
+              <p>{t("digest.demoBody")}</p>
             </div>
             <DigestView
               key="apercu"
-              data={{ ...sampleDigest, date: formatDayFr(new Date()) }}
+              data={{
+                ...sampleDigestFor(locale),
+                date: formatDay(new Date(), tag),
+              }}
             />
           </>
         )

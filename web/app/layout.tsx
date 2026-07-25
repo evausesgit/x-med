@@ -4,6 +4,9 @@ import "./globals.css";
 import "./xmed-app.css";
 import Nav from "./Nav";
 import { AuthProvider } from "@/lib/auth-context";
+import { I18nProvider } from "@/lib/i18n";
+import { translate } from "@/lib/locale";
+import { requestLocale } from "@/lib/server-locale";
 
 // Polices du design system « X-Med App », auto-hébergées par next/font (pas de
 // requête runtime vers Google, pas de décalage de mise en page). Elles exposent
@@ -25,21 +28,27 @@ const mono = IBM_Plex_Mono({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: "X-Med — Explorez la recherche médicale",
-  description: "Recherche d'articles médicaux par tags MeSH ou par phrase libre",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await requestLocale();
+  return {
+    title: translate(locale, "meta.title"),
+    description: translate(locale, "meta.description"),
+  };
+}
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const locale = await requestLocale();
   return (
-    <html lang="fr" className={`${sans.variable} ${mono.variable}`}>
+    <html lang={locale} className={`${sans.variable} ${mono.variable}`}>
       <body>
-        <AuthProvider>
-          <Nav />
-          {children}
-        </AuthProvider>
+        <I18nProvider initialLocale={locale}>
+          <AuthProvider>
+            <Nav />
+            {children}
+          </AuthProvider>
+        </I18nProvider>
       </body>
     </html>
   );

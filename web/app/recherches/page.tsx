@@ -14,8 +14,10 @@ import {
   SavedSearchSummary,
 } from "@/lib/api";
 import { fmtDate, ResultDetail, ShareButton } from "./shared";
+import { useT } from "@/lib/i18n";
 
 export default function SavedSearchesPage() {
+  const { t, tp, tag } = useT();
   const [items, setItems] = useState<SavedSearchSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -48,7 +50,7 @@ export default function SavedSearchesPage() {
   }
 
   async function remove(id: string) {
-    if (!confirm("Supprimer cette recherche sauvegardée ?")) return;
+    if (!confirm(t("saved.confirmDelete"))) return;
     await deleteSavedSearch(id);
     if (openId === id) {
       setOpenId(null);
@@ -59,26 +61,17 @@ export default function SavedSearchesPage() {
 
   return (
     <main className="container">
-      <h1>Recherches sauvegardées</h1>
-      <p className="tagline">Vos résultats, à relire et réutiliser</p>
-      <p className="subtitle">
-        Chaque recherche est enregistrée telle quelle (requête + articles
-        retenus). La rouvrir n&apos;appelle pas l&apos;IA à nouveau. Pour
-        l&apos;instant, toutes les recherches sont visibles de tous — le bouton
-        «&nbsp;🔗 Partager&nbsp;» copie un lien direct vers les résultats.
-      </p>
+      <h1>{t("saved.title")}</h1>
+      <p className="tagline">{t("saved.tagline")}</p>
+      <p className="subtitle">{t("saved.subtitle")}</p>
 
       {loading ? (
-        <p className="meta">Chargement…</p>
+        <p className="meta">{t("common.loading")}</p>
       ) : items.length === 0 ? (
-        <p className="notice">
-          Aucune recherche sauvegardée pour l&apos;instant. Lancez une recherche
-          «&nbsp;PubMed + Filtre lexical + Codex&nbsp;» puis cliquez sur
-          «&nbsp;💾 Sauvegarder cette recherche&nbsp;».
-        </p>
+        <p className="notice">{t("saved.empty")}</p>
       ) : (
         <>
-          <p className="meta">{items.length} recherche(s) sauvegardée(s)</p>
+          <p className="meta">{tp("saved.count", items.length)}</p>
           {items.map((s) => (
             <article className="result" key={s.id}>
               <div className="saved-item">
@@ -87,24 +80,25 @@ export default function SavedSearchesPage() {
                     <Link href={`/recherches/${s.id}`}>{s.query}</Link>
                   </h3>
                   <div className="journal">
-                    👤 {s.doctor_name || "Sans profil"} · {s.n_results} article(s)
+                    👤 {s.doctor_name || t("saved.noProfile")} ·{" "}
+                    {tp("saved.articles", s.n_results)}
                     {" · "}
-                    {fmtDate(s.created_at)}
+                    {fmtDate(s.created_at, tag)}
                   </div>
                 </div>
                 <div className="saved-actions">
                   <button type="button" onClick={() => toggle(s.id)}>
-                    {openId === s.id ? "Masquer" : "Rouvrir / relire"}
+                    {openId === s.id ? t("saved.hide") : t("saved.reopen")}
                   </button>
                   <ShareButton id={s.id} />
                   <button type="button" onClick={() => remove(s.id)}>
-                    Supprimer
+                    {t("saved.delete")}
                   </button>
                 </div>
               </div>
               {openId === s.id &&
                 (detailBusy ? (
-                  <p className="meta saved-detail">Chargement des résultats…</p>
+                  <p className="meta saved-detail">{t("saved.loadingResults")}</p>
                 ) : (
                   detail && <ResultDetail payload={detail} />
                 ))}
