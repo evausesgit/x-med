@@ -1,4 +1,4 @@
-"""Endpoints de recherche : MeSH + plein-texte (le sémantique arrive à l'étape C)."""
+"""Endpoints de recherche : MeSH + plein-texte, et la recherche PubMed + IA."""
 
 from __future__ import annotations
 
@@ -21,13 +21,10 @@ from app.config import settings
 from app.db import SessionLocal, get_session
 from app.models import Article, ArticleSearch, MeshDescriptor
 from app.services import search_cancel
-from app.services.embeddings import REGISTRY, get_model
 from app.services.explainability import explain_article
 from app.services.usage_log import record_usage
 
 router = APIRouter()
-
-DEFAULT_MODEL = settings.embedding_model_list[0] if settings.embedding_model_list else "bge_m3"
 
 # Garde-fou latence du pré-filtre local : la base miroir compte ~25 M articles ;
 # sur un sujet à termes courants, le filtre FTS+MeSH matche des millions de lignes
@@ -41,16 +38,6 @@ LOCAL_SEARCH_TIMEOUT_MS = settings.local_search_timeout_ms
 # token (fourni par le front) → PID du backend Postgres qui exécute la requête FTS.
 # Un seul process API (uvicorn) → un dict module suffit, pas besoin de Redis.
 _LOCAL_SEARCH_PIDS: dict[str, int] = {}
-
-
-def _vec_literal(vec) -> str:
-    """Formate un vecteur numpy en littéral pgvector '[..]'."""
-    return "[" + ",".join(f"{x:.6f}" for x in vec) + "]"
-
-
-def _embed_query(model_name: str, query: str) -> str:
-    model = get_model(model_name)
-    return _vec_literal(model.encode_query([query])[0])
 
 
 class ArticleExplanation(BaseModel):
@@ -213,75 +200,6 @@ def get_article(pmid: int, session: Session = Depends(get_session)):
     return result
 
 
-# ---------- Recherche sémantique & hybride ----------
-
-class SemanticRequest(BaseModel):
-    query: str
-    model: str = DEFAULT_MODEL
-    k: int = 20
-
-
-@router.get("/models")
-def list_models(session: Session = Depends(get_session)) -> list[dict]:
-    """Modèles d'embedding disponibles + nombre d'articles déjà vectorisés."""
-    out = []
-    for name, m in REGISTRY.items():
-        n = session.scalar(sql_text(f"SELECT count(*) FROM {m.table}")) or 0
-        out.append({"name": name, "dim": m.dim, "embedded": int(n)})
-    return out
-
-
-@router.get("/embeddings/progress")
-def embeddings_progress(model: str = "bge_m3", session: Session = Depends(get_session)) -> dict:
-    """Avancement de la vectorisation, pour la page /embeddings.
-
-    Trois angles : couverture *globale* (tous les articles), *périmètre prévu*
-    (articles avec abstract — seuls candidats à l'embedding, cf. --require-abstract)
-    et détail *par année*. Le nom de table vient de REGISTRY (jamais de l'entrée
-    utilisateur), donc l'interpolation est sûre.
-    """
-    if model not in REGISTRY:
-        raise HTTPException(400, f"Modèle d'embedding inconnu : {model}")
-    table = REGISTRY[model].table
-    has_abstract = "a.abstract IS NOT NULL AND length(a.abstract) > 0"
-
-    total_articles = session.scalar(sql_text("SELECT count(*) FROM articles")) or 0
-    embedded_total = session.scalar(sql_text(f"SELECT count(*) FROM {table}")) or 0
-    planned_total = session.scalar(
-        sql_text(f"SELECT count(*) FROM articles a WHERE {has_abstract}")
-    ) or 0
-    planned_done = session.scalar(
-        sql_text(
-            f"SELECT count(*) FROM {table} e JOIN articles a ON a.pmid = e.pmid "
-            f"WHERE {has_abstract}"
-        )
-    ) or 0
-
-    rows = session.execute(
-        sql_text(
-            f"""
-            SELECT a.pub_year,
-                   count(*) FILTER (WHERE {has_abstract}) AS total,
-                   count(e.pmid) FILTER (WHERE {has_abstract}) AS embedded
-            FROM articles a
-            LEFT JOIN {table} e ON e.pmid = a.pmid
-            WHERE a.pub_year IS NOT NULL
-            GROUP BY a.pub_year
-            HAVING count(*) FILTER (WHERE {has_abstract}) > 0
-            ORDER BY a.pub_year DESC
-            """
-        )
-    ).all()
-    by_year = [{"year": r[0], "total": int(r[1]), "embedded": int(r[2])} for r in rows]
-
-    return {
-        "model": model,
-        "global": {"embedded": int(embedded_total), "total": int(total_articles)},
-        "planned": {"embedded": int(planned_done), "total": int(planned_total)},
-        "by_year": by_year,
-    }
-
-
 def _fetch_articles(session: Session, pmids: list[int]) -> dict[int, Article]:
     if not pmids:
         return {}
@@ -321,98 +239,6 @@ def bench_leaderboard(session: Session = Depends(get_session)) -> list[dict]:
     return out
 
 
-@router.post("/search/semantic", response_model=SearchResponse)
-def search_semantic(
-    req: SemanticRequest, request: Request, session: Session = Depends(get_session)
-):
-    """Recherche par sens : embed la requête, plus proches voisins (cosinus)."""
-    record_usage(request, "search.semantic", query=req.query, params={"model": req.model})
-    if req.model not in REGISTRY:
-        raise HTTPException(400, f"Modèle inconnu : {req.model}")
-    table = get_model(req.model).table
-    try:
-        qv = _embed_query(req.model, req.query)
-    except Exception as e:  # modèle non téléchargé / torch absent
-        raise HTTPException(503, f"Embeddings indisponibles : {e}")
-
-    rows = session.execute(
-        sql_text(
-            f"""
-            SELECT e.pmid, 1 - (e.v <=> (:qv)::vector) AS similarity
-            FROM {table} e
-            ORDER BY e.v <=> (:qv)::vector
-            LIMIT :k
-            """
-        ),
-        {"qv": qv, "k": req.k},
-    ).all()
-
-    arts = _fetch_articles(session, [pmid for pmid, _ in rows])
-    results = [
-        _to_result(arts[pmid], float(sim), query=req.query)
-        for pmid, sim in rows
-        if pmid in arts
-    ]
-    return SearchResponse(total=len(results), results=results)
-
-
-@router.get("/search/hybrid", response_model=SearchResponse)
-def search_hybrid(
-    request: Request,
-    session: Session = Depends(get_session),
-    q: str = Query(..., min_length=1),
-    model: str = Query(default=DEFAULT_MODEL),
-    limit: int = Query(default=20, ge=1, le=100),
-    pool: int = Query(default=50, ge=10, le=200, description="taille du pool par méthode"),
-):
-    """Fusion RRF entre plein-texte (ts_rank) et sémantique (pgvector)."""
-    record_usage(request, "search.hybrid", query=q, params={"model": model})
-    if model not in REGISTRY:
-        raise HTTPException(400, f"Modèle inconnu : {model}")
-    table = get_model(model).table
-
-    # plein-texte
-    tsquery = func.websearch_to_tsquery("english", q)
-    ft_ids = [
-        r[0]
-        for r in session.execute(
-            select(Article.pmid)
-            .where(Article.fts.op("@@")(tsquery))
-            .order_by(func.ts_rank(Article.fts, tsquery).desc())
-            .limit(pool)
-        ).all()
-    ]
-
-    # sémantique
-    sem_ids = []
-    try:
-        qv = _embed_query(model, q)
-        sem_ids = [
-            r[0]
-            for r in session.execute(
-                sql_text(
-                    f"SELECT e.pmid FROM {table} e ORDER BY e.v <=> (:qv)::vector LIMIT :k"
-                ),
-                {"qv": qv, "k": pool},
-            ).all()
-        ]
-    except Exception:
-        pass  # si embeddings indispo, on retombe sur le plein-texte seul
-
-    # fusion RRF (k=60)
-    scores: dict[int, float] = {}
-    for ranking in (ft_ids, sem_ids):
-        for rank, pmid in enumerate(ranking):
-            scores[pmid] = scores.get(pmid, 0.0) + 1.0 / (60 + rank + 1)
-    ordered = sorted(scores, key=lambda p: scores[p], reverse=True)[:limit]
-
-    arts = _fetch_articles(session, ordered)
-    results = [
-        _to_result(arts[p], round(scores[p], 5), query=q) for p in ordered if p in arts
-    ]
-    return SearchResponse(total=len(results), results=results)
-
-
 ProgressCallback = Callable[[str, str, dict], None]
 
 
@@ -422,7 +248,8 @@ ProgressCallback = Callable[[str, str, dict], None]
 #   2. même requête sur la base locale (FTS + MeSH) → candidats bornés → B
 #   3. fusion A+B, dédup PMID, codex lit les abstracts et score (0-3),
 #      tri pertinence → qualité (evidence_level) → récence = C
-# Les embeddings ne sont PAS sur le chemin critique (pré-tri pgvector peu cohérent).
+# Le pré-tri sémantique par vecteurs, essayé au début du projet, a été abandonné :
+# jugé peu cohérent en pratique face au filtre lexical suivi du jugement codex.
 
 
 class DeepSearchRequest(BaseModel):
