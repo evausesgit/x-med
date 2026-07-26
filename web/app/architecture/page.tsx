@@ -272,11 +272,11 @@ export default function ArchitecturePage() {
       <Step n={5} title="Question ouverte">
         <p>
           Accélérer <em>aussi</em> les sujets très larges sans dépendre du
-          garde-fou : deux pistes à l&apos;étude — un <strong>index RUM</strong>{" "}
-          (plein-texte classé directement par l&apos;index) ou{" "}
-          <strong>pgvector / HNSW</strong> (recherche sémantique par
-          embeddings, architecture cible, vecteurs à compléter sur les 25 M de
-          documents).
+          garde-fou. La piste à l&apos;étude est un <strong>index RUM</strong>{" "}
+          (plein-texte classé directement par l&apos;index). La recherche
+          sémantique par <strong>embeddings</strong> a été essayée puis
+          abandonnée : le pré-tri par vecteurs s&apos;est révélé peu cohérent
+          face au filtre lexical suivi du jugement par l&apos;IA.
         </p>
       </Step>
 
