@@ -1,5 +1,10 @@
 # X-Med — Plan d'implémentation, Partie 1
 
+> ⚠️ **Document historique — ne décrit plus l'état du produit.**
+> Il porte sur les chantiers **embeddings / vectorisation / gold set d'annotation**,
+> retirés du projet en juillet 2026 (voir `PLAN_NETTOYAGE.md`). Conservé pour la
+> trace des mesures et des décisions, pas comme référence de l'existant.
+
 > **Objectif de cette partie** : construire la base PostgreSQL à partir du corpus
 > PubMed local, un site web où un médecin recherche des articles **par tags
 > MeSH** *ou* **par phrase libre** (recherche sémantique), et un **banc d'essai

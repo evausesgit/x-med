@@ -127,8 +127,8 @@ voie** (perte de rappel). L'expansion de requête de l'étape 1 (GPT-5.4 → mot
 EN + synonymes + MeSH) résout le même problème (franco-anglais, synonymes) **au
 niveau de la requête**, de façon déterministe et débogable.
 
-→ Les embeddings restent une fonctionnalité **secondaire** (panneau « plus comme
-ceux-ci » / voisins), **hors du chemin critique** de la recherche.
+→ **Décision finale (juillet 2026)** : les embeddings ont été **retirés du projet**
+(code, tables `emb_*`, extension pgvector). Cette section garde la trace du pourquoi.
 
 ## Contraintes de coût (cf. `CLAUDE.md`)
 

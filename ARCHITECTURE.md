@@ -31,7 +31,7 @@ après le classement, sans modifier son score :
 - type d'étude issu des `PublicationType` PubMed.
 
 Ces éléments sont des indices de lecture, pas une validation clinique ni
-l'explication mathématique du score d'embedding. L'interface les présente dans
+l'explication du score attribué par l'IA. L'interface les présente dans
 un panneau repliable « Pourquoi ce résultat ? ». Une future version pourra
 expliquer le score du reranker lorsqu'un tel modèle aura été évalué.
 

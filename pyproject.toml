@@ -1,7 +1,7 @@
 [project]
 name = "x-med"
 version = "0.1.0"
-description = "X-Med — veille médicale PubMed : ingestion, recherche MeSH + sémantique, benchmark multi-modèles"
+description = "X-Med — veille médicale PubMed : ingestion, recherche PubMed + IA, digest personnalisé"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "fastapi>=0.115",

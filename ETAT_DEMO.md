@@ -1,5 +1,10 @@
 # X-Med — État de la démo (Partie 1)
 
+> ⚠️ **Document historique — ne décrit plus l'état du produit.**
+> Il porte sur les chantiers **embeddings / vectorisation / gold set d'annotation**,
+> retirés du projet en juillet 2026 (voir `PLAN_NETTOYAGE.md`). Conservé pour la
+> trace des mesures et des décisions, pas comme référence de l'existant.
+
 > Mémo pour tester. Tout tourne sur le serveur ; le frontend est exposé sur le port 3003.
 
 ## Accès

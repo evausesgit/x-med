@@ -1,5 +1,10 @@
 # X-Med - Feuille de route pertinence
 
+> ⚠️ **Document historique — ne décrit plus l'état du produit.**
+> Il porte sur les chantiers **embeddings / vectorisation / gold set d'annotation**,
+> retirés du projet en juillet 2026 (voir `PLAN_NETTOYAGE.md`). Conservé pour la
+> trace des mesures et des décisions, pas comme référence de l'existant.
+
 Ce tableau sert de référence pour améliorer la pertinence de la recherche.
 Le système actuel constitue la baseline `A`. Toute évolution doit être comparée
 à cette baseline sur le gold set médical avant son activation en production.
