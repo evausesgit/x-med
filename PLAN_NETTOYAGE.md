@@ -57,9 +57,13 @@ Le projet a déjà 4 tests (`test_digest_query`, `test_explainability`,
 `test_search_notifications`, `test_window_keep`) qui ne touchent à rien de supprimé :
 ils doivent rester verts de bout en bout.
 
-**Lancer la suite :** `uv run --group dev pytest -q`
+**Lancer la suite :** `uv run --group dev pytest -q` → **54 tests, ~3 s.**
 *(le projet n'est pas installé comme paquet dans le venv ; `[tool.pytest.ini_options]`
 dans `pyproject.toml` ajoute la racine au `pythonpath` pour que `import app` marche.)*
+
+**État : l'étape 0 est terminée.** Les quatre tests sont écrits et verts sur le code
+**d'avant** nettoyage. C'est le point de référence : après chaque lot, la même commande
+doit redonner 54 verts.
 
 ### Test 1 — Inventaire des routes (`tests/test_api_surface.py`) — ✅ **écrit, vert**
 
@@ -165,16 +169,34 @@ le fichier sensible soit immédiatement attribuable.
 
 **Coût** : ~45 min.
 
-### Test 4 — Bout en bout avec doublures (`tests/test_deep_search_smoke.py`)
+### Test 4 — Bout en bout avec doublures (`tests/test_deep_search_smoke.py`) — ✅ **écrit, vert**
 
-`_run_deep_search` fait ses imports **à l'intérieur** de la fonction
-(`search.py:590-596`) : les trois appels externes sont donc faciles à remplacer par des
-doublures — le constructeur de requête GPT-5.6, PubMed E-utilities, et le juge codex.
-On lance ensuite la vraie fonction en v1 puis en v2 contre la base de dev.
+`_run_deep_search` fait ses imports **à l'intérieur** de la fonction : les trois appels
+externes sont donc faciles à remplacer par des doublures — le constructeur de requête
+GPT-5.6, PubMed E-utilities, et le juge codex. On lance ensuite la vraie fonction en v1
+puis en v2 contre la base de dev.
 
 **Attrape** : tout le reste — le pré-filtre FTS, le routage `articles` / `article_search`,
 la fenêtre de dates, l'assemblage de la réponse. C'est le test le plus proche du réel.
 **Contrainte** : nécessite Postgres (`skip` automatique sinon). **Coût** : ~1 h.
+
+**12 tests, 3,8 s.** Le chemin nominal (le pipeline tourne, le pré-filtre local trouve
+des candidats, le tri final reste le score du juge, la fenêtre de dates est respectée,
+les sources `pubmed`/`local`/`both` sont correctement étiquetées, `remaining` ne
+reproposera jamais un article déjà jugé) ; **la différence v1/v2 observée sur ce que le
+juge reçoit réellement** ; le plancher `local_floor` vérifié dans le vrai pipeline et
+plus seulement en unitaire ; les deux replis (constructeur HS → `fallback` sans vider la
+recherche, juge HS → `skipped` en rendant le vivier brut) ; les jalons de progression ;
+et le routage `articles` / `article_search` selon la fenêtre.
+
+Deux choix qui rendent le test robuste ailleurs que sur ce poste :
+
+- **aucun PMID n'est codé en dur** : le test interroge la base au démarrage pour se
+  constituer deux jeux de candidats sur deux sujets rares et disjoints (`vismodegib`,
+  `isthmocele`), et se met en `skip` si le corpus local est trop pauvre ;
+- **`esummary` et `efetch_abstracts` sont câblés pour lever une erreur** : si un jour un
+  article censé être en base déclenche un aller-retour réseau, le test le dit au lieu de
+  le masquer.
 
 ### Côté front
 
@@ -375,8 +397,8 @@ Dans cet ordre :
 | Étape | Contenu | Risque |
 |---|---|---|
 | 0 | ✅ Tests 1 et 2 sur le code actuel (commit `e3c24a1`) | aucun |
-| 1 | ✅ Extraction `_candidate_order` / `_pick_judge_batch` + test 3 | touche `search.py` — vérifié iso-comportement |
-| 1 bis | Test 4 (bout en bout avec doublures) — **reste à écrire** | aucun |
+| 1 | ✅ Extraction `_candidate_order` / `_pick_judge_batch` + test 3 (`62c7f3c`) | touche `search.py` — vérifié iso-comportement |
+| 1 bis | ✅ Test 4 — bout en bout avec doublures | aucun |
 | 2 | Dump d'archive éval/bench | aucun |
 | 3 | Lot 1 — embeddings | faible |
 | 4 | Lot 2 — évaluation / annotation | faible |
