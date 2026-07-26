@@ -47,6 +47,12 @@ explicit = true
 [tool.uv.sources]
 torch = { index = "pytorch-cpu" }
 
+# Le projet n'est pas installé comme paquet dans le venv : sans `pythonpath`,
+# `uv run --group dev pytest` ne trouve pas `app`.
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"

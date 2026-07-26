@@ -574,6 +574,61 @@ def _prefilter_source(session: Session, date_from: str | None):
     return ArticleSearch if yf >= min_year else Article
 
 
+def _candidate_order(
+    a_pmids: list[int], local_pmids: list[int], rrf: bool, k: int = 60
+) -> list[int]:
+    """Ordre des candidats soumis au juge — **c'est ici que v1 et v2 diffèrent**.
+
+    Les deux modes partent de la même union A ∪ B (candidats PubMed `a_pmids`,
+    candidats locaux `local_pmids`), dédupliquée en gardant l'ordre d'arrivée :
+
+    - **v1 (`rrf=False`)** — on garde cet ordre : PubMed d'abord (ordre Best
+      Match), puis les locaux non déjà vus.
+    - **v2 (`rrf=True`)** — fusion par rang réciproque : score = Σ 1/(k + rang)
+      sur les deux listes. Bien classé par l'une OU l'autre → remonte ; par les
+      deux → remonte le plus. N'utilise que les RANGS (pas les scores, donc pas
+      de problème d'échelles). Le tri étant stable, deux candidats de même score
+      conservent leur ordre d'origine.
+
+    Sert à CHOISIR qui codex juge, jamais à classer le résultat final.
+    """
+    candidates = list(dict.fromkeys([*a_pmids, *local_pmids]))  # dédup, ordre stable
+    if not rrf:
+        return candidates
+    rrf_score: dict[int, float] = {}
+    for lst in (a_pmids, local_pmids):
+        for rank, p in enumerate(lst):
+            rrf_score[p] = rrf_score.get(p, 0.0) + 1.0 / (k + rank)
+    candidates.sort(key=lambda p: -rrf_score.get(p, 0.0))
+    return candidates
+
+
+def _pick_judge_batch(
+    judgeable: list[int], pubmed_pmids: set[int], batch_n: int, floor: int
+) -> list[int]:
+    """Choisit le lot d'abstracts effectivement soumis au juge.
+
+    Par défaut, les `batch_n` premiers du vivier (ordre `_candidate_order`). Mais
+    on garantit au moins `floor` articles **locaux-seuls** (absents de
+    `pubmed_pmids`) : sinon PubMed peut monopoliser le lot et enterrer le local.
+    `floor = 0` désactive le plancher ; il est borné par `batch_n`.
+
+    Le lot renvoyé garde toujours l'ordre du vivier.
+    """
+    floor = min(floor, batch_n)
+    first_batch = judgeable[:batch_n]
+    if floor > 0 and sum(1 for p in first_batch if p not in pubmed_pmids) < floor:
+        reserved = [p for p in judgeable if p not in pubmed_pmids][:floor]  # meilleurs locaux
+        keep = set(reserved)
+        for p in judgeable:  # complète avec le reste du vivier, dans l'ordre
+            if len(keep) >= batch_n:
+                break
+            keep.add(p)
+        order = {p: i for i, p in enumerate(judgeable)}
+        first_batch = sorted(keep, key=lambda p: order[p])  # garde l'ordre du vivier
+    return first_batch
+
+
 def _fmt_tokens(usage) -> str:
     """Format lisible des tokens d'un appel codex (ex. « 27 014 tokens »)."""
     n = f"{usage.total_tokens:,}".replace(",", " ")
@@ -726,18 +781,7 @@ def _run_deep_search(
 
     # --- Rassembler les candidats (A ∪ B) + récupérer titres/abstracts ---
     a_set, local_set = set(a_pmids), set(local_pmids)
-    candidate_pmids = list(dict.fromkeys([*a_pmids, *local_pmids]))  # dédup, ordre stable
-    if req.rrf:
-        # Fusion par rang réciproque (RRF) : score = Σ 1/(K + rang) sur les deux listes
-        # (PubMed Best Match + local lexical). Bien classé par l'une OU l'autre → remonte ;
-        # par les deux → remonte le plus. N'utilise que les RANGS (pas les scores, donc
-        # pas de problème d'échelles). Sert à CHOISIR qui Codex juge, jamais à classer.
-        K_RRF = 60
-        rrf_score: dict[int, float] = {}
-        for lst in (a_pmids, local_pmids):
-            for rank, p in enumerate(lst):
-                rrf_score[p] = rrf_score.get(p, 0.0) + 1.0 / (K_RRF + rank)
-        candidate_pmids.sort(key=lambda p: -rrf_score.get(p, 0.0))
+    candidate_pmids = _candidate_order(a_pmids, local_pmids, req.rrf)
     db = _fetch_articles(session, candidate_pmids)
 
     # Fenêtre temporelle précise sur les candidats LOCAUX-seuls (les candidats A
@@ -805,20 +849,8 @@ def _run_deep_search(
     # renvoyé au front, qui peut demander « 50 de plus » via le flux /more.
     judgeable = [p for p in candidate_pmids if (_abstract(p) or "").strip()]
     # Lot jugé = les `judge_batch` premiers du vivier (ordre RRF en v2), MAIS on garantit
-    # au moins `local_floor` articles locaux-seuls : sinon PubMed peut monopoliser le lot
-    # et enterrer le local (curseur UI ; 0 = pas de plancher).
-    batch_n = req.judge_batch
-    floor = min(req.local_floor, batch_n)
-    first_batch = judgeable[:batch_n]
-    if floor > 0 and sum(1 for p in first_batch if p not in a_set) < floor:
-        reserved = [p for p in judgeable if p not in a_set][:floor]  # meilleurs locaux
-        keep = set(reserved)
-        for p in judgeable:  # complète avec le reste du vivier, dans l'ordre
-            if len(keep) >= batch_n:
-                break
-            keep.add(p)
-        order = {p: i for i, p in enumerate(judgeable)}
-        first_batch = sorted(keep, key=lambda p: order[p])  # garde l'ordre du vivier
+    # au moins `local_floor` articles locaux-seuls (curseur UI ; 0 = pas de plancher).
+    first_batch = _pick_judge_batch(judgeable, a_set, req.judge_batch, req.local_floor)
     picked = set(first_batch)
     rest = [p for p in judgeable if p not in picked]
     emit("judge", f"🧬 GPT-5.6 lit et juge {len(first_batch)} abstracts "
