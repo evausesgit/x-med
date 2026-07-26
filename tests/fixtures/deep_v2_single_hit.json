@@ -1,0 +1,61 @@
+{
+    "judge": "codex",
+    "query": "accident vasculaire cérébral ischémique par vasospasme ou embolie graisseuse après lipofilling facial",
+    "counts": {
+        "kept": 1,
+        "local": 50,
+        "judged": 50,
+        "merged": 50,
+        "pubmed": 0
+    },
+    "results": [
+        {
+            "doi": "10.47102/annals-acadmedsg.202596",
+            "pmid": 41197026,
+            "in_db": true,
+            "score": 3,
+            "title": "Ischaemic strokes from facial injections of dermal fillers: Clinico-radiological features and outcomes.",
+            "reason": "Directement sur AVC ischémique après injections faciales, incluant graisse autologue.",
+            "source": "local",
+            "journal": "Annals of the Academy of Medicine, Singapore",
+            "abstract": "Introduction: Ischaemic stroke is a severe complication of dermal filler injections that remains poorly described and understood. This study aims to characterise the clinical features and outcomes of patients who experience strokes following facial dermal filler injections.\nMethod: A systematic review and retrospective analysis of ischaemic strokes caused by dermal filler injections and reported over the past 3 decades, were conducted. Cases involving autologous fat were also compared against those that did not.\nResults: Fifty-five cases from 45 studies were analysed. Their median age was 32 years (18-61), and most were women (49/55, 89%). Injections frequently occurred at the glabella (17/53, 32%) and temples (12/53, 23%), and autologous fat was most often used (33/55, 60%). Half (29/55, 53%) had ocular symptoms at presentation. Hemiparesis/hemiplegia (30/55, 55%) and confusion/ reduced consciousness/alertness (26/55, 47%) were the predominant stroke symptoms. Most infarcts were unilateral (45/54, 83%) and large (32/48, 67%). Treatment primarily involved corticosteroids (12/41, 29%) and antiplatelet agents (11/41, 27%), while hyaluronidase injections (3/41, 7%) and hyperbaric oxygen therapy (2/41, 5%) were rarely used. Less than half (22/55, 40%) experienced good functional recovery. Those injected with autologous fat were likelier to be symptomatic from their strokes (100% versus [vs] 68%, P=0.0012), develop larger strokes (93% vs 24%, P<0.0001) and experience non-ambulatory outcomes (44% vs 73%, =0.0381).\nConclusion: Strokes are rare complications of dermal fillers. Injections using autologous fat risk larger strokes and worse ambulatory outcomes. An hour of post-procedural observation appears reasonable, and those with ocular complications should undergo brain imaging even in the absence of stroke symptoms.",
+            "pub_year": 2025,
+            "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41197026/",
+            "abstract_fr": "Introduction : L’accident vasculaire cérébral ischémique est une complication grave des injections de produits de comblement dermique, qui demeure insuffisamment décrite et comprise. Cette étude vise à caractériser les caractéristiques cliniques et le devenir des patients présentant un accident vasculaire cérébral après des injections faciales de produits de comblement dermique.\nMéthode : Une revue systématique et une analyse rétrospective des accidents vasculaires cérébraux ischémiques causés par des injections de produits de comblement dermique et rapportés au cours des 3 dernières décennies ont été réalisées. Les cas impliquant de la graisse autologue ont également été comparés à ceux n’en impliquant pas.\nRésultats : Cinquante-cinq cas issus de 45 études ont été analysés. Leur âge médian était de 32 ans (18-61), et la plupart étaient des femmes (49/55, 89 %). Les injections étaient fréquemment réalisées au niveau de la glabelle (17/53, 32 %) et des tempes (12/53, 23 %), et la graisse autologue était le plus souvent utilisée (33/55, 60 %). La moitié (29/55, 53 %) présentait des symptômes oculaires à la présentation. L’hémiparésie/hémiplégie (30/55, 55 %) et la confusion/la diminution de la conscience/de la vigilance (26/55, 47 %) étaient les principaux symptômes d’accident vasculaire cérébral. La plupart des infarctus étaient unilatéraux (45/54, 83 %) et étendus (32/48, 67 %). Le traitement reposait principalement sur les corticostéroïdes (12/41, 29 %) et les agents antiplaquettaires (11/41, 27 %), tandis que les injections de hyaluronidase (3/41, 7 %) et l’oxygénothérapie hyperbare (2/41, 5 %) étaient rarement utilisées. Moins de la moitié des patients (22/55, 40 %) ont obtenu une bonne récupération fonctionnelle. Les patients ayant reçu une injection de graisse autologue étaient plus susceptibles de présenter des symptômes liés à leur accident vasculaire cérébral (100 % contre [vs] 68 %, P=0,0012), de développer des accidents vasculaires cérébraux plus étendus (93 % vs 24 %, P<0,0001) et d’avoir une évolution non ambulatoire (44 % vs 73 %, =0,0381).\nConclusion : Les accidents vasculaires cérébraux sont des complications rares des produits de comblement dermique. Les injections utilisant de la graisse autologue exposent à un risque d’accidents vasculaires cérébraux plus étendus et à une moins bonne évolution ambulatoire. Une heure d’observation après la procédure semble raisonnable, et les patients présentant des complications oculaires devraient bénéficier d’une imagerie cérébrale même en l’absence de symptômes d’accident vasculaire cérébral.",
+            "evidence_level": 1
+        }
+    ],
+    "mesh_terms": [
+        "Stroke",
+        "Brain Ischemia",
+        "Fat Embolism",
+        "Vasospasm, Intracranial"
+    ],
+    "codex_limit": false,
+    "keywords_en": [
+        "ischemic stroke",
+        "cerebral infarction",
+        "brain ischemia",
+        "fat embolism",
+        "lipid embolism",
+        "vasospasm",
+        "cerebral vasospasm",
+        "intracranial vasospasm",
+        "facial lipofilling",
+        "facial fat grafting",
+        "autologous fat grafting",
+        "fat grafting",
+        "fat transfer",
+        "lipoinjection",
+        "lipotransfer",
+        "facial fat injection",
+        "autologous fat injection"
+    ],
+    "codex_tokens": {
+        "judge": 43658,
+        "query": 27706,
+        "total": 71364
+    },
+    "pubmed_query": "((\"Stroke\"[MeSH] OR \"Brain Ischemia\"[MeSH] OR ischemic stroke[tiab] OR cerebral infarction[tiab] OR brain ischemia[tiab]) AND ((\"Fat Embolism\"[MeSH] OR fat embolism[tiab] OR lipid embolism[tiab]) OR (\"Vasospasm, Intracranial\"[MeSH] OR vasospasm[tiab] OR cerebral vasospasm[tiab] OR intracranial vasospasm[tiab])) AND ((facial lipofilling[tiab] OR lipofilling[tiab] OR facial fat grafting[tiab] OR autologous fat grafting[tiab] OR fat grafting[tiab] OR fat transfer[tiab] OR lipoinjection[tiab] OR lipotransfer[tiab] OR facial fat injection[tiab] OR autologous fat injection[tiab]) AND (facial[tiab] OR face[tiab])))",
+    "query_builder": "codex"
+}

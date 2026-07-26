@@ -57,7 +57,11 @@ Le projet a déjà 4 tests (`test_digest_query`, `test_explainability`,
 `test_search_notifications`, `test_window_keep`) qui ne touchent à rien de supprimé :
 ils doivent rester verts de bout en bout.
 
-### Test 1 — Inventaire des routes (`tests/test_api_surface.py`)
+**Lancer la suite :** `uv run --group dev pytest -q`
+*(le projet n'est pas installé comme paquet dans le venv ; `[tool.pytest.ini_options]`
+dans `pyproject.toml` ajoute la racine au `pythonpath` pour que `import app` marche.)*
+
+### Test 1 — Inventaire des routes (`tests/test_api_surface.py`) — ✅ **écrit, vert**
 
 On importe `app.main` et on vérifie que les endpoints qui doivent survivre sont
 toujours là :
@@ -84,7 +88,13 @@ def test_core_routes_still_exist():
 après le retrait du routeur `eval`.
 **Coût** : ~30 min. Pas de base, pas de réseau, s'exécute en 0,2 s.
 
-### Test 2 — Contrat de réponse, sur de vraies données (`tests/test_deep_search_contract.py`)
+Le test écrit va un cran plus loin que le croquis : il fige **32 routes du cœur** et
+ajoute un garde-fou inverse (`test_no_unexpected_route_appeared`) — toute route hors du
+cœur doit figurer dans la liste des routes explicitement destinées à disparaître. Une
+route inattendue fait donc échouer le test, ce qui évite qu'un endpoint mort réapparaisse
+en douce.
+
+### Test 2 — Contrat de réponse, sur de vraies données (`tests/test_deep_search_contract.py`) — ✅ **écrit, vert**
 
 La base contient **42 recherches sauvegardées** dont le champ `payload` (jsonb) est une
 vraie réponse v2 complète. On en fige 2 ou 3 dans `tests/fixtures/` et on vérifie
@@ -101,6 +111,25 @@ def test_saved_snapshot_still_parses():
 change, ce ne sont pas seulement les tests qui cassent, ce sont les **42 recherches
 sauvegardées des utilisateurs** qui deviennent illisibles sur `/recherches`.
 **Coût** : ~30 min.
+
+Trois fixtures figées dans `tests/fixtures/`, choisies pour couvrir des générations
+différentes du format : `deep_v2_vismodegib` (14 résultats, `counts` complet avec
+`kept_pubmed`/`kept_local`/`kept_both`), `deep_v2_translated` (6 résultats, traductions
+FR présentes), `deep_v2_single_hit` (1 résultat, `counts` d'ancienne génération, sans
+`judgeable`). Quatre tests : relecture dans le modèle, champs d'affichage, aller-retour
+sans perte de champ ni changement d'ordre, et préservation des traductions FR.
+
+**Deux constats relevés en écrivant ce test**, qui n'étaient pas dans le plan initial :
+
+- **les 42 snapshots en base sont tous en méthode v2** — aucune recherche v1 n'a jamais
+  été sauvegardée. Ce test ne peut donc pas distinguer v1 de v2. Ce n'est pas grave (le
+  format de réponse est le *même objet* `DeepSearchResponse` dans les deux modes, seule
+  la sélection des candidats diffère), mais ça confirme que **le test 3 est le seul à
+  couvrir vraiment la différence v1/v2** ;
+- **`relevance_pct` est absent de 201 des 444 résultats sauvegardés** (le champ est plus
+  récent que `score`). Il doit rester facultatif dans le modèle : le rendre obligatoire
+  casserait la moitié des recherches sauvegardées. C'est exactement le genre de piège que
+  ce test existe pour attraper — il l'a attrapé dès la première exécution.
 
 ### Test 3 — La logique v1 vs v2 (`tests/test_deep_search_selection.py`)
 
