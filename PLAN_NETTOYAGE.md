@@ -131,26 +131,37 @@ sans perte de champ ni changement d'ordre, et préservation des traductions FR.
   casserait la moitié des recherches sauvegardées. C'est exactement le genre de piège que
   ce test existe pour attraper — il l'a attrapé dès la première exécution.
 
-### Test 3 — La logique v1 vs v2 (`tests/test_deep_search_selection.py`)
+### Test 3 — La logique v1 vs v2 (`tests/test_deep_search_selection.py`) — ✅ **écrit, vert**
 
-C'est le seul test qui **demande de modifier `search.py`**. Aujourd'hui la fusion RRF
-est écrite en ligne au milieu d'une fonction de 350 lignes (`search.py:730-740`) :
-impossible à tester isolément.
+C'est le seul test qui **demande de modifier `search.py`**. La fusion RRF était écrite
+en ligne au milieu d'une fonction de 350 lignes : impossible à tester isolément.
 
-On extrait deux fonctions pures — sans base, sans réseau, code déplacé tel quel :
+Deux fonctions pures ont été extraites — **code déplacé tel quel**, sans base ni réseau :
 
 ```python
-def _rrf_order(a_pmids, local_pmids, k=60): ...                    # lignes 735-740
-def _pick_judge_batch(candidates, local_only, batch_n, floor): ... # lignes ~807-815
+def _candidate_order(a_pmids, local_pmids, rrf, k=60) -> list[int]      # search.py:577
+def _pick_judge_batch(judgeable, pubmed_pmids, batch_n, floor)          # search.py:606
 ```
 
-Puis on teste : v1 conserve l'ordre « PubMed d'abord » ; v2 fait remonter un article
-bien classé des deux côtés ; `local_floor` réserve bien N places aux candidats locaux.
+`_candidate_order` prend le paramètre `rrf` et couvre donc les **deux** modes dans une
+seule fonction : c'est littéralement le point où v1 et v2 divergent, et le reste du
+pipeline est commun. (Le plan initial parlait d'un `_rrf_order` limité à v2 ; couvrir les
+deux modes au même endroit rend la différence testable directement.)
 
-> ⚠️ **Point de décision.** C'est le seul test qui vérifie vraiment que v1 et v2 se
-> comportent différemment, mais c'est aussi le seul qui touche au fichier sensible.
-> Proposition : **le faire en commit isolé, avant tout nettoyage**, pour qu'un
-> éventuel problème soit immédiatement attribuable. À arbitrer à deux.
+**13 tests** : v1 conserve l'ordre « PubMed d'abord » ; v2 fait remonter l'article bien
+classé des deux côtés ; **v1 et v2 rendent des ordres différents sur la même entrée** —
+l'assertion qui compte, celle qui échouerait si la fusion était neutralisée ; stabilité
+du tri sur les scores ex æquo ; déduplication ; listes vides ; et pour le plancher :
+réservation effective de N places locales, ordre du vivier préservé, plancher borné par
+la taille du lot, cas « pas assez de locaux », et un balayage `batch_n` × `floor` qui
+vérifie qu'aucun lot ne déborde ni ne contient de doublon.
+
+**Preuve que l'extraction n'a rien changé** : l'ancienne implémentation (reprise depuis
+`git show`) et la nouvelle ont été comparées sur des entrées aléatoires —
+**40 000 comparaisons d'ordre et 500 000 comparaisons de lot, 0 divergence**.
+
+Fait en **commit séparé**, avant tout retrait de code, pour qu'un éventuel problème sur
+le fichier sensible soit immédiatement attribuable.
 
 **Coût** : ~45 min.
 
@@ -363,8 +374,9 @@ Dans cet ordre :
 
 | Étape | Contenu | Risque |
 |---|---|---|
-| 0 | Tests 1, 2, 4 sur le code actuel — **verts avant de continuer** | aucun |
-| 1 | *(à arbitrer)* extraction `_rrf_order` / `_pick_judge_batch` + test 3 | touche `search.py` |
+| 0 | ✅ Tests 1 et 2 sur le code actuel (commit `e3c24a1`) | aucun |
+| 1 | ✅ Extraction `_candidate_order` / `_pick_judge_batch` + test 3 | touche `search.py` — vérifié iso-comportement |
+| 1 bis | Test 4 (bout en bout avec doublures) — **reste à écrire** | aucun |
 | 2 | Dump d'archive éval/bench | aucun |
 | 3 | Lot 1 — embeddings | faible |
 | 4 | Lot 2 — évaluation / annotation | faible |
