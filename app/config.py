@@ -9,9 +9,6 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://xmed:xmed@localhost:5432/xmed"
     data_dir: str = "/home/geekette/data/pubmed"
 
-    # Modèles d'embedding actifs (clés du registre embeddings)
-    embedding_models: str = "medcpt,bge_m3"
-
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     cors_origins: str = "http://localhost:3000"
@@ -69,10 +66,6 @@ class Settings(BaseSettings):
     # sur le CLI hermes ; sinon repli sur hermes (dev local).
     telegram_bot_token: str | None = None
     telegram_chat_id: str | None = None
-
-    @property
-    def embedding_model_list(self) -> list[str]:
-        return [m.strip() for m in self.embedding_models.split(",") if m.strip()]
 
     @property
     def cors_origin_list(self) -> list[str]:

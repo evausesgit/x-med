@@ -76,26 +76,10 @@ def test_core_routes_still_exist():
 
 
 def test_no_unexpected_route_appeared():
-    """Garde-fou inverse : toute route *hors* du cœur doit être une route
-    explicitement destinée à disparaître. Une route inconnue qui apparaît ici
-    signale soit un ajout à documenter, soit un `include_router` de trop."""
-    known_removable = {
-        ("GET", "/models"),
-        ("GET", "/embeddings/progress"),
-        ("GET", "/bench/leaderboard"),
-        ("POST", "/search/semantic"),
-        ("GET", "/search/hybrid"),
-        ("GET", "/search/mesh"),
-        ("GET", "/search"),
-        ("GET", "/mesh/autocomplete"),
-        ("GET", "/eval/queries"),
-        ("GET", "/eval/gold"),
-        ("GET", "/eval/pool/{query_id}"),
-        ("POST", "/eval/annotate"),
-    }
-    extra = {
-        (m, p)
-        for m, p in _routes()
-        if p not in _FASTAPI_BUILTINS
-    } - CORE_ROUTES - known_removable
+    """Garde-fou inverse : l'API expose **exactement** `CORE_ROUTES`, rien de plus.
+
+    Le nettoyage étant fait, ce test n'a plus de liste d'exceptions : toute route
+    qui apparaît doit être ajoutée sciemment à `CORE_ROUTES`. C'est ce qui empêche
+    un endpoint abandonné de revenir en douce."""
+    extra = {(m, p) for m, p in _routes() if p not in _FASTAPI_BUILTINS} - CORE_ROUTES
     assert not extra, f"routes inattendues : {sorted(extra)}"

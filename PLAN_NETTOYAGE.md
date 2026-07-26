@@ -1,11 +1,11 @@
 # Plan de nettoyage — retrait des chantiers abandonnés
 
-> **Statut : proposition, non exécutée.** Ce document décrit ce qui sera supprimé,
-> dans quel ordre, et quels tests écrire **avant** de toucher au code.
-> Rien n'a encore été modifié dans le code applicatif.
+> **Statut : exécuté (juillet 2026).** Ce document a servi de plan, puis a été mis à
+> jour au fil de l'exécution — y compris là où la réalité a démenti le plan (voir
+> § Écarts entre le plan et l'exécution, en fin de document).
 >
 > Document jumeau : [`PLAN_BASES_SEPAREES.md`](PLAN_BASES_SEPAREES.md) — la séparation
-> en deux bases de données, à faire **après** ce nettoyage.
+> en deux bases de données, désormais débloquée par ce nettoyage.
 
 ## Pourquoi
 
@@ -18,8 +18,9 @@ Quatre chantiers datent des débuts du projet et ne servent plus :
 | **Évaluation** (`/evaluation`, benchmarks) | leaderboard de comparaison des modèles d'embedding | mesurait des modèles qu'on ne garde pas |
 | **Annotation** (`/annotate`, gold set) | notation manuelle de la pertinence par des médecins | **0 annotation saisie à ce jour** — le chantier n'a jamais démarré |
 
-Gain attendu : **~1 500 lignes de code en moins**, **4,3 Go de base récupérés**, et
-**torch retiré de l'image Docker de l'API** (plusieurs centaines de Mo).
+Gain annoncé : ~1 500 lignes de code, 4,3 Go de base, torch hors de l'image API.
+**Réalisé : 7 280 lignes supprimées** (le compte initial ne voyait que le Python),
+**base 77 Go → 73 Go**, torch hors de l'image. Détail en fin de document.
 
 ## Contrainte absolue : la recherche ne doit pas bouger
 
@@ -93,10 +94,10 @@ après le retrait du routeur `eval`.
 **Coût** : ~30 min. Pas de base, pas de réseau, s'exécute en 0,2 s.
 
 Le test écrit va un cran plus loin que le croquis : il fige **32 routes du cœur** et
-ajoute un garde-fou inverse (`test_no_unexpected_route_appeared`) — toute route hors du
-cœur doit figurer dans la liste des routes explicitement destinées à disparaître. Une
-route inattendue fait donc échouer le test, ce qui évite qu'un endpoint mort réapparaisse
-en douce.
+ajoute un garde-fou inverse (`test_no_unexpected_route_appeared`). Pendant le nettoyage,
+ce garde-fou tolérait une liste d'exceptions — les routes destinées à disparaître. Le
+nettoyage terminé, **la liste d'exceptions a été supprimée** : l'API doit maintenant
+exposer *exactement* `CORE_ROUTES`. Un endpoint abandonné ne peut plus revenir en douce.
 
 ### Test 2 — Contrat de réponse, sur de vraies données (`tests/test_deep_search_contract.py`) — ✅ **écrit, vert**
 
@@ -380,34 +381,72 @@ ou `emb_*`.
 
 ---
 
-# Vérification finale
+# Vérification finale — faite
 
-Dans cet ordre :
+| Contrôle | Résultat |
+|---|---|
+| `uv run --group dev pytest -q` | **54 verts**, relancés après chaque lot |
+| `uv run --group dev ruff check app/ tests/` | propre |
+| `cd web && npm run build` | OK — a attrapé une vraie erreur (voir Lot 4) |
+| Aucune référence orpheline dans `app/`, `web/app`, `web/lib` | vérifié |
+| Essai manuel v1/v2 sur une requête clinique | **à faire par un humain après merge** |
 
-1. `uv run pytest` — les 4 tests existants **et** les nouveaux doivent être verts
-2. `uv run ruff check` — attrape tout import devenu orphelin
-3. `cd web && npm run build` — attrape toute référence front oubliée
-4. `grep -rn "emb_\|eval_pool\|bench_queries\|embeddings" app/ web/app web/lib` → doit être vide
-5. **Essai manuel : même requête clinique en v1 puis en v2**, résultats cohérents
+Le dernier point n'est pas automatisable : aucun de ces tests ne juge la *qualité* des
+résultats, qui dépend de codex. Il reste obligatoire.
+
+---
+
+# Écarts entre le plan et l'exécution
+
+Quatre choses ne se sont pas passées comme prévu. Elles sont notées ici parce qu'elles
+sont exactement ce qu'une relecture doit regarder.
+
+1. **`bench/` n'a pas pu être supprimé en entier.** Les dossiers `bench/v1_v2/` et
+   `bench/v1_v2_2026-07-04/` sont les rapports produits par `scripts/bench_v1_v2.py`, que
+   ce plan conserve explicitement, et c'est son `--out-dir` par défaut. Seul le contenu
+   « embeddings » de `bench/` est parti.
+
+2. **Le `downgrade` de la migration 0011, écrit à la main, ne correspondait pas au schéma
+   réel** (`bench_queries.lang` manquant, `eval_pool.id`, contrainte `CHECK` sur `grade`).
+   Réécrit en reprenant le DDL des migrations 0001 et 0003, puis vérifié par un
+   aller-retour `upgrade`/`downgrade` comparé au `pg_dump` d'origine.
+
+3. **Le build front a attrapé une vraie régression** : la coupe dans `web/lib/api.ts`
+   emportait au passage l'interface `DoctorProfile`, qui n'a rien à voir avec le
+   nettoyage. Restaurée. C'est le scénario pour lequel on comptait sur le build.
+
+4. **`bench_results` contenait 8 lignes**, pas 0 comme annoncé. Toutes archivées.
+
+Deux points relevés au passage, hors périmètre, **non corrigés** :
+
+- `CLAUDE.md` présente le scoring comme fait par **Claude API** alors que le code appelle
+  le CLI **codex (GPT-5.6)**. Divergence antérieure à ce nettoyage.
+- il n'y a **pas de CI** : rien ne lance ces 54 tests automatiquement sur une PR.
 
 ---
 
 # Récapitulatif
 
-| Étape | Contenu | Risque |
+| Étape | Contenu | État |
 |---|---|---|
-| 0 | ✅ Tests 1 et 2 sur le code actuel (commit `e3c24a1`) | aucun |
-| 1 | ✅ Extraction `_candidate_order` / `_pick_judge_batch` + test 3 (`62c7f3c`) | touche `search.py` — vérifié iso-comportement |
-| 1 bis | ✅ Test 4 — bout en bout avec doublures | aucun |
-| 2 | Dump d'archive éval/bench | aucun |
-| 3 | Lot 1 — embeddings | faible |
-| 4 | Lot 2 — évaluation / annotation | faible |
-| 5 | Lot 3 — anciens endpoints de recherche | faible |
-| 6 | Lot 4 — front | nul (le build tranche) |
-| 7 | Lot 5 — migration DB | **irréversible** (d'où l'étape 1) |
-| 8 | Lot 6 — documentation | aucun |
-| 9 | Vérification + PR en draft | — |
+| 0 | Tests 1 et 2 (`e3c24a1`) | ✅ |
+| 1 | Extraction `_candidate_order` / `_pick_judge_batch` + test 3 (`62c7f3c`) | ✅ |
+| 1 bis | Test 4 — bout en bout avec doublures (`2763ea5`) | ✅ |
+| 2 | Archive éval/bench — restauration testée dans une base jetable | ✅ |
+| 3 | Lot 1 — embeddings | ✅ |
+| 4 | Lot 2 — évaluation / annotation | ✅ |
+| 5 | Lot 3 — anciens endpoints de recherche | ✅ |
+| 6 | Lot 4 — front | ✅ |
+| 7 | Lot 5 — migration DB (irréversible) | ✅ |
+| 8 | Lot 6 — documentation | ✅ |
+| 9 | Vérification + PR | ✅ |
 
-Un commit par lot, sur une branche dédiée.
+**Réalisé : 7 280 lignes supprimées** (dont 5 799 de code applicatif) · **base 77 Go →
+73 Go** · **torch hors de l'image Docker de l'API**.
 
-**Total : ~1 500 lignes supprimées · 4,3 Go de base récupérés · torch hors de l'image API.**
+Le chiffre annoncé au départ était « ~1 500 lignes » : il ne comptait que le code Python.
+Le total inclut la visite guidée statique (~2 300 lignes de HTML/JSX), les documents
+supprimés et la régénération de `uv.lock`.
+
+**Suite : [`PLAN_BASES_SEPAREES.md`](PLAN_BASES_SEPAREES.md)** — la séparation en deux
+bases, qui n'attendait que ce nettoyage. Il ne reste aucune jointure traversante.

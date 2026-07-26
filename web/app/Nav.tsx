@@ -10,17 +10,13 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 
-type MenuItem = { label: string; href: string; tag?: string; external?: boolean };
+type MenuItem = { label: string; href: string; tag?: string };
 
 // Pages secondaires regroupées dans le menu déroulant.
 const MENU: MenuItem[] = [
   { label: "Sauvegardées", href: "/recherches" },
   { label: "Profils", href: "/profil" },
-  { label: "Annoter", href: "/annotate", tag: "interne" },
-  { label: "Évaluation", href: "/evaluation", tag: "interne" },
-  { label: "Vectorisation", href: "/embeddings", tag: "interne" },
   { label: "Comment ça marche", href: "/architecture" },
-  { label: "Visite guidée", href: "/recherche-guidee/index.html", tag: "↗", external: true },
 ];
 
 export default function Nav() {
@@ -93,19 +89,12 @@ export default function Nav() {
             {open && (
               <div className="xm-menu" id="xm-more-menu">
                 <div className="xm-menu-head">Plus de pages</div>
-                {MENU.map((item) =>
-                  item.external ? (
-                    <a key={item.href} className="xm-menu-item" href={item.href}>
-                      {item.label}
-                      {item.tag && <span className="xm-menu-tag">{item.tag}</span>}
-                    </a>
-                  ) : (
-                    <Link key={item.href} className="xm-menu-item" href={item.href}>
-                      {item.label}
-                      {item.tag && <span className="xm-menu-tag">{item.tag}</span>}
-                    </Link>
-                  ),
-                )}
+                {MENU.map((item) => (
+                  <Link key={item.href} className="xm-menu-item" href={item.href}>
+                    {item.label}
+                    {item.tag && <span className="xm-menu-tag">{item.tag}</span>}
+                  </Link>
+                ))}
                 {user && (
                   <div className="xm-menu-user">
                     <div className="xm-menu-user-mail" title={user.email ?? undefined}>

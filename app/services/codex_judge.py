@@ -1,8 +1,8 @@
 """Jugement de pertinence d'un lot d'articles par le CLI codex (GPT-5.6).
 
 Cœur de la méthode « PubMed + codex » (cf. PLAN_RECHERCHE_PUBMED_CODEX.md,
-étapes 2-3) : plutôt que de classer le corpus par embeddings (pré-tri pgvector
-peu cohérent), on fait LIRE à codex les abstracts d'un lot **borné** de candidats
+étapes 2-3) : plutôt que de classer le corpus par pré-tri sémantique (essayé au
+début du projet, jugé peu cohérent), on fait LIRE à codex les abstracts d'un lot **borné** de candidats
 (issus du filtre lexical + MeSH) et on lui demande, par rapport à la phrase du
 médecin (`PRM`), un score de pertinence et une justification courte.
 

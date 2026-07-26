@@ -1,7 +1,7 @@
 [project]
 name = "x-med"
 version = "0.1.0"
-description = "X-Med — veille médicale PubMed : ingestion, recherche MeSH + sémantique, benchmark multi-modèles"
+description = "X-Med — veille médicale PubMed : ingestion, recherche PubMed + IA, digest personnalisé"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "fastapi>=0.115",
@@ -9,7 +9,6 @@ dependencies = [
     "sqlalchemy>=2.0",
     "alembic>=1.14",
     "psycopg[binary]>=3.2",
-    "pgvector>=0.3.6",
     "pydantic-settings>=2.6",
     "lxml>=5.3",
     "python-dateutil>=2.9",
@@ -20,15 +19,6 @@ dependencies = [
 ]
 
 [dependency-groups]
-# Étape C/D — embeddings auto-hébergés + benchmark. Installé seulement quand
-# on attaque le sémantique (torch CPU est volumineux) : `uv sync --group ml`.
-ml = [
-    "torch>=2.5",
-    "transformers>=4.46",
-    "sentence-transformers>=3.3",
-    "ir-datasets>=0.5",
-    "ranx>=0.3.20",
-]
 dev = [
     "ruff>=0.8",
     "pytest>=8.3",
@@ -36,16 +26,6 @@ dev = [
 
 [tool.uv]
 default-groups = []
-
-# torch en wheels CPU : l'hôte (et le conteneur API) n'ont pas de GPU et le code
-# n'utilise jamais CUDA — les wheels PyPI par défaut traînent ~7 Go de libs NVIDIA.
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-explicit = true
-
-[tool.uv.sources]
-torch = { index = "pytorch-cpu" }
 
 # Le projet n'est pas installé comme paquet dans le venv : sans `pythonpath`,
 # `uv run --group dev pytest` ne trouve pas `app`.

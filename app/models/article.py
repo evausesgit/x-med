@@ -1,8 +1,7 @@
 """Modèles ORM : articles PubMed + tables de support.
 
-Les tables d'embeddings (`emb_*`, une par modèle) et les index spéciaux
-(GIN, HNSW, tsvector généré) sont créés dans la migration Alembic écrite à la
-main — pgvector et les colonnes générées ne sont pas gérés par l'autogenerate.
+Les index spéciaux (GIN, tsvector généré) sont créés dans la migration Alembic
+écrite à la main — les colonnes générées ne sont pas gérées par l'autogenerate.
 """
 
 from datetime import date, datetime

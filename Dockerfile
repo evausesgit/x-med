@@ -42,7 +42,7 @@ RUN useradd -m -u 1001 api \
 
 # Dépendances d'abord (cache de layer), code ensuite.
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev --group ml --no-install-project
+RUN uv sync --frozen --no-dev --no-install-project
 
 COPY app ./app
 COPY alembic ./alembic
