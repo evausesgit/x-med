@@ -1,4 +1,4 @@
-"""Endpoints de recherche : MeSH + plein-texte, et la recherche PubMed + IA."""
+"""Endpoints de recherche PubMed + IA, traduction FR et analyse comparative."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.db import SessionLocal, get_session
-from app.models import Article, ArticleSearch, MeshDescriptor
+from app.models import Article, ArticleSearch
 from app.services import search_cancel
 from app.services.explainability import explain_article
 from app.services.usage_log import record_usage
@@ -61,11 +61,6 @@ class ArticleResult(BaseModel):
     explanation: ArticleExplanation
 
 
-class SearchResponse(BaseModel):
-    total: int
-    results: list[ArticleResult]
-
-
 def _to_result(
     row: Article, score: float | None = None, query: str | None = None
 ) -> ArticleResult:
@@ -97,96 +92,6 @@ def _to_result(
             study_type=explanation.study_type,
         ),
     )
-
-
-@router.get("/search/mesh", response_model=SearchResponse)
-def search_mesh(
-    request: Request,
-    session: Session = Depends(get_session),
-    mesh: list[str] = Query(default=[], description="tags MeSH (répétable)"),
-    q: str | None = Query(default=None, description="texte libre (plein-texte)"),
-    mode: Literal["and", "or"] = Query(default="or", description="ET = tous les tags, OU = au moins un"),
-    year_from: int | None = None,
-    year_to: int | None = None,
-    evidence_max: int | None = Query(default=None, ge=1, le=4),
-    limit: int = Query(default=20, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
-):
-    """Recherche par tags MeSH (ET/OU) + filtres, optionnellement croisée au plein-texte."""
-    record_usage(
-        request,
-        "search.mesh",
-        query=q,
-        params={"mesh": mesh, "mode": mode, "year_from": year_from, "year_to": year_to},
-    )
-    conditions = []
-    if mesh:
-        conditions.append(
-            Article.mesh_terms.contains(mesh) if mode == "and" else Article.mesh_terms.overlap(mesh)
-        )
-    tsquery = None
-    if q:
-        tsquery = func.websearch_to_tsquery("english", q)
-        conditions.append(Article.fts.op("@@")(tsquery))
-    if year_from is not None:
-        conditions.append(Article.pub_year >= year_from)
-    if year_to is not None:
-        conditions.append(Article.pub_year <= year_to)
-    if evidence_max is not None:
-        conditions.append(Article.evidence_level <= evidence_max)
-
-    total = session.scalar(select(func.count()).select_from(Article).where(*conditions)) or 0
-
-    stmt = select(Article).where(*conditions)
-    if tsquery is not None:
-        stmt = stmt.order_by(func.ts_rank(Article.fts, tsquery).desc())
-    else:
-        stmt = stmt.order_by(Article.pub_year.desc().nulls_last(), Article.pmid.desc())
-    stmt = stmt.limit(limit).offset(offset)
-
-    rows = session.scalars(stmt).all()
-    return SearchResponse(total=total, results=[_to_result(r, query=q) for r in rows])
-
-
-@router.get("/search", response_model=SearchResponse)
-def search_fulltext(
-    request: Request,
-    session: Session = Depends(get_session),
-    q: str = Query(..., min_length=1, description="requête plein-texte"),
-    limit: int = Query(default=20, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
-):
-    """Recherche plein-texte classée par pertinence (ts_rank).
-
-    Sera étendue en recherche hybride (plein-texte + sémantique, fusion RRF)
-    à l'étape C, une fois les embeddings disponibles.
-    """
-    record_usage(request, "search.fulltext", query=q)
-    tsquery = func.websearch_to_tsquery("english", q)
-    cond = Article.fts.op("@@")(tsquery)
-    total = session.scalar(select(func.count()).select_from(Article).where(cond)) or 0
-    rank = func.ts_rank(Article.fts, tsquery)
-    stmt = select(Article, rank).where(cond).order_by(rank.desc()).limit(limit).offset(offset)
-    rows = session.execute(stmt).all()
-    return SearchResponse(
-        total=total, results=[_to_result(a, float(s), query=q) for a, s in rows]
-    )
-
-
-@router.get("/mesh/autocomplete")
-def mesh_autocomplete(
-    session: Session = Depends(get_session),
-    q: str = Query(..., min_length=1),
-    limit: int = Query(default=10, ge=1, le=50),
-) -> list[str]:
-    """Suggestions de descripteurs MeSH par préfixe (insensible à la casse)."""
-    stmt = (
-        select(MeshDescriptor.name)
-        .where(func.lower(MeshDescriptor.name).like(f"{q.lower()}%"))
-        .order_by(MeshDescriptor.name)
-        .limit(limit)
-    )
-    return list(session.scalars(stmt).all())
 
 
 @router.get("/articles/{pmid}", response_model=ArticleResult)
