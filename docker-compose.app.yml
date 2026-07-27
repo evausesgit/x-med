@@ -40,6 +40,16 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    # Alias DNS STABLE `appdb`, prod comme preview. Coolify renomme les
+    # services des previews (db → db-pr-N : le nom `db` disparaît du DNS)
+    # mais préserve les alias utilisateur, et chaque preview a son réseau
+    # `default` isolé — pas de collision d'alias entre environnements.
+    # Tous les services listent `default` EXPLICITEMENT : Coolify ne rattache
+    # que son réseau de stack aux services sans clé `networks`, et un alias
+    # ne vit que sur le réseau où il est déclaré.
+    networks:
+      default:
+        aliases: [appdb]
 
   # One-shot : seed + migrations de la base app (voir le contrat complet dans
   # scripts/bootstrap_app_db.py). Sort en 0 = base prête ; sinon la stack ne
@@ -55,10 +65,11 @@ services:
         condition: service_healthy
     environment:
       # Credentials ADMIN : l'init est le seul service à les voir.
-      # ${SERVICE_NAME_DB} : injectée par Coolify — `db` en prod, `db-pr-N` en
-      # preview (Coolify RENOMME les services des previews, le DNS `db` n'y
-      # existe pas). Le repli `:-db` garde le compose utilisable hors Coolify.
-      DATABASE_URL: postgresql+psycopg://xmed_admin:${SERVICE_PASSWORD_APPDBADMIN}@${SERVICE_NAME_DB:-db}:5432/xmed_app
+      # Hôte `appdb` = ALIAS réseau explicite du service db (voir sa section
+      # networks) : Coolify renomme les services des previews (db → db-pr-N,
+      # le DNS `db` n'y existe plus) mais préserve les alias utilisateur, et
+      # chaque preview a son réseau isolé — l'alias y est sans collision.
+      DATABASE_URL: postgresql+psycopg://xmed_admin:${SERVICE_PASSWORD_APPDBADMIN}@appdb:5432/xmed_app
       # Rôle applicatif créé/réaligné par l'init (grants DML rejoués après
       # chaque restore) — c'est l'identité que l'API utilise.
       APP_RUNTIME_PASSWORD: ${SERVICE_PASSWORD_APPDBRUNTIME:?mot de passe du rôle runtime}
@@ -77,6 +88,8 @@ services:
         source: ${SEED_DIR}
         target: /seed
         read_only: true
+    networks:
+      - default
 
   api:
     build:
@@ -91,8 +104,8 @@ services:
         condition: service_completed_successfully
     environment:
       # Rôle runtime (DML sur les 7 tables, AUCUN DDL) — jamais l'admin.
-      # Même mécanique ${SERVICE_NAME_DB} que l'init (cf. commentaire là-bas).
-      DATABASE_URL: postgresql+psycopg://xmed_app_runtime:${SERVICE_PASSWORD_APPDBRUNTIME}@${SERVICE_NAME_DB:-db}:5432/xmed_app
+      # Même alias `appdb` que l'init (cf. service db).
+      DATABASE_URL: postgresql+psycopg://xmed_app_runtime:${SERVICE_PASSWORD_APPDBRUNTIME}@appdb:5432/xmed_app
       # Corpus via le réseau externe (alias stable corpus-db). Rôle lecture
       # seule : xmed_api_ro en prod, xmed_preview_ro en preview (variable
       # scopée Coolify) — cf. scripts/create_corpus_roles.sql.
@@ -113,18 +126,21 @@ services:
         source: ${CODEX_AUTH_DIR}
         target: /home/api/.codex
     networks:
-      - default
-      - corpus-access
+      # Alias stable `api-internal` : cible des rewrites Next du web (figés
+      # au build) — même mécanique que l'alias appdb du service db.
+      default:
+        aliases: [api-internal]
+      corpus-access: {}
 
   web:
     build:
       context: ./web
       dockerfile: Dockerfile
       args:
-        # Rewrites Next figés au build : en preview l'API s'appelle
-        # `api-pr-N` (services renommés par Coolify), d'où le build-arg
-        # interpolé au lieu du littéral http://api:8800.
-        API_INTERNAL_URL: http://${SERVICE_NAME_API:-api}:8800
+        # Rewrites Next figés au build : `api-internal` est l'alias réseau
+        # explicite du service api (stable en prod comme en preview, où
+        # Coolify renomme les services mais préserve les alias utilisateur).
+        API_INTERNAL_URL: http://api-internal:8800
     restart: unless-stopped
     # api a un healthcheck HTTP dans son image (curl /health) : `healthy`
     # garantit que les rewrites /api/* du front trouvent une API qui répond.
@@ -135,6 +151,8 @@ services:
       # Allowlist de comptes Google (web/proxy.ts). ⚠️ VIDE = tout compte
       # Google accepté — la renseigner partout où la stack est exposée.
       XMED_ALLOWED_EMAILS: ${XMED_ALLOWED_EMAILS:-}
+    networks:
+      - default
     # Port interne 3000 (next start) — c'est LUI que Coolify route ; seul
     # service avec un domaine.
 
