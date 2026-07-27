@@ -249,7 +249,12 @@ restreindre l'exposition du `5432` corpus (réseau dédié ou bind `10.0.1.1` + 
   Reste post-bascule (rodage quelques jours puis) : décommissionner
   front+API monolithiques, retirer le port hôte `8800`, fermer le `5432`
   public du corpus, `RUN_MIGRATIONS_ON_BOOT=0` par défaut, copie hors
-  machine des backups. FAIT le soir même : previews du front monolithique
+  machine des backups. FAIT aussi le soir même (validé commande par commande
+  avec Codex) : x-med-db-1 recréée via `docker compose up -d --no-deps db` →
+  l'appartenance au réseau `xmed-corpus-access` (alias `corpus-db`) est
+  désormais déclarative et survit aux recréations ; volume nommé
+  `x-med_pgdata` rattaché tel quel (25,08 M articles, zéro migration),
+  alias re-résolu et SELECT ro vérifiés depuis l'API de la stack. FAIT le soir même : previews du front monolithique
   désactivées (application_settings) ; cron de backup repointé sur la base
   app du compose (`--allow-unversioned` retiré, dump versionné `app0001`,
   conteneur résolu dynamiquement en excluant les `-pr-N`, sonde SQLAlchemy
