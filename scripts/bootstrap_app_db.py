@@ -125,7 +125,7 @@ def _read_env() -> tuple[str, str, Path, str]:
         "pull/" in os.environ.get("COOLIFY_BRANCH", ""),
     )
     if mode == "production" and any(pr_markers):
-        log(
+        _log(
             "contexte PR détecté (SERVICE_NAME_INIT/COOLIFY_BRANCH) alors que "
             "XMED_DEPLOYMENT_MODE=production — mode FORCÉ à preview (fail-safe)"
         )
