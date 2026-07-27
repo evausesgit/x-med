@@ -43,8 +43,8 @@ services:
     # l'API de la stack `x-med-app` (et ses previews) joint cette base en lecture
     # seule via l'alias DNS stable `corpus-db`. Déclaré ici pour SURVIVRE à une
     # recréation du conteneur — le `docker network connect` fait à la main ne
-    # persiste pas. Appliquer via `docker compose up -d db` (recrée le conteneur,
-    # à faire dans un creux) ; en attendant, la connexion manuelle reste active.
+    # persiste pas. APPLIQUÉ le 2026-07-27 (`docker compose up -d --no-deps db`,
+    # volume nommé rattaché tel quel, alias vérifié depuis l'API post-recréation).
     networks:
       default: {}
       corpus-access:
