@@ -55,7 +55,10 @@ services:
         condition: service_healthy
     environment:
       # Credentials ADMIN : l'init est le seul service à les voir.
-      DATABASE_URL: postgresql+psycopg://xmed_admin:${SERVICE_PASSWORD_APPDBADMIN}@db:5432/xmed_app
+      # ${SERVICE_NAME_DB} : injectée par Coolify — `db` en prod, `db-pr-N` en
+      # preview (Coolify RENOMME les services des previews, le DNS `db` n'y
+      # existe pas). Le repli `:-db` garde le compose utilisable hors Coolify.
+      DATABASE_URL: postgresql+psycopg://xmed_admin:${SERVICE_PASSWORD_APPDBADMIN}@${SERVICE_NAME_DB:-db}:5432/xmed_app
       # Rôle applicatif créé/réaligné par l'init (grants DML rejoués après
       # chaque restore) — c'est l'identité que l'API utilise.
       APP_RUNTIME_PASSWORD: ${SERVICE_PASSWORD_APPDBRUNTIME:?mot de passe du rôle runtime}
@@ -88,7 +91,8 @@ services:
         condition: service_completed_successfully
     environment:
       # Rôle runtime (DML sur les 7 tables, AUCUN DDL) — jamais l'admin.
-      DATABASE_URL: postgresql+psycopg://xmed_app_runtime:${SERVICE_PASSWORD_APPDBRUNTIME}@db:5432/xmed_app
+      # Même mécanique ${SERVICE_NAME_DB} que l'init (cf. commentaire là-bas).
+      DATABASE_URL: postgresql+psycopg://xmed_app_runtime:${SERVICE_PASSWORD_APPDBRUNTIME}@${SERVICE_NAME_DB:-db}:5432/xmed_app
       # Corpus via le réseau externe (alias stable corpus-db). Rôle lecture
       # seule : xmed_api_ro en prod, xmed_preview_ro en preview (variable
       # scopée Coolify) — cf. scripts/create_corpus_roles.sql.
@@ -116,6 +120,11 @@ services:
     build:
       context: ./web
       dockerfile: Dockerfile
+      args:
+        # Rewrites Next figés au build : en preview l'API s'appelle
+        # `api-pr-N` (services renommés par Coolify), d'où le build-arg
+        # interpolé au lieu du littéral http://api:8800.
+        API_INTERNAL_URL: http://${SERVICE_NAME_API:-api}:8800
     restart: unless-stopped
     # api a un healthcheck HTTP dans son image (curl /health) : `healthy`
     # garantit que les rewrites /api/* du front trouvent une API qui répond.

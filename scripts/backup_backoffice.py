@@ -55,6 +55,17 @@ VERSION_TABLE = "alembic_version_app"
 MANIFEST_NAME = "latest.json"
 LOCK_NAME = ".backup.lock"
 
+# Tables de la base source qui ne sont PAS à dumper mais dont la présence est
+# légitime : le corpus (tant que la source est la base monolithique) et les
+# tables de version. Toute table de `public` hors de ces listes fait ÉCHOUER le
+# backup : une migration qui ajoute une table backoffice sans mettre à jour
+# BACKOFFICE_TABLES produirait sinon, en silence, des dumps troués (seed des
+# previews ET backup de prod). Après la bascule (source = base app dédiée), le
+# dump passera en base entière et ce garde-fou avec ces listes disparaîtra.
+KNOWN_FOREIGN_TABLES = frozenset(
+    {"articles", "article_search", "mesh_descriptors", "ftp_state", "alembic_version"}
+)
+
 
 class BackupError(RuntimeError):
     """Échec de sauvegarde — message destiné à l'opérateur (ou au cron)."""
@@ -113,6 +124,26 @@ def _probe_database(
                 revision = conn.execute(
                     text(f"SELECT version_num FROM public.{VERSION_TABLE}")
                 ).scalar()
+            # Garde anti-dérive : aucune table inconnue ne doit exister dans la
+            # source — mieux vaut un backup qui échoue bruyamment qu'un dump
+            # troué qui a l'air complet.
+            present = {
+                r[0]
+                for r in conn.execute(
+                    text(
+                        "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
+                    )
+                )
+            }
+            unknown = present - set(BACKOFFICE_TABLES) - KNOWN_FOREIGN_TABLES - {VERSION_TABLE}
+            if unknown:
+                raise BackupError(
+                    "table(s) inconnue(s) dans la base source : "
+                    f"{', '.join(sorted(unknown))}. Classer chaque table : "
+                    "backoffice → l'ajouter à BACKOFFICE_TABLES (et penser au "
+                    "GRANT du rôle runtime dans bootstrap_app_db.py) ; corpus/"
+                    "outillage → l'ajouter à KNOWN_FOREIGN_TABLES."
+                )
     except SQLAlchemyError as exc:
         cause = str(getattr(exc, "orig", None) or exc).strip().splitlines()[-1]
         raise BackupError(f"base injoignable ({cause})") from exc
