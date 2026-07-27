@@ -38,7 +38,7 @@ backoffice, vérifié (`pg_restore --list`, comptes : 3 doctors, 43 saved_search
 | 1 | Frontière figée + backup + rôles SQL | ✅ (rôles créés et prouvés à l'étape 9) | dump ci-dessus |
 | 2 | Split runtime : deux moteurs, sessions routées | ✅ | [PR #45](https://github.com/evausesgit/x-med/pull/45) |
 | 3 | Historique Alembic app (`alembic_version_app`, baseline 7 tables) | ✅ | PR 2 |
-| 4 | Script de seed durci (dump quotidien → prod backup + seed previews) | 🔶 script + cron (4h30, crontab jack) faits ; reste la copie hors machine | PR 2 |
+| 4 | Script de seed durci (dump quotidien → prod backup + seed previews) | 🔶 script + cron (4h30, crontab jack) faits, **repointé sur la base app compose post-bascule** (dump versionné app0001, résolution dynamique du conteneur, IP Docker pour la sonde) ; reste la copie hors machine | PR 2 |
 | 5 | Images : Dockerfile web (npm), CMD API sans migrations, target `init` | ✅ | PR 3 |
 | 6 | Compose app : db (volume nommé sans `name:`) + init + api + web | ✅ | PR 3 |
 | 7 | Init bi-mode (`XMED_DEPLOYMENT_MODE=production\|preview`) | ✅ | PR 3 |
@@ -248,6 +248,9 @@ restreindre l'exposition du `5432` corpus (réseau dédié ou bind `10.0.1.1` + 
   prochain merge ; l'ingestion corpus continue via `x-med-worker` (intouché).
   Reste post-bascule (rodage quelques jours puis) : décommissionner
   front+API monolithiques, retirer le port hôte `8800`, fermer le `5432`
-  public du corpus, désactiver les previews du front monolithique, pointer le
-  cron de backup sur la nouvelle base app (et retirer `--allow-unversioned`),
-  `RUN_MIGRATIONS_ON_BOOT=0` par défaut, copie hors machine des backups.
+  public du corpus, `RUN_MIGRATIONS_ON_BOOT=0` par défaut, copie hors
+  machine des backups. FAIT le soir même : previews du front monolithique
+  désactivées (application_settings) ; cron de backup repointé sur la base
+  app du compose (`--allow-unversioned` retiré, dump versionné `app0001`,
+  conteneur résolu dynamiquement en excluant les `-pr-N`, sonde SQLAlchemy
+  via l'IP Docker car la db ne publie aucun port — testé en réel).
