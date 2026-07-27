@@ -112,6 +112,25 @@ def _read_env() -> tuple[str, str, Path, str]:
             f"{' ou '.join(repr(m) for m in VALID_MODES)}."
         )
 
+    # FAIL-SAFE preview : le parser Coolify résout les ${VAR} du bloc
+    # `environment` avec les valeurs du scope PRODUCTION et les fige dans le
+    # compose généré — y compris pour les previews (constaté sur cette
+    # instance : XMED_DEPLOYMENT_MODE=production écrit en dur dans
+    # docker-compose-pr-N.yaml). On détecte donc le contexte PR par les
+    # variables que Coolify pose correctement PAR déploiement, et on force le
+    # mode preview : une preview ne doit JAMAIS tourner en mode production
+    # (elle marquerait sa base persistante comme bootstrapée définitive).
+    pr_markers = (
+        "-pr-" in os.environ.get("SERVICE_NAME_INIT", ""),
+        "pull/" in os.environ.get("COOLIFY_BRANCH", ""),
+    )
+    if mode == "production" and any(pr_markers):
+        log(
+            "contexte PR détecté (SERVICE_NAME_INIT/COOLIFY_BRANCH) alors que "
+            "XMED_DEPLOYMENT_MODE=production — mode FORCÉ à preview (fail-safe)"
+        )
+        mode = "preview"
+
     seed_dir = os.environ.get("SEED_DIR")
     if not seed_dir:
         raise BootstrapError("SEED_DIR manquante (répertoire du seed, monté :ro).")
