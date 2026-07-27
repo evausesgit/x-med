@@ -51,9 +51,15 @@ COPY --from=build --chown=node:node /app/.next ./.next
 COPY --from=build --chown=node:node /app/public ./public
 COPY --chown=node:node package.json next.config.ts tsconfig.json proxy.ts ./
 
+# Garde d'isolation fail-closed : refuse de démarrer si l'hôte API figé au
+# build ne correspond pas au SERVICE_NAME_API du déploiement courant (nom
+# distinct de /usr/local/bin/docker-entrypoint.sh, déjà pris par l'image node).
+COPY --chmod=755 docker-entrypoint-xmed.sh /usr/local/bin/docker-entrypoint-xmed.sh
+
 # Utilisateur non-root fourni par l'image node (uid 1000).
 USER node
 
 EXPOSE 3000
 
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint-xmed.sh"]
 CMD ["npm", "run", "start"]

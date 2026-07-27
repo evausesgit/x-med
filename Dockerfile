@@ -108,15 +108,11 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
 # migrations app et l'API ne touche jamais au schéma.
 ENV RUN_MIGRATIONS_ON_BOOT=1
 
-# Résolution runtime de l'hôte db (previews Coolify : le service s'appelle
-# db-pr-N, SERVICE_NAME_DB porte le bon nom par déploiement — même mécanique
-# que scripts/bootstrap_app_db.py, voir le commentaire là-bas). La
-# substitution ne touche que l'hôte exact `@db:` ; hors Coolify, la variable
-# est absente et l'URL reste telle quelle.
+# La résolution runtime de l'hôte db (previews Coolify : db-pr-N) et la
+# validation d'identité api ↔ db vivent dans app/runtime_env.py, exécutées à
+# l'import de app.db — PAS dans ce CMD : une substitution shell ici serait
+# contournée par `docker compose exec` ou une Scheduled Task, qui ne passent
+# pas par le CMD mais importent bien app.db.
 CMD ["sh", "-c", "\
-  if [ -n \"${SERVICE_NAME_DB:-}\" ] && [ \"$SERVICE_NAME_DB\" != db ]; then \
-    DATABASE_URL=$(printf %s \"$DATABASE_URL\" | sed \"s|@db:|@${SERVICE_NAME_DB}:|\"); \
-    export DATABASE_URL; \
-  fi \
-  && if [ \"${RUN_MIGRATIONS_ON_BOOT:-1}\" = \"1\" ]; then alembic upgrade head; fi \
+  if [ \"${RUN_MIGRATIONS_ON_BOOT:-1}\" = \"1\" ]; then alembic upgrade head; fi \
   && exec uvicorn app.main:app --host 0.0.0.0 --port 8800"]
