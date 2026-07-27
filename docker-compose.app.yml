@@ -74,11 +74,14 @@ services:
       # Dumps produits par scripts/backup_backoffice.py (latest.json + .dump).
       # Lecture seule : l'init LIT un fichier, il ne porte aucun credential
       # vers la base source.
-      # Syntaxe longue OBLIGATOIRE : le validateur Coolify refuse `${VAR}` dans
-      # les volumes en syntaxe courte, mais le whitelist en syntaxe longue
-      # (source `${VAR}` nue — pas de `:?`, seul `:-` est toléré).
+      # Chemin LITTÉRAL obligatoire : Coolify fait un `mkdir -p` sur la
+      # source brute du bind — une source `${VAR}` suffixée `-pr-N` en
+      # preview devient `-pr-N` non expandé et crashe le job de déploiement
+      # (zombie sans logs, constaté 2026-07-27). En preview la source est
+      # suffixée `-pr-N` : le pool de symlinks ~/backups/xmed-pr-* → xmed
+      # (entretenu par scripts/backup_backoffice_cron.sh) la résout.
       - type: bind
-        source: ${SEED_DIR}
+        source: /home/jack/backups/xmed
         target: /seed
         read_only: true
 
@@ -110,12 +113,14 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
     volumes:
-      # Auth du CLI codex. En preview : dossier VIDE (codex échoue → la
-      # recherche dégrade proprement via ses chemins de repli) — jamais
-      # d'auth prod en preview.
-      # Syntaxe longue : même contrainte Coolify que le seed de l'init.
+      # Auth du CLI codex — chemin LITTÉRAL (même contrainte mkdir que le
+      # seed). ISOLATION PREVIEW PAR CONSTRUCTION : Coolify suffixe la
+      # source en `-pr-N` → /home/geekette/.codex-pr-N, dossier VIDE
+      # auto-créé — une preview ne voit jamais l'auth prod, sans dépendre
+      # du scoping preview des variables (inopérant, cf. tracker). codex
+      # sans auth → la recherche dégrade proprement (chemins de repli).
       - type: bind
-        source: ${CODEX_AUTH_DIR}
+        source: /home/geekette/.codex
         target: /home/api/.codex
     networks:
       # UNIQUEMENT le réseau corpus (externe, partagé À DESSEIN : lecture
