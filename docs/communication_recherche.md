@@ -142,3 +142,4 @@ La principale inquiétude sur les performances de la recherche locale est **lev�
 problème venait d'un timeout, pas du moteur de recherche. Les efforts se concentrent
 désormais sur la **robustesse**, l'**expérience utilisateur**, la **scalabilité** et
 l'**industrialisation du déploiement dans Coolify**.
+— MR jetable —
