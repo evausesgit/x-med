@@ -142,7 +142,31 @@ def _read_env() -> tuple[str, str, Path, str]:
             "celui que l'API utilise)."
         )
 
-    return _sqlalchemy_url(url), mode, Path(seed_dir), runtime_password
+    return _resolve_db_host(_sqlalchemy_url(url)), mode, Path(seed_dir), runtime_password
+
+
+def _resolve_db_host(url: str) -> str:
+    """Hôte du service db résolu AU RUNTIME via SERVICE_NAME_DB (Coolify).
+
+    Coolify renomme les services des previews (db → db-pr-N) : le nom `db` du
+    compose n'existe pas dans leur DNS. SERVICE_NAME_DB, injectée par Coolify
+    dans CHAQUE conteneur avec la valeur du déploiement courant (db en prod,
+    db-pr-N en preview), est la seule source fiable — les variables du bloc
+    `environment` du compose sont figées côté prod par le parser, et un alias
+    réseau partagé ferait résoudre le même nom vers les deux bases (incident
+    du 2026-07-27). Hors Coolify (compose local), SERVICE_NAME_DB est absente
+    et l'URL reste inchangée.
+    """
+    service = os.environ.get("SERVICE_NAME_DB")
+    if not service or service == "db":
+        return url
+    from sqlalchemy.engine import make_url
+
+    parsed = make_url(url)
+    if parsed.host != "db":
+        return url
+    _log(f"hôte db résolu au runtime : db → {service} (SERVICE_NAME_DB)")
+    return parsed.set(host=service).render_as_string(hide_password=False)
 
 
 # ---------------------------------------------------------------------------
