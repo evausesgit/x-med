@@ -19,7 +19,10 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-ENV API_INTERNAL_URL=http://api:8800 \
+# Build-arg (défaut prod/local) : le compose le surcharge en preview où le
+# service s'appelle `api-pr-N` — cf. docker-compose.app.yml service web.
+ARG API_INTERNAL_URL=http://api:8800
+ENV API_INTERNAL_URL=${API_INTERNAL_URL} \
     NEXT_TELEMETRY_DISABLED=1
 
 COPY . .
@@ -33,9 +36,12 @@ FROM node:22-bookworm-slim
 
 WORKDIR /app
 
+# Le runtime reprend le même build-arg : `next start` recharge next.config.ts,
+# la valeur doit être cohérente avec celle figée au build.
+ARG API_INTERNAL_URL=http://api:8800
 ENV NODE_ENV=production \
     PORT=3000 \
-    API_INTERNAL_URL=http://api:8800 \
+    API_INTERNAL_URL=${API_INTERNAL_URL} \
     NEXT_TELEMETRY_DISABLED=1
 
 # --chown=node:node sur ce que le serveur Next doit pouvoir écrire au
