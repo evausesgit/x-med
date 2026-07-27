@@ -475,6 +475,9 @@ export default function Home() {
     setQ(run.query);
     if (run.date_from) setDateFrom(run.date_from);
     if (run.date_to) setDateTo(run.date_to);
+    // L'URL reflète le run auquel on se raccroche : un reload retombe sur la
+    // même question (pré-remplie, jamais relancée — cf. effet de montage).
+    syncUrl(run.query, run.date_from ?? undefined, run.date_to ?? undefined);
     setError(null);
     setDeep(null);
     setSavedHit(null);
@@ -630,12 +633,16 @@ export default function Home() {
     setAlgo(v);
   }
 
-  // Une URL ?q= lance la recherche au chargement — avec les valeurs EXPLICITES
-  // de l'URL, pas l'état React (l'ancien enchaînement setQ → effet [q]
-  // s'exécutait avec la closure du premier rendu, donc q encore vide, et
-  // l'autorun ne partait jamais). Le ref reste vrai : il signale à l'effet
-  // historique de ne pas raccrocher un ancien run par-dessus ce lancement.
-  const autorun = useRef(false);
+  // Une URL ?q= PRÉ-REMPLIT sans JAMAIS lancer : seule action utilisateur
+  // (bouton « Explorer ») déclenche une recherche. L'ancien autorun relançait
+  // une recherche complète à chaque rechargement de la page (l'URL porte la
+  // question après un lancement) — tempête de 409/requêtes qui a épuisé le
+  // pool de connexions de l'API le 2026-07-27. À la place :
+  // 1. s'il y a un run ACTIF → raccrochage (prioritaire) : la question, les
+  //    dates et le déroulé reviennent, et l'URL est resynchronisée dessus ;
+  // 2. sinon, si la question de l'URL correspond à une recherche sauvegardée
+  //    → on réaffiche le snapshot (aucun appel codex) ;
+  // 3. sinon, input pré-rempli, à l'utilisateur de cliquer.
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
     const query = sp.get("q");
@@ -643,26 +650,33 @@ export default function Home() {
     const to = sp.get("to");
     if (from) setDateFrom(from);
     if (to) setDateTo(to);
-    if (query) {
-      setQ(query);
-      autorun.current = true;
-      void runSearch({
-        query,
-        dateFrom: from ?? undefined,
-        dateTo: to ?? undefined,
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Au chargement : historique du compte + raccrochage à la recherche en
-  // cours s'il y en a une (lancée ici même ou dans un autre onglet). L'autorun
-  // d'une URL ?q= garde la priorité — son 409 éventuel nous raccrochera.
-  useEffect(() => {
+    if (query) setQ(query);
     void (async () => {
+      // Un clic « Explorer » AVANT la fin de ces fetchs garde la priorité :
+      // il incrémente runIdRef, et tout ce qui suit un await devient no-op.
+      const mountRunId = runIdRef.current;
+      const fresh = () =>
+        mountedRef.current && runIdRef.current === mountRunId;
       const h = await refreshHistory();
-      if (!mountedRef.current || !h) return;
-      if (h.current && !autorun.current) attachRun(h.current);
+      if (!fresh()) return;
+      if (h?.current) {
+        attachRun(h.current);
+        return;
+      }
+      if (!query) return;
+      try {
+        const existing = await lookupSavedSearch({
+          query: query.trim(),
+          date_from: from ?? undefined,
+          date_to: to ?? undefined,
+        });
+        if (fresh() && existing) {
+          setDeep(existing.payload);
+          setSavedHit({ id: existing.id, created_at: existing.created_at });
+        }
+      } catch {
+        /* best-effort : sans snapshot, l'input pré-rempli suffit */
+      }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -700,8 +714,9 @@ export default function Home() {
     }
   }
 
-  // `opts.query`/`dateFrom`/`dateTo` : valeurs explicites pour les lancements
-  // qui ne peuvent pas lire l'état React (autorun ?q= au premier rendu).
+  // `opts.query`/`dateFrom`/`dateTo` : valeurs explicites pour les appels qui
+  // ne peuvent pas lire l'état React à jour (ex. relance depuis un handler).
+  // Seul déclencheur : une action utilisateur — jamais un chargement de page.
   async function runSearch(
     opts: { force?: boolean; query?: string; dateFrom?: string; dateTo?: string } = {},
   ) {
