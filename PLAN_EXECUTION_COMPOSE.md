@@ -43,7 +43,7 @@ backoffice, vérifié (`pg_restore --list`, comptes : 3 doctors, 43 saved_search
 | 6 | Compose app : db (volume nommé sans `name:`) + init + api + web | ✅ | PR 3 |
 | 7 | Init bi-mode (`XMED_DEPLOYMENT_MODE=production\|preview`) | ✅ | PR 3 |
 | 8 | Validation locale des deux modes (checklist ci-dessous) | ✅ déroulée en réel | PR 3 |
-| 9 | Ressource Coolify + previews + MR jetable de recette + Firebase auto | ⬜ | |
+| 9 | Ressource Coolify + previews + MR jetable de recette + Firebase auto | 🔶 ressource en ligne ([next.x-med.ia-do-it.com](https://next.x-med.ia-do-it.com)) ; recette previews en cours | |
 | 10 | Bascule prod (domaine temporaire → copie finale → bascule Traefik) | ⬜ supervisée | |
 
 ### Détail de ce qui reste par étape
@@ -139,3 +139,21 @@ restreindre l'exposition du `5432` corpus (réseau dédié ou bind `10.0.1.1` + 
   ⚠️ Observation pour l'étape 9 : sur un REdéploiement dont l'init échoue, api/web
   déjà lancés continuent sur l'ancienne version (le blocage total ne vaut qu'au
   premier déploiement) — comportement Coolify à valider sur la MR jetable.
+- **2026-07-27** — Étape 9, ressource en ligne : compose `x-med-app` créé dans
+  Coolify (uuid `oy7orijsvx37277mtq8incqo`), domaine `next.x-med.ia-do-it.com`
+  (TLS Let's Encrypt, wildcard DNS existant, domaine autorisé Firebase — **login
+  Google validé par l'utilisateur**). Seed prod restauré (3/43/986), init re-run
+  prouvé à chaque redéploiement (« marqueur présent : migrations seules »),
+  recherche PubMed+IA réelle réussie de bout en bout (builder+judge codex, 4
+  résultats). Rôles `xmed_api_ro`/`xmed_preview_ro` créés et prouvés (SELECT
+  corpus OK, DELETE refusé, backoffice invisible) ; réseau `xmed-corpus-access`
+  actif (alias `corpus-db`) ; API sous `xmed_app_runtime`. Pièges Coolify
+  résolus : volumes `${VAR}` refusés en syntaxe courte → syntaxe longue (PR #49) ;
+  suffixe `-pr-N` des binds en preview → désactivé pour `${SEED_DIR}`
+  (`local_file_volumes.is_preview_suffix_enabled=false`) ; template d'URL preview
+  forcé à `{{pr_id}}.x-med.ia-do-it.com` (le défaut `{{pr_id}}.{{domain}}` aurait
+  donné 2 niveaux sous le wildcard DNS). ⚠️ La #47 avait été mergée dans sa
+  branche de base (`gh pr edit --base` échoué silencieusement) — relivrée sur
+  main par la #48. Secrets : `~/.config/xmed/{appdb-admin,appdb-runtime,
+  corpus-api-ro,corpus-preview-ro}-password`. Cette PR-ci sert de MR jetable de
+  recette du cycle preview.
