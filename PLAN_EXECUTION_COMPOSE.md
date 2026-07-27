@@ -44,7 +44,7 @@ backoffice, vérifié (`pg_restore --list`, comptes : 3 doctors, 43 saved_search
 | 7 | Init bi-mode (`XMED_DEPLOYMENT_MODE=production\|preview`) | ✅ | PR 3 |
 | 8 | Validation locale des deux modes (checklist ci-dessous) | ✅ déroulée en réel | PR 3 |
 | 9 | Ressource Coolify + previews + MR jetable de recette + Firebase auto | ✅ recette complète (MR #53/#54) | |
-| 10 | Bascule prod (domaine temporaire → copie finale → bascule Traefik) | ⬜ supervisée | |
+| 10 | Bascule prod (domaine temporaire → copie finale → bascule Traefik) | ✅ 2026-07-27 20:47 UTC | journal |
 
 ### Détail de ce qui reste par étape
 
@@ -220,3 +220,34 @@ restreindre l'exposition du `5432` corpus (réseau dédié ou bind `10.0.1.1` + 
   3 échecs de build de l'API monolithique sur un 403 transitoire du CDN
   NodeSource — retry passé, zéro impact (l'ancien conteneur servait).
   Optionnel restant : rendre les checks bloquants (protection de branche).
+- **2026-07-27 20:31–20:47 UTC — ÉTAPE 10 : BASCULE PROD FAITE.**
+  `https://x-med.ia-do-it.com` est servi par la stack compose unifiée
+  (ressource `x-med-app`), `next.x-med` reste en alias. Séquence exécutée :
+  arrêt de l'API monolithique (gel des écritures) → dump final
+  `backoffice_2026-07-27_203226_351076.dump` (comptes de référence :
+  3/3/43/11/2/27/1004) → `DROP DATABASE xmed_app` sur la db de la NOUVELLE
+  stack → redeploy → **piège découvert** : en mode production l'init suppose
+  la base EXISTANTE (créée par l'entrypoint Postgres sur volume neuf) ; après
+  un DROP sur volume existant il faut `CREATE DATABASE xmed_app OWNER
+  xmed_admin TEMPLATE template0` à la main avant de relancer l'init (c'est la
+  procédure de réparation documentée dans le script, ligne ~673) → bootstrap
+  OK (restore + stamp app0001 + upgrade head + rôle runtime + marqueur) →
+  comptes vérifiés IDENTIQUES à la référence, `usage_events_id_seq` cohérente
+  (nextval > max(id), les autres PK sont des UUID) → bascule domaine dans
+  l'ordre Codex (jamais deux revendiquants) : arrêt de l'ancien front, fqdn
+  effacé (`PATCH {"domains": ""}`), domaines posés sur le service `web`
+  (`PATCH {"docker_compose_domains": [{"name": "web", "domain": "https://…,…"}]}`
+  — le format tableau nommé, pas l'objet renvoyé par le GET) → redeploy
+  (migrations seules, aucun re-restore, data intacte) → TLS valide, 307 →
+  /login → 200, 5 min de logs sans erreur. Zéro écriture sur x-med-db-1.
+  Rollback tant qu'on n'écrit pas dans la nouvelle base : redémarrer les
+  ressources `x-med-frontend`/`x-med-api` et leur rendre le domaine ; APRÈS
+  la première écriture, rollback = roll-forward (la nouvelle base app fait
+  foi). Auto-deploy DÉSACTIVÉ sur `x-med-frontend` et `x-med-api`
+  (application_settings, via coolify-db) pour empêcher leur résurrection au
+  prochain merge ; l'ingestion corpus continue via `x-med-worker` (intouché).
+  Reste post-bascule (rodage quelques jours puis) : décommissionner
+  front+API monolithiques, retirer le port hôte `8800`, fermer le `5432`
+  public du corpus, désactiver les previews du front monolithique, pointer le
+  cron de backup sur la nouvelle base app (et retirer `--allow-unversioned`),
+  `RUN_MIGRATIONS_ON_BOOT=0` par défaut, copie hors machine des backups.
