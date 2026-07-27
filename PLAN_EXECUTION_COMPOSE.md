@@ -39,10 +39,10 @@ backoffice, vérifié (`pg_restore --list`, comptes : 3 doctors, 43 saved_search
 | 2 | Split runtime : deux moteurs, sessions routées | ✅ | [PR #45](https://github.com/evausesgit/x-med/pull/45) |
 | 3 | Historique Alembic app (`alembic_version_app`, baseline 7 tables) | ✅ | PR 2 |
 | 4 | Script de seed durci (dump quotidien → prod backup + seed previews) | 🔶 script fait ; cron + copie hors machine → étape 9 | PR 2 |
-| 5 | Images : Dockerfile web (npm), CMD API sans migrations, target `init` | ⬜ PR 3 | |
-| 6 | Compose app : db (volume nommé sans `name:`) + init + api + web | ⬜ PR 3 | |
-| 7 | Init bi-mode (`XMED_DEPLOYMENT_MODE=production\|preview`) | ⬜ PR 3 | |
-| 8 | Validation locale des deux modes (checklist ci-dessous) | ⬜ PR 3 | |
+| 5 | Images : Dockerfile web (npm), CMD API sans migrations, target `init` | ✅ | PR 3 |
+| 6 | Compose app : db (volume nommé sans `name:`) + init + api + web | ✅ | PR 3 |
+| 7 | Init bi-mode (`XMED_DEPLOYMENT_MODE=production\|preview`) | ✅ | PR 3 |
+| 8 | Validation locale des deux modes (checklist ci-dessous) | ✅ déroulée en réel | PR 3 |
 | 9 | Ressource Coolify + previews + MR jetable de recette + Firebase auto | ⬜ | |
 | 10 | Bascule prod (domaine temporaire → copie finale → bascule Traefik) | ⬜ supervisée | |
 
@@ -84,6 +84,18 @@ prod), seed monté `:ro`, domaine sur `web` seul, automatisation Firebase (skill
 `firebase-preview-domains`). Recette sur MR jetable : ouvrir → seed+migrations →
 push → re-seed → fermer → **vérifier la destruction réelle des volumes**.
 
+Points ajoutés par la revue Codex de la PR 3 (à valider à cette étape) :
+- l'init doit être **recréé/réexécuté à chaque déploiement** (un one-shot inchangé
+  peut ne pas être relancé par `compose up` — nonce, `--force-recreate`, ou le
+  mécanisme Coolify équivalent + `exclude_from_hc`) — à PROUVER sur la MR jetable ;
+- rendre la connexion de `x-med-db-1` au réseau `xmed-corpus-access` **persistante**
+  (dans son docker-compose hôte, pas un `docker network connect` manuel qui saute
+  à la recréation du conteneur) ;
+- jouer `scripts/create_corpus_roles.sql` sur le corpus et brancher les URLs ro ;
+- planifier `scripts/backup_backoffice.py` (Scheduled Task) + copie hors machine ;
+- post-bascule : passer le défaut `RUN_MIGRATIONS_ON_BOOT` à 0 (opt-in explicite) et
+  épingler `python:3.12-slim` par digest.
+
 **Étape 10** — nouvelle stack sur domaine temporaire → tests complets → courte
 maintenance (gel des écritures ancien backend) → dump final → seed de la base app
 prod → vérifs (comptes, recherches, traductions) → bascule du domaine → ancienne
@@ -109,3 +121,21 @@ restreindre l'exposition du `5432` corpus (réseau dédié ou bind `10.0.1.1` + 
   dump non versionné (jamais de stamp opportuniste : marqueur `bootstrap_complete`
   posé après `upgrade head` seulement) → `upgrade head` ; révision inconnue =
   rebase imposé. Ne JAMAIS stamper `x-med-db-1`.
+- **2026-07-27** — PR 3 (étapes 5–8) : Dockerfile 3 stages (base/init/api — api en
+  dernier = cible par défaut, la prod monolithique Coolify continue de builder sans
+  --target ; migrations au boot gated `RUN_MIGRATIONS_ON_BOOT`, défaut 1 inchangé),
+  `web/Dockerfile` (npm, `API_INTERNAL_URL` posé avant build, non-root), compose app
+  (db/init/api/web, zéro port, volume sans `name:`, réseau `xmed-corpus-access`
+  external sur api seul), `scripts/bootstrap_app_db.py` (manifeste+sha256, preview
+  drop/recreate WITH FORCE à chaque run, prod sans stamp opportuniste, matrice
+  manifeste↔base, advisory lock, marqueur `xmed_ops` après upgrade seulement, rôle
+  `xmed_app_runtime` DML-only réaligné après chaque upgrade — l'API ne voit jamais
+  l'admin), `scripts/create_corpus_roles.sql` (livré, NON exécuté — étape 9).
+  Checklist étape 8 déroulée en réel : seed prod restauré (3/43/986), persistance
+  après down/up, re-seed preview, init cassé → api/web jamais démarrés, lecture
+  corpus via alias `corpus-db`, écritures app seules (app 3→4, corpus 3→3), DDL
+  refusé au runtime, verrou prouvé. Revue Codex intégrée (2 bloquants : rôle
+  superuser API, recoupement manifeste↔base ; + durcissements). 61 tests verts.
+  ⚠️ Observation pour l'étape 9 : sur un REdéploiement dont l'init échoue, api/web
+  déjà lancés continuent sur l'ancienne version (le blocage total ne vaut qu'au
+  premier déploiement) — comportement Coolify à valider sur la MR jetable.
