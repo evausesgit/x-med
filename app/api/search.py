@@ -18,7 +18,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.db import SessionLocal, get_session
+from app.db import CorpusSessionLocal, SessionLocal, get_corpus_session, get_session
 from app.models import Article, ArticleSearch
 from app.services import search_cancel
 from app.services.explainability import explain_article
@@ -95,8 +95,8 @@ def _to_result(
 
 
 @router.get("/articles/{pmid}", response_model=ArticleResult)
-def get_article(pmid: int, session: Session = Depends(get_session)):
-    article = session.get(Article, pmid)
+def get_article(pmid: int, corpus: Session = Depends(get_corpus_session)):
+    article = corpus.get(Article, pmid)
     if article is None:
         raise HTTPException(status_code=404, detail="Article introuvable")
     # détail : on renvoie l'abstract complet dans le snippet
@@ -105,10 +105,10 @@ def get_article(pmid: int, session: Session = Depends(get_session)):
     return result
 
 
-def _fetch_articles(session: Session, pmids: list[int]) -> dict[int, Article]:
+def _fetch_articles(corpus: Session, pmids: list[int]) -> dict[int, Article]:
     if not pmids:
         return {}
-    rows = session.scalars(select(Article).where(Article.pmid.in_(pmids))).all()
+    rows = corpus.scalars(select(Article).where(Article.pmid.in_(pmids))).all()
     return {a.pmid: a for a in rows}
 
 
@@ -256,7 +256,7 @@ def _window_keep(
     return True, unverified
 
 
-def _prefilter_source(session: Session, date_from: str | None):
+def _prefilter_source(corpus: Session, date_from: str | None):
     """Choisit la table du pré-filtre FTS selon la borne basse de la recherche.
 
     `article_search` (fenêtre récente, chaude en RAM → ~0,4 s) seulement si la
@@ -270,7 +270,7 @@ def _prefilter_source(session: Session, date_from: str | None):
     yf = _year(date_from)
     if not settings.use_narrow_search or yf is None:
         return Article
-    min_year = session.scalar(sql_text("SELECT article_search_min_year()"))
+    min_year = corpus.scalar(sql_text("SELECT article_search_min_year()"))
     return ArticleSearch if yf >= min_year else Article
 
 
@@ -339,9 +339,15 @@ def _fmt_tokens(usage) -> str:
 
 
 def _run_deep_search(
-    req: DeepSearchRequest, session: Session, progress: ProgressCallback | None = None
+    req: DeepSearchRequest,
+    corpus: Session,
+    app_db: Session,
+    progress: ProgressCallback | None = None,
 ) -> DeepSearchResponse:
-    """Cœur de la recherche v2 — réutilisé par l'endpoint POST et le stream SSE."""
+    """Cœur de la recherche v2 — réutilisé par l'endpoint POST et le stream SSE.
+
+    Deux sessions, une par monde : `corpus` (lectures articles/FTS, miroir
+    PubMed) et `app_db` (cache de traduction `article_fr`). Ne jamais croiser."""
     from app.services import pubmed_eutils as eut
     from app.services.codex_judge import JudgeError, judge_articles
     from app.services.query_builder import (
@@ -422,7 +428,7 @@ def _run_deep_search(
     # utilisé pour la requête PubMed (esearch), pas pour le vivier local.
     # Table étroite récente (chaude) si la recherche tient dans la fenêtre, sinon
     # la table complète. `Src` a les mêmes colonnes (pmid, pub_year, fts).
-    Src = _prefilter_source(session, req.date_from)
+    Src = _prefilter_source(corpus, req.date_from)
     cond = Src.fts.op("@@")(tsq)
     conditions = [cond]
     yf, yt = _year(req.date_from), _year(req.date_to)
@@ -430,37 +436,41 @@ def _run_deep_search(
         conditions.append(Src.pub_year >= yf)
     if yt is not None:
         conditions.append(Src.pub_year <= yt)
-    # SET LOCAL est borné au SAVEPOINT (begin_nested) : si la requête locale dépasse
-    # LOCAL_SEARCH_TIMEOUT_MS, Postgres l'annule, on rollback au savepoint (le reste de
-    # la transaction — fetch abstracts, cache de traduction — reste intact) et on
-    # continue sans vivier local. Même mécanique pour le bouton stop du front
-    # (pg_cancel_backend via /search/local/stop/{token}) : seul le message d'erreur
-    # Postgres distingue les deux (« user request » vs « statement timeout »).
+    # SET LOCAL vit jusqu'à la FIN DE LA TRANSACTION : on borne donc la requête FTS
+    # dans sa propre transaction, fermée des deux côtés — rollback() si Postgres
+    # l'annule (timeout ou bouton stop, seul le message d'erreur distingue les deux :
+    # « statement timeout » vs « user request »), commit() sinon. Sans cette borne,
+    # le timeout contaminerait les requêtes corpus suivantes (fetch abstracts…) de la
+    # même transaction. La session corpus n'écrit jamais : commit/rollback y sont sans
+    # autre effet que de clore la transaction. (Un savepoint ne suffisait pas : le
+    # RELEASE d'un savepoint réussi ne réinitialise PAS un SET LOCAL.)
     local_pmids: list[int] = []
     local_timed_out = False
     local_stopped = False
     t_local = time.monotonic()
     try:
-        with session.begin_nested():
-            session.execute(
-                sql_text(f"SET LOCAL statement_timeout = '{LOCAL_SEARCH_TIMEOUT_MS}ms'")
-            )
-            if req.local_token:
-                pid = session.scalar(sql_text("SELECT pg_backend_pid()"))
-                _LOCAL_SEARCH_PIDS[req.local_token] = pid
-            local_pmids = list(
-                session.scalars(
-                    select(Src.pmid)
-                    .where(*conditions)
-                    .order_by(func.ts_rank(Src.fts, tsq).desc())
-                    .limit(req.max_local)
-                ).all()
-            )
+        corpus.execute(
+            sql_text(f"SET LOCAL statement_timeout = '{LOCAL_SEARCH_TIMEOUT_MS}ms'")
+        )
+        if req.local_token:
+            pid = corpus.scalar(sql_text("SELECT pg_backend_pid()"))
+            _LOCAL_SEARCH_PIDS[req.local_token] = pid
+        local_pmids = list(
+            corpus.scalars(
+                select(Src.pmid)
+                .where(*conditions)
+                .order_by(func.ts_rank(Src.fts, tsq).desc())
+                .limit(req.max_local)
+            ).all()
+        )
     except OperationalError as e:
+        corpus.rollback()
         if "user request" in str(e):
             local_stopped = True
         else:
             local_timed_out = True
+    else:
+        corpus.commit()
     finally:
         if req.local_token:
             _LOCAL_SEARCH_PIDS.pop(req.local_token, None)
@@ -482,7 +492,7 @@ def _run_deep_search(
     # --- Rassembler les candidats (A ∪ B) + récupérer titres/abstracts ---
     a_set, local_set = set(a_pmids), set(local_pmids)
     candidate_pmids = _candidate_order(a_pmids, local_pmids, req.rrf)
-    db = _fetch_articles(session, candidate_pmids)
+    db = _fetch_articles(corpus, candidate_pmids)
 
     # Fenêtre temporelle précise sur les candidats LOCAUX-seuls (les candidats A
     # sont déjà bornés au jour par esearch ; A ∩ B garde la validation PubMed).
@@ -610,7 +620,7 @@ def _run_deep_search(
     # streaming (voir l'endpoint stream), ce qui enrichit le cache au fil des
     # recherches.
     from app.services.translate import get_cached
-    cached_fr = get_cached(session, [h.pmid for h in hits])
+    cached_fr = get_cached(app_db, [h.pmid for h in hits])
     for h in hits:
         tr = cached_fr.get(h.pmid)
         if tr:
@@ -666,7 +676,10 @@ def _deep_metrics(result: DeepSearchResponse) -> dict:
 
 
 def _run_deep_more(
-    req: DeepMoreRequest, session: Session, progress: ProgressCallback | None = None
+    req: DeepMoreRequest,
+    corpus: Session,
+    app_db: Session,
+    progress: ProgressCallback | None = None,
 ) -> DeepMoreResponse:
     """Juge un lot de PMID déjà pré-filtrés (pagination « 50 de plus » de la v2).
 
@@ -688,7 +701,7 @@ def _run_deep_more(
             progress(phase, msg, data)
 
     pmids = list(dict.fromkeys(req.pmids))  # dédup en gardant l'ordre du pré-filtre
-    db = _fetch_articles(session, pmids)
+    db = _fetch_articles(corpus, pmids)
     missing = [p for p in pmids if p not in db]
     meta: dict = {}
     ext_abstracts: dict = {}
@@ -770,7 +783,7 @@ def _run_deep_more(
         -(h.pub_year or 0),
     ))
 
-    cached_fr = get_cached(session, [h.pmid for h in hits])
+    cached_fr = get_cached(app_db, [h.pmid for h in hits])
     for h in hits:
         tr = cached_fr.get(h.pmid)
         if tr:
@@ -790,7 +803,10 @@ def _run_deep_more(
 
 @router.post("/search/pubmed/deep", response_model=DeepSearchResponse)
 def search_pubmed_deep(
-    req: DeepSearchRequest, request: Request, session: Session = Depends(get_session)
+    req: DeepSearchRequest,
+    request: Request,
+    corpus: Session = Depends(get_corpus_session),
+    session: Session = Depends(get_session),
 ):
     """Recherche v2 : PubMed (A) + base locale filtrée (B), jugée par codex."""
     record_usage(
@@ -811,7 +827,7 @@ def search_pubmed_deep(
 
     user = request.headers.get("x-user-email")
     try:
-        result = _run_deep_search(req, session, progress)
+        result = _run_deep_search(req, corpus, session, progress)
         send_search_notification(
             status="ok",
             query=req.query,
@@ -835,7 +851,11 @@ def search_pubmed_deep(
 
 
 def _translate_kept(
-    result: DeepSearchResponse, session: Session, progress, cap: int = 20
+    result: DeepSearchResponse,
+    corpus: Session,
+    app_db: Session,
+    progress,
+    cap: int = 20,
 ) -> dict[str, dict]:
     """Traduit en FR les résultats retenus pas encore traduits (cache article_fr).
 
@@ -853,7 +873,7 @@ def _translate_kept(
 
     pmids = [h.pmid for h in need]
     items: dict[int, dict] = {}
-    for a in session.scalars(select(Article).where(Article.pmid.in_(pmids))).all():
+    for a in corpus.scalars(select(Article).where(Article.pmid.in_(pmids))).all():
         if a.abstract:
             items[a.pmid] = {"pmid": a.pmid, "title": a.title, "abstract": a.abstract}
     missing = [h for h in need if h.pmid not in items]
@@ -870,7 +890,7 @@ def _translate_kept(
         return {}
 
     try:
-        fr, tr_usage = translate_abstracts(list(items.values()), session)
+        fr, tr_usage = translate_abstracts(list(items.values()), app_db)
     except TranslateError as e:
         if is_usage_limit(str(e)):
             progress("codex_limit",
@@ -900,7 +920,11 @@ class TranslateResponse(BaseModel):
 
 
 @router.post("/translate", response_model=TranslateResponse)
-def translate_one(req: TranslateRequest, session: Session = Depends(get_session)):
+def translate_one(
+    req: TranslateRequest,
+    corpus: Session = Depends(get_corpus_session),
+    session: Session = Depends(get_session),
+):
     """Traduction FR à la demande d'un article (bouton « Traduire en français »).
 
     Sert le cache `article_fr` s'il existe, sinon appelle codex et met en cache.
@@ -918,7 +942,7 @@ def translate_one(req: TranslateRequest, session: Session = Depends(get_session)
     title = req.title
     abstract = (req.abstract or "").strip()
     if not abstract:
-        art = session.get(Article, req.pmid)
+        art = corpus.get(Article, req.pmid)
         if art and art.abstract:
             abstract = art.abstract
             title = title or art.title
@@ -969,7 +993,11 @@ MAX_TRANSLATE_BATCH = 50
 
 
 @router.post("/translate/batch", response_model=TranslateBatchResponse)
-def translate_batch(req: TranslateBatchRequest, session: Session = Depends(get_session)):
+def translate_batch(
+    req: TranslateBatchRequest,
+    corpus: Session = Depends(get_corpus_session),
+    session: Session = Depends(get_session),
+):
     """Traduit FR un lot d'articles en **un seul appel codex** (basculer une vue en
     français). Sert le cache `article_fr` pour les PMID déjà connus et ne traduit que
     le reste — d'où un coût ≈ 1 appel quel que soit le nombre d'articles déjà vus.
@@ -1005,7 +1033,7 @@ def translate_batch(req: TranslateBatchRequest, session: Session = Depends(get_s
         abstract = (it.abstract or "").strip()
         title = it.title
         if not abstract:
-            art = session.get(Article, it.pmid)
+            art = corpus.get(Article, it.pmid)
             if art and art.abstract:
                 abstract = art.abstract
                 title = title or art.title
@@ -1056,7 +1084,9 @@ def stop_local_search(token: str):
     pid = _LOCAL_SEARCH_PIDS.get(token)
     if pid is None:
         return LocalStopResponse(stopped=False)
-    with SessionLocal() as s:
+    # La requête FTS tourne sur la base CORPUS : le pg_cancel_backend doit
+    # partir de la même base (le PID n'existe pas côté app).
+    with CorpusSessionLocal() as s:
         ok = bool(s.scalar(sql_text("SELECT pg_cancel_backend(:pid)"), {"pid": pid}))
     return LocalStopResponse(stopped=ok)
 
@@ -1072,20 +1102,23 @@ def stop_deep_search(token: str):
     stopped = search_cancel.cancel(token)
     pid = _LOCAL_SEARCH_PIDS.get(token)
     if pid is not None:
-        with SessionLocal() as s:
+        with CorpusSessionLocal() as s:
             s.scalar(sql_text("SELECT pg_cancel_backend(:pid)"), {"pid": pid})
     return LocalStopResponse(stopped=stopped)
 
 
 @router.post("/search/pubmed/deep/more", response_model=DeepMoreResponse)
 def search_pubmed_deep_more(
-    req: DeepMoreRequest, request: Request, session: Session = Depends(get_session)
+    req: DeepMoreRequest,
+    request: Request,
+    corpus: Session = Depends(get_corpus_session),
+    session: Session = Depends(get_session),
 ):
     """« Analyser N de plus » : juge le lot de PMID fourni (cf. `remaining`)."""
     record_usage(
         request, "search.deep.more", query=req.query, params={"n_pmids": len(req.pmids)}
     )
-    return _run_deep_more(req, session)
+    return _run_deep_more(req, corpus, session)
 
 
 @router.get("/search/pubmed/deep/more/stream")
@@ -1119,14 +1152,15 @@ def search_pubmed_deep_more_stream(
 
         def produce() -> None:
             try:
-                with SessionLocal() as worker_session:
+                with CorpusSessionLocal() as corpus_s, SessionLocal() as app_s:
                     result = _run_deep_more(
                         DeepMoreRequest(query=query, pmids=pmid_list, min_score=min_score),
-                        worker_session,
+                        corpus_s,
+                        app_s,
                         progress,
                     )
                     events.put(("result", result.model_dump()))
-                    fr = _translate_kept(result, worker_session, progress)
+                    fr = _translate_kept(result, corpus_s, app_s, progress)
                     if fr:
                         events.put(("translations", fr))
                     events.put(("complete", {}))
@@ -1189,7 +1223,7 @@ class CompareResponse(BaseModel):
 
 
 def _resolve_compare_articles(
-    session: Session, pmids: list[int]
+    corpus: Session, pmids: list[int]
 ) -> dict[int, dict]:
     """Résout titre + abstract de chaque PMID : base locale d'abord, puis NCBI
     (efetch abstracts + esummary titres) pour ce qui manque. EventSource étant en
@@ -1199,7 +1233,7 @@ def _resolve_compare_articles(
     missing_abs: list[int] = []
     missing_title: list[int] = []
     for pmid in pmids:
-        art = session.get(Article, pmid)
+        art = corpus.get(Article, pmid)
         title = art.title if art else None
         abstract = (art.abstract if art else None) or ""
         out[pmid] = {"pmid": pmid, "title": title, "abstract": abstract}
@@ -1230,7 +1264,7 @@ def _resolve_compare_articles(
 
 
 def _run_compare(
-    req: CompareRequest, session: Session, progress: ProgressCallback | None = None
+    req: CompareRequest, corpus: Session, progress: ProgressCallback | None = None
 ) -> CompareResponse:
     """Cœur de l'analyse critique : résout les abstracts puis appelle codex."""
     from app.services.codex_critique import CritiqueError, compare_articles
@@ -1241,7 +1275,7 @@ def _run_compare(
             progress(phase, msg, data or {})
 
     emit("resolve", f"Récupération des {len(req.pmids)} articles sélectionnés", {})
-    resolved = _resolve_compare_articles(session, req.pmids)
+    resolved = _resolve_compare_articles(corpus, req.pmids)
     # On garde l'ordre de sélection du médecin.
     articles = [resolved[p] for p in req.pmids if p in resolved]
     usable = [a for a in articles if (a.get("abstract") or "").strip()]
@@ -1288,11 +1322,13 @@ def _run_compare(
 
 @router.post("/analyze/compare", response_model=CompareResponse)
 def analyze_compare(
-    req: CompareRequest, request: Request, session: Session = Depends(get_session)
+    req: CompareRequest,
+    request: Request,
+    corpus: Session = Depends(get_corpus_session),
 ):
     """Analyse critique comparative de 2–3 articles (non streaming, pour tests)."""
     record_usage(request, "analyze.compare", query=req.query, params={"pmids": req.pmids})
-    return _run_compare(req, session)
+    return _run_compare(req, corpus)
 
 
 @router.get("/analyze/compare/stream")
@@ -1331,10 +1367,10 @@ def analyze_compare_stream(
                         {"msg": "Sélectionnez 2 à 3 articles pour lancer l'analyse."},
                     ))
                     return
-                with SessionLocal() as worker_session:
+                with CorpusSessionLocal() as corpus_s:
                     result = _run_compare(
                         CompareRequest(query=query, pmids=pmid_list),
-                        worker_session,
+                        corpus_s,
                         progress,
                     )
                     events.put(("result", result.model_dump()))

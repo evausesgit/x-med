@@ -15,11 +15,11 @@ from __future__ import annotations
 
 from sqlalchemy import text
 
-from app.db import engine
+from app.db import corpus_engine
 
 
 def main() -> None:
-    with engine.begin() as conn:
+    with corpus_engine.begin() as conn:
         min_year = conn.execute(text("SELECT article_search_min_year()")).scalar_one()
         n = conn.execute(text("SELECT article_search_prune()")).scalar_one()
     print(f"Prune article_search (< {min_year}) : {n:,} lignes supprimées.")

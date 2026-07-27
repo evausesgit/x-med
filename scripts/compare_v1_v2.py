@@ -23,7 +23,7 @@ import time
 import httpx
 from sqlalchemy import func, select
 
-from app.db import SessionLocal
+from app.db import CorpusSessionLocal, SessionLocal
 from app.models.article import Article
 from app.models.saved_search import SavedSearch
 from app.services import pubmed_eutils as eut
@@ -85,7 +85,9 @@ def main() -> None:
     emit(f"{'requête':<40}{'v1 loc':>7}{'v2 loc':>7}   Δ")
     emit("-" * 64)
     a1 = a2 = n = 0
-    with SessionLocal() as s:
+    # Deux sessions : saved_searches vit côté app, articles côté corpus —
+    # jamais de JOIN entre les deux (cf. PLAN_BASES_SEPAREES.md).
+    with SessionLocal() as s, CorpusSessionLocal() as corpus:
         rows = [x for x in s.scalars(select(SavedSearch)) if x.payload.get("pubmed_query")]
         for x in rows:
             p, pr = x.payload, (x.params or {})
@@ -96,7 +98,7 @@ def main() -> None:
                 continue
             a20, a50s = a50[:20], set(a50)
             a20s = set(a20)
-            B = local_pmids(s, p.get("keywords_en", []), p.get("mesh_terms", []),
+            B = local_pmids(corpus, p.get("keywords_en", []), p.get("mesh_terms", []),
                             pr.get("date_from"), pr.get("date_to"))
             v1 = list(dict.fromkeys([*a20, *B]))[: args.batch]
             v1l = sum(1 for q in v1 if q not in a20s)

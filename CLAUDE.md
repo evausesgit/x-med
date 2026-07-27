@@ -9,7 +9,8 @@ Le produit est **implémenté et déployé** : API FastAPI, front Next, base Pos
 - `ARCHITECTURE.md` — architecture technique de référence (stack, schéma SQL, pipeline, endpoints, coûts, phases)
 - `ALGO_RECHERCHE.md` et `PLAN_RECHERCHE_PUBMED_CODEX.md` — l'algorithme de recherche réellement en service
 - `PRESENTATION_MEDECINS.md` — présentation produit destinée aux médecins (non technique)
-- `PLAN_NETTOYAGE.md` / `PLAN_BASES_SEPAREES.md` — chantiers de rangement en cours
+- `PLAN_NETTOYAGE.md` / `PLAN_BASES_SEPAREES.md` — chantiers de rangement (nettoyage : fait)
+- `PLAN_EXECUTION_COMPOSE.md` — **suivi vivant** du chantier compose unifié + previews de MR (étapes faites/restantes, décisions figées) ; plan de fond dans `docs/plans/2026-07-24-infra-deux-composes-previews.md`
 
 Quand on implémente une fonctionnalité, **`ARCHITECTURE.md` fait foi** sur les choix de design (schéma de tables, noms de fichiers, ordre du pipeline). Garder ce document synchronisé avec le code.
 

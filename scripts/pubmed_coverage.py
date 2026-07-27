@@ -27,7 +27,7 @@ import time
 
 from sqlalchemy import select
 
-from app.db import SessionLocal
+from app.db import CorpusSessionLocal, SessionLocal
 from app.models.article import Article
 from app.models.saved_search import SavedSearch
 from app.services import pubmed_eutils as eut
@@ -42,7 +42,7 @@ def _trunc(s: str, n: int) -> str:
     return s if len(s) <= n else s[: n - 1] + "…"
 
 
-def coverage_for(session, pubmed_query: str, date_from, date_to, retmax: int, top: int) -> dict:
+def coverage_for(corpus, pubmed_query: str, date_from, date_to, retmax: int, top: int) -> dict:
     """Métriques de couverture d'UNE requête. `a_pmids` est dans l'ordre PubMed."""
     total, a_pmids = eut.esearch(
         pubmed_query, retmax=retmax, sort="relevance",
@@ -51,7 +51,7 @@ def coverage_for(session, pubmed_query: str, date_from, date_to, retmax: int, to
     # Quels PMID sont en base, et lesquels ont un abstract exploitable ?
     have_abs: dict[int, bool] = {}
     if a_pmids:
-        rows = session.execute(
+        rows = corpus.execute(
             select(Article.pmid, Article.abstract).where(Article.pmid.in_(a_pmids))
         ).all()
         have_abs = {p: _abstract_ok(ab) for p, ab in rows}
@@ -87,7 +87,9 @@ def main() -> None:
     ap.add_argument("--csv", type=str, default=None, help="écrire le détail dans ce fichier CSV")
     args = ap.parse_args()
 
-    with SessionLocal() as session:
+    # Deux sessions : saved_searches vit côté app, articles côté corpus —
+    # jamais de JOIN entre les deux (cf. PLAN_BASES_SEPAREES.md).
+    with SessionLocal() as session, CorpusSessionLocal() as corpus:
         searches = list(
             session.scalars(
                 select(SavedSearch).order_by(SavedSearch.created_at.desc())
@@ -111,7 +113,7 @@ def main() -> None:
             pq = payload.get("pubmed_query") or s.query  # repli : question brute
             params = s.params or {}
             cov = coverage_for(
-                session, pq, params.get("date_from"), params.get("date_to"),
+                corpus, pq, params.get("date_from"), params.get("date_to"),
                 args.retmax, args.top,
             )
 

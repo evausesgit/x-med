@@ -33,7 +33,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.api.me import Identity, _find_doctor, current_identity
 from app.api.search import DeepSearchRequest
-from app.db import SessionLocal
+from app.db import CorpusSessionLocal, SessionLocal
 from app.models import DigestRun, Doctor
 from app.services import run_store, search_cancel
 from app.services.digest_query import build_digest_query, digest_usage_label
@@ -254,7 +254,8 @@ def stop_digest_run(
     cancelled = search_cancel.cancel(token)
     pid = _LOCAL_SEARCH_PIDS.get(token)
     if pid is not None:
-        with SessionLocal() as s:
+        # Le PID est celui du backend CORPUS (la requête FTS y tourne).
+        with CorpusSessionLocal() as s:
             s.scalar(sql_text("SELECT pg_cancel_backend(:pid)"), {"pid": pid})
     return StopRunResponse(stopped=stopped or cancelled)
 
