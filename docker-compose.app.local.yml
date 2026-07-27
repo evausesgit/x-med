@@ -1,0 +1,14 @@
+# Override LOCAL du compose app — usage hors Coolify uniquement :
+#   docker compose -f docker-compose.app.yml -f docker-compose.app.local.yml \
+#     --env-file .env.app.local up
+#
+# Dans le compose principal, `api` ne liste QUE le réseau corpus (l'isolation
+# prod/preview repose sur le réseau par-déploiement que Coolify attache seul —
+# cf. l'incident du 2026-07-27 dans PLAN_EXECUTION_COMPOSE.md). En local il
+# n'y a pas de Coolify pour faire ce rattachement : cet override redonne à
+# `api` le réseau default du projet local pour joindre db et être joint par web.
+services:
+  api:
+    networks:
+      - default
+      - corpus-access

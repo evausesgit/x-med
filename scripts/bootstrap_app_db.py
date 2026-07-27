@@ -20,6 +20,15 @@ Tout le bootstrap se déroule sous ``pg_advisory_lock`` (session de
 maintenance) : deux déploiements qui se chevauchent se sérialisent au lieu de
 restaurer/migrer en concurrence.
 
+Gardes post-incident du 2026-07-27 (cf. app/runtime_env.py) :
+- validation croisée STRICTE des identités AVANT toute connexion
+  (`_validate_deployment_identity` : init ↔ db ↔ COOLIFY_BRANCH ↔ mode) ;
+- hôte db résolu au runtime via SERVICE_NAME_DB, jamais d'hôte ≠ `db`
+  conservé silencieusement en contexte Coolify ;
+- CEINTURE ABSOLUE : une base dont le marqueur dit mode='production' ne se
+  droppe jamais (`_refuse_dropping_production`), quoi que disent les
+  variables d'environnement.
+
 Deux modes :
 
 - **preview** — base jetable, re-seed à CHAQUE exécution :
@@ -62,6 +71,13 @@ from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 
+from app.runtime_env import (
+    DeploymentIdentityError,
+    branch_pr_number,
+    in_coolify_context,
+    require_consistent_services,
+    resolve_db_url,
+)
 from scripts.backup_backoffice import (
     BACKOFFICE_TABLES,
     MANIFEST_NAME,
@@ -112,6 +128,25 @@ def _read_env() -> tuple[str, str, Path, str]:
             f"{' ou '.join(repr(m) for m in VALID_MODES)}."
         )
 
+    # FAIL-SAFE preview : le parser Coolify résout les ${VAR} du bloc
+    # `environment` avec les valeurs du scope PRODUCTION et les fige dans le
+    # compose généré — y compris pour les previews (constaté sur cette
+    # instance : XMED_DEPLOYMENT_MODE=production écrit en dur dans
+    # docker-compose-pr-N.yaml). On détecte donc le contexte PR par les
+    # variables que Coolify pose correctement PAR déploiement, et on force le
+    # mode preview : une preview ne doit JAMAIS tourner en mode production
+    # (elle marquerait sa base persistante comme bootstrapée définitive).
+    pr_markers = (
+        "-pr-" in os.environ.get("SERVICE_NAME_INIT", ""),
+        "pull/" in os.environ.get("COOLIFY_BRANCH", ""),
+    )
+    if mode == "production" and any(pr_markers):
+        _log(
+            "contexte PR détecté (SERVICE_NAME_INIT/COOLIFY_BRANCH) alors que "
+            "XMED_DEPLOYMENT_MODE=production — mode FORCÉ à preview (fail-safe)"
+        )
+        mode = "preview"
+
     seed_dir = os.environ.get("SEED_DIR")
     if not seed_dir:
         raise BootstrapError("SEED_DIR manquante (répertoire du seed, monté :ro).")
@@ -123,7 +158,89 @@ def _read_env() -> tuple[str, str, Path, str]:
             "celui que l'API utilise)."
         )
 
-    return _sqlalchemy_url(url), mode, Path(seed_dir), runtime_password
+    # Validation croisée STRICTE des identités, AVANT toute connexion (et a
+    # fortiori tout DROP) — revue post-incident du 2026-07-27.
+    _validate_deployment_identity(mode)
+
+    return _resolve_db_host(_sqlalchemy_url(url)), mode, Path(seed_dir), runtime_password
+
+
+def _validate_deployment_identity(mode: str) -> None:
+    """L'identité des services doit recouper le mode, sinon refus de démarrer.
+
+    En contexte Coolify (une SERVICE_NAME_* présente) :
+    - production → SERVICE_NAME_INIT == "init" ET SERVICE_NAME_DB == "db" ;
+    - preview    → init-pr-N ET db-pr-N avec LE MÊME N (format strict), et si
+      COOLIFY_BRANCH porte un numéro de PR ("pull/N/head"), ce même N ;
+    - toute autre combinaison (absence partielle, format inattendu, suffixes
+      divergents, mode preview sur services non suffixés, mode production sur
+      services suffixés) → BootstrapError qui nomme les valeurs vues.
+
+    Hors Coolify (aucune SERVICE_NAME_*) : compose local, autorisé — no-op.
+    Le cas « production + services suffixés » est normalement absorbé en amont
+    par le fail-safe de `_read_env` (mode forcé à preview) ; l'abort explicite
+    reste en défense en profondeur.
+    """
+    if not in_coolify_context():
+        return
+
+    try:
+        suffix = require_consistent_services("init", "db")
+    except DeploymentIdentityError as exc:
+        raise BootstrapError(str(exc)) from exc
+
+    seen = (
+        f"SERVICE_NAME_INIT={os.environ.get('SERVICE_NAME_INIT')!r}, "
+        f"SERVICE_NAME_DB={os.environ.get('SERVICE_NAME_DB')!r}, "
+        f"COOLIFY_BRANCH={os.environ.get('COOLIFY_BRANCH')!r}"
+    )
+
+    branch_pr = branch_pr_number()
+    if branch_pr is not None and branch_pr != suffix:
+        raise BootstrapError(
+            f"COOLIFY_BRANCH désigne la PR {branch_pr} mais les services "
+            f"portent le suffixe {('-pr-' + suffix) if suffix else 'aucun'} "
+            f"({seen}) : identités incohérentes — refus de continuer."
+        )
+
+    if mode == "production" and suffix is not None:
+        raise BootstrapError(
+            f"mode production alors que les services sont suffixés -pr-{suffix} "
+            f"({seen}) : une preview ne tourne JAMAIS en mode production — "
+            "refus (le fail-safe amont aurait dû forcer preview)."
+        )
+
+    if mode == "preview" and suffix is None:
+        raise BootstrapError(
+            f"mode preview alors que les services ne sont PAS suffixés ({seen}) : "
+            "ces services sont ceux de la stack de PRODUCTION — refus absolu, "
+            "un init preview n'a pas le droit de la toucher (incident du "
+            "2026-07-27)."
+        )
+
+
+def _resolve_db_host(url: str) -> str:
+    """Hôte du service db résolu AU RUNTIME via SERVICE_NAME_DB (Coolify).
+
+    Coolify renomme les services des previews (db → db-pr-N) : le nom `db` du
+    compose n'existe pas dans leur DNS, et un alias réseau partagé ferait
+    résoudre le même nom vers les deux bases (incident du 2026-07-27). La
+    logique vit dans app/runtime_env.py (partagée avec l'API) ; en contexte
+    Coolify une URL dont l'hôte n'est pas `db` est une ERREUR, jamais un
+    pass-through silencieux. Hors Coolify : URL inchangée.
+    """
+    try:
+        resolved = resolve_db_url(url)
+    except DeploymentIdentityError as exc:
+        raise BootstrapError(str(exc)) from exc
+    if resolved != url:
+        from sqlalchemy.engine import make_url
+
+        _log(
+            "hôte db résolu au runtime : db → "
+            f"{make_url(resolved).host} (SERVICE_NAME_DB)"
+        )
+    return resolved
 
 
 # ---------------------------------------------------------------------------
@@ -317,6 +434,60 @@ def _ensure_runtime_role(url: str, password: str) -> None:
     _log(f"rôle {RUNTIME_ROLE} réaligné (DML sur les 7 tables, aucun DDL)")
 
 
+def _marker_mode(url: str) -> str | None:
+    """Mode enregistré par le marqueur de la base cible — FAIL CLOSED.
+
+    None SEULEMENT quand l'absence de marqueur est PROUVÉE : base inexistante
+    (SQLSTATE 3D000 — rien à protéger) ou table de marqueur absente. Toute
+    autre erreur (timeout, saturation, permission, réseau) = état INCONNU →
+    BootstrapError : une garde « absolue » qui laisserait passer le DROP sur
+    un échec transitoire de lecture serait fail-open (revue Codex).
+    """
+    from sqlalchemy import text
+    from sqlalchemy.exc import SQLAlchemyError
+
+    try:
+        with _connect(url) as conn:
+            if not _table_exists(conn, f"{OPS_SCHEMA}.{STATE_TABLE}"):
+                return None
+            return conn.execute(
+                text(f"SELECT mode FROM {OPS_SCHEMA}.{STATE_TABLE}")
+            ).scalar()
+    except SQLAlchemyError as exc:
+        orig = getattr(exc, "orig", None)
+        sqlstate = getattr(orig, "sqlstate", None)
+        if sqlstate == "3D000":  # invalid_catalog_name : la base n'existe pas
+            _log("base cible inexistante — pas de marqueur à protéger")
+            return None
+        cause = str(orig or exc).strip().splitlines()[-1]
+        raise BootstrapError(
+            "impossible de lire le marqueur de la base cible avant DROP "
+            f"({cause}) : état inconnu, DROP REFUSÉ (fail closed). Réessayer "
+            "quand la base répond, ou vérifier droits/connexion."
+        ) from exc
+
+
+def _refuse_dropping_production(url: str) -> None:
+    """CEINTURE ABSOLUE anti-drop — dernière ligne de défense.
+
+    Quoi que disent le mode, les variables ou le DNS, une base dont le
+    marqueur dit `mode = 'production'` ne se droppe JAMAIS depuis ici. Cette
+    garde seule aurait arrêté l'incident du 2026-07-27 (un init preview,
+    routé par un réseau partagé vers la base de la stack prod, l'a droppée).
+    """
+    mode = _marker_mode(url)
+    if mode == "production":
+        raise BootstrapError(
+            "REFUS ABSOLU de dropper cette base : son marqueur "
+            f"{OPS_SCHEMA}.{STATE_TABLE} dit mode='production'. Un init en "
+            "mode preview est en train de viser la base d'une stack de "
+            "PRODUCTION — c'est le schéma exact de l'incident du 2026-07-27 "
+            "(réseau/alias partagé résolvant vers la mauvaise base). NE PAS "
+            "contourner : vérifier SERVICE_NAME_DB, les réseaux du compose et "
+            "l'URL cible avant toute chose."
+        )
+
+
 def _drop_and_recreate(maintenance_conn, url: str) -> None:
     """Preview : base jetable — DROP + CREATE sur la session de maintenance.
 
@@ -325,6 +496,8 @@ def _drop_and_recreate(maintenance_conn, url: str) -> None:
     """
     from sqlalchemy import text
     from sqlalchemy.engine import make_url
+
+    _refuse_dropping_production(url)
 
     parsed = make_url(url)
     dbname, owner = parsed.database, parsed.username

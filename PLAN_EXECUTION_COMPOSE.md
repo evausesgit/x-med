@@ -157,3 +157,25 @@ restreindre l'exposition du `5432` corpus (réseau dédié ou bind `10.0.1.1` + 
   main par la #48. Secrets : `~/.config/xmed/{appdb-admin,appdb-runtime,
   corpus-api-ro,corpus-preview-ro}-password`. Cette PR-ci sert de MR jetable de
   recette du cycle preview.
+- **2026-07-27 (incident + recette previews)** — La MR jetable #51 a rempli son
+  rôle en révélant QUATRE limites Coolify, dont une par incident : (1) le parser
+  fige les variables du bloc `environment` avec les valeurs du scope PRODUCTION
+  dans le compose généré des previews — le scoping preview est inopérant pour
+  toute variable référencée par le compose → fail-safe dans le bootstrap (mode
+  preview FORCÉ dès qu'un marqueur de contexte PR est présent :
+  SERVICE_NAME_INIT/COOLIFY_BRANCH) ; (2) les binds de preview sont suffixés
+  `-pr-N` sans opt-out fiable → pool de symlinks `~/backups/xmed-pr-{51..300}`
+  → `xmed` (docker résout les symlinks au montage) ; (3) la `.env`
+  d'interpolation est PARTAGÉE entre déploiements prod/preview d'une même
+  ressource (course si merge et push simultanés) ; (4) **INCIDENT** : un réseau
+  compose nommé (mon `default` explicite + alias) est PARTAGÉ entre prod et
+  previews (même nom de projet) → l'alias `appdb` résolvait vers les DEUX bases
+  et l'init d'une preview a drop/re-seedé la base de la stack prod. Impact :
+  ~15 min de dégradation de next.x-med, ZÉRO perte (la base monolithique,
+  source de vérité, sert x-med.ia-do-it.com et n'a jamais été touchée) ;
+  rétabli par drop/recreate + re-bootstrap depuis le seed. Leçons gravées :
+  l'isolation prod/preview EST le réseau par-déploiement de Coolify — aucun
+  réseau nommé partagé (hors corpus-access, partagé à dessein en lecture
+  seule) ; hostnames internes résolus AU RUNTIME via SERVICE_NAME_DB
+  (bootstrap + entrypoint API) ; usage local via docker-compose.app.local.yml.
+  Recette encore à terminer sur une nouvelle MR jetable après merge du fix.
