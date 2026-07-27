@@ -16,6 +16,8 @@ Là où les deux mondes se croisent (recherche corpus + cache de traduction),
 on passe DEUX sessions — jamais une session pour l'autre monde.
 """
 
+import logging
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
@@ -26,6 +28,12 @@ engine = create_engine(settings.database_url, pool_pre_ping=True, future=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False, future=True)
 
 # --- Monde corpus (miroir PubMed, lecture seule côté API) ---
+if settings.corpus_database_url is None:
+    # Attendu en dev monolithique ; en prod/preview composée, une variable
+    # oubliée ferait chercher les 25 M d'articles dans la petite base app.
+    logging.getLogger(__name__).warning(
+        "CORPUS_DATABASE_URL absente — corpus routé sur DATABASE_URL (mode monolithique)"
+    )
 corpus_engine = create_engine(
     settings.corpus_database_url or settings.database_url,
     pool_pre_ping=True,

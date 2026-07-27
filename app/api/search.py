@@ -436,37 +436,41 @@ def _run_deep_search(
         conditions.append(Src.pub_year >= yf)
     if yt is not None:
         conditions.append(Src.pub_year <= yt)
-    # SET LOCAL est borné au SAVEPOINT (begin_nested) : si la requête locale dépasse
-    # LOCAL_SEARCH_TIMEOUT_MS, Postgres l'annule, on rollback au savepoint (le reste de
-    # la transaction — fetch abstracts, cache de traduction — reste intact) et on
-    # continue sans vivier local. Même mécanique pour le bouton stop du front
-    # (pg_cancel_backend via /search/local/stop/{token}) : seul le message d'erreur
-    # Postgres distingue les deux (« user request » vs « statement timeout »).
+    # SET LOCAL vit jusqu'à la FIN DE LA TRANSACTION : on borne donc la requête FTS
+    # dans sa propre transaction, fermée des deux côtés — rollback() si Postgres
+    # l'annule (timeout ou bouton stop, seul le message d'erreur distingue les deux :
+    # « statement timeout » vs « user request »), commit() sinon. Sans cette borne,
+    # le timeout contaminerait les requêtes corpus suivantes (fetch abstracts…) de la
+    # même transaction. La session corpus n'écrit jamais : commit/rollback y sont sans
+    # autre effet que de clore la transaction. (Un savepoint ne suffisait pas : le
+    # RELEASE d'un savepoint réussi ne réinitialise PAS un SET LOCAL.)
     local_pmids: list[int] = []
     local_timed_out = False
     local_stopped = False
     t_local = time.monotonic()
     try:
-        with corpus.begin_nested():
-            corpus.execute(
-                sql_text(f"SET LOCAL statement_timeout = '{LOCAL_SEARCH_TIMEOUT_MS}ms'")
-            )
-            if req.local_token:
-                pid = corpus.scalar(sql_text("SELECT pg_backend_pid()"))
-                _LOCAL_SEARCH_PIDS[req.local_token] = pid
-            local_pmids = list(
-                corpus.scalars(
-                    select(Src.pmid)
-                    .where(*conditions)
-                    .order_by(func.ts_rank(Src.fts, tsq).desc())
-                    .limit(req.max_local)
-                ).all()
-            )
+        corpus.execute(
+            sql_text(f"SET LOCAL statement_timeout = '{LOCAL_SEARCH_TIMEOUT_MS}ms'")
+        )
+        if req.local_token:
+            pid = corpus.scalar(sql_text("SELECT pg_backend_pid()"))
+            _LOCAL_SEARCH_PIDS[req.local_token] = pid
+        local_pmids = list(
+            corpus.scalars(
+                select(Src.pmid)
+                .where(*conditions)
+                .order_by(func.ts_rank(Src.fts, tsq).desc())
+                .limit(req.max_local)
+            ).all()
+        )
     except OperationalError as e:
+        corpus.rollback()
         if "user request" in str(e):
             local_stopped = True
         else:
             local_timed_out = True
+    else:
+        corpus.commit()
     finally:
         if req.local_token:
             _LOCAL_SEARCH_PIDS.pop(req.local_token, None)

@@ -316,3 +316,60 @@ def test_prefilter_routes_to_the_narrow_table_inside_the_window(session, monkeyp
 def test_prefilter_falls_back_to_full_table_when_disabled(session, monkeypatch):
     monkeypatch.setattr(settings, "use_narrow_search", False)
     assert _prefilter_source(session, "2026-01-01") is Article
+
+
+# --------------------------------------------------------------------------- #
+# Frontière app/corpus : chaque moteur reste de son côté
+# --------------------------------------------------------------------------- #
+
+CORPUS_TABLES = ("articles", "article_search", "mesh_descriptors", "ftp_state")
+APP_TABLES = ("article_fr", "doctors", "doctor_profiles", "saved_searches",
+              "search_runs", "digest_runs", "usage_events")
+
+
+def _tables_hit(statements: list[str], names: tuple[str, ...]) -> set[str]:
+    import re
+
+    hit: set[str] = set()
+    for st in statements:
+        for name in names:
+            if re.search(rf"\b{name}\b", st):
+                hit.add(name)
+    return hit
+
+
+def test_engines_stay_on_their_side_of_the_frontier(session, app_db, spy):
+    """Contrat de séparation (PLAN_BASES_SEPAREES.md) : pendant une recherche
+    complète, le moteur APP n'émet aucune requête vers les tables corpus et le
+    moteur CORPUS aucune vers les tables métier. Tant que les deux URLs pointent
+    sur la même base, seul ce test prouve le routage — une session mal aiguillée
+    y trouverait toutes les tables sans erreur."""
+    from sqlalchemy import event
+
+    from app.db import corpus_engine, engine as app_engine
+
+    seen: dict[str, list[str]] = {"app": [], "corpus": []}
+
+    def _watch(key):
+        def listener(conn, cursor, statement, parameters, context, executemany):
+            seen[key].append(statement)
+
+        return listener
+
+    app_l, corpus_l = _watch("app"), _watch("corpus")
+    event.listen(app_engine, "before_cursor_execute", app_l)
+    event.listen(corpus_engine, "before_cursor_execute", corpus_l)
+    try:
+        _run_deep_search(_req(rrf=True), session, app_db, spy.progress)
+    finally:
+        event.remove(app_engine, "before_cursor_execute", app_l)
+        event.remove(corpus_engine, "before_cursor_execute", corpus_l)
+
+    crossed_app = _tables_hit(seen["app"], CORPUS_TABLES)
+    crossed_corpus = _tables_hit(seen["corpus"], APP_TABLES)
+    assert not crossed_app, f"le moteur app a touché le corpus : {crossed_app}"
+    assert not crossed_corpus, f"le moteur corpus a touché l'app : {crossed_corpus}"
+    # Sanity : le test a bien observé les deux mondes travailler (sinon il ne
+    # prouverait rien — ex. listeners inopérants ou pipeline court-circuité).
+    assert _tables_hit(seen["corpus"], ("articles",)), "pré-filtre corpus non observé"
+    assert _tables_hit(seen["app"], ("article_fr",)), "cache FR (app) non observé"
