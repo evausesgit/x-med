@@ -1,0 +1,107 @@
+# CI — tests backend + build front sur chaque PR et sur main.
+#
+# Comble le trou relevé depuis le nettoyage de juillet 2026 (« il n'y a pas de
+# CI : rien ne lance ces tests automatiquement sur une PR ») : les 89 tests et
+# le build TypeScript strict tournent désormais avant merge, en complément des
+# previews Coolify par MR.
+#
+# Postgres de service : pgvector/pg16 (même image que le corpus de prod) pour
+# que la chaîne de migrations monolithique 0001→0011 passe (0001 crée
+# l'extension vector, 0011 la supprime). Sur cette base VIERGE :
+# - les tests unitaires + identités de déploiement + alembic app (base jetable)
+#   tournent pour de vrai ;
+# - les tests bout-en-bout qui exigent un vrai corpus (vismodegib/isthmocele)
+#   se skippent proprement (« corpus local trop pauvre ») — c'est prévu par
+#   leur fixture, vérifié en local sur base vierge.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: pytest + ruff
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: xmed
+          POSTGRES_PASSWORD: xmed
+          POSTGRES_DB: xmed
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U xmed -d xmed"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://xmed:xmed@localhost:5432/xmed
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Dépendances (uv sync, groupe dev)
+        run: uv sync --frozen --group dev
+
+      - name: Lint (ruff)
+        run: uv run --group dev ruff check app/ tests/ scripts/
+
+      - name: Attendre Postgres (stable, pas le serveur temporaire d'initdb)
+        # L'image officielle redémarre Postgres à la fin de l'initdb :
+        # pg_isready peut répondre pendant le serveur TEMPORAIRE puis la
+        # connexion tombe (vu en local : migrations plantées à mi-chaîne).
+        # Deux sondes espacées = on vise le serveur définitif.
+        run: |
+          for i in $(seq 1 30); do
+            if pg_isready -h localhost -p 5432 -U xmed -d xmed -q; then
+              sleep 2
+              pg_isready -h localhost -p 5432 -U xmed -d xmed -q && exit 0
+            fi
+            sleep 2
+          done
+          echo "Postgres de service indisponible" >&2
+          exit 1
+
+      - name: Schéma (migrations monolithiques sur la base de service)
+        run: uv run --group dev alembic upgrade head
+
+      - name: Tests
+        run: uv run --group dev pytest -q
+
+  web:
+    name: tsc + next build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Dépendances
+        run: npm ci
+
+      - name: TypeScript strict
+        run: npx tsc --noEmit
+
+      - name: Build Next
+        run: npm run build

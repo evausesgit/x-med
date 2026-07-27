@@ -146,7 +146,9 @@ def build_report(data: dict) -> str:
             if not e or "error" in e:
                 L.append(f"| {q['query'][:34]} | {v} | — | — | — | — | — | ERREUR | — | — | — |")
                 continue
-            c = e["counts"]; ks = _kept_by_source(e); sd = _score_dist(e)
+            c = e["counts"]
+            ks = _kept_by_source(e)
+            sd = _score_dist(e)
             agg[v].append(e)
             L.append(
                 f"| {q['query'][:34] if v=='v1' else ''} | {v} | {e['total_s']:.0f}s | "
