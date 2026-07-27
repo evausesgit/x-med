@@ -652,8 +652,13 @@ export default function Home() {
     if (to) setDateTo(to);
     if (query) setQ(query);
     void (async () => {
+      // Un clic « Explorer » AVANT la fin de ces fetchs garde la priorité :
+      // il incrémente runIdRef, et tout ce qui suit un await devient no-op.
+      const mountRunId = runIdRef.current;
+      const fresh = () =>
+        mountedRef.current && runIdRef.current === mountRunId;
       const h = await refreshHistory();
-      if (!mountedRef.current) return;
+      if (!fresh()) return;
       if (h?.current) {
         attachRun(h.current);
         return;
@@ -665,7 +670,7 @@ export default function Home() {
           date_from: from ?? undefined,
           date_to: to ?? undefined,
         });
-        if (mountedRef.current && existing) {
+        if (fresh() && existing) {
           setDeep(existing.payload);
           setSavedHit({ id: existing.id, created_at: existing.created_at });
         }

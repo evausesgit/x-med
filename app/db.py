@@ -59,15 +59,16 @@ if settings.corpus_database_url is None:
 # Le repli passe par la même résolution runtime que l'engine app (l'URL
 # corpus explicite, elle, porte son propre hôte — corpus-db — et n'est pas
 # concernée par SERVICE_NAME_DB).
-# Pool corpus EXPLICITE à 5+10 = 15 : borné par les CONNECTION LIMIT des
-# rôles read-only (xmed_api_ro 20, xmed_preview_ro 15 — cf.
-# scripts/create_corpus_roles.sql). Ne pas augmenter sans relever les limites.
+# Pool corpus EXPLICITE à 5+7 = 12 : SOUS les CONNECTION LIMIT des rôles
+# read-only (xmed_api_ro 20, xmed_preview_ro 15 — create_corpus_roles.sql),
+# avec marge pour le chevauchement ancien/nouveau conteneur d'un déploiement
+# et une commande opérateur. Ne pas augmenter sans relever les limites.
 corpus_engine = create_engine(
     settings.corpus_database_url or resolve_db_url(settings.database_url),
     pool_pre_ping=True,
     future=True,
     pool_size=5,
-    max_overflow=10,
+    max_overflow=7,
     pool_timeout=10,
 )
 CorpusSessionLocal = sessionmaker(
