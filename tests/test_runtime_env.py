@@ -178,8 +178,20 @@ def test_bootstrap_mismatch_init_db(monkeypatch):
 def test_bootstrap_mismatch_coolify_branch(monkeypatch):
     _coolify_preview(monkeypatch, n="51")
     monkeypatch.setenv("COOLIFY_BRANCH", '"pull/52/head"')
-    with pytest.raises(bootstrap.BootstrapError, match="PR 52"):
+    with pytest.raises(bootstrap.BootstrapError, match="pull/"):
         bootstrap._validate_deployment_identity("preview")
+
+
+def test_services_suffixes_sans_branche_pr_refuses(monkeypatch):
+    """Conformité stricte (revue Codex) : des services -pr-N sans COOLIFY_BRANCH
+    pull/N (absente ou `main`) = identité de PR invérifiable → refus."""
+    _coolify_preview(monkeypatch, n="51")
+    monkeypatch.delenv("COOLIFY_BRANCH")
+    with pytest.raises(DeploymentIdentityError, match="invérifiable"):
+        require_consistent_services("init", "db")
+    monkeypatch.setenv("COOLIFY_BRANCH", "main")
+    with pytest.raises(DeploymentIdentityError, match="invérifiable"):
+        require_consistent_services("init", "db")
 
 
 def test_bootstrap_format_invalide(monkeypatch):
@@ -238,3 +250,43 @@ def test_drop_autorise_sinon(monkeypatch, marker):
     bootstrap._drop_and_recreate(conn, URL)
     assert any("DROP DATABASE" in s for s in conn.statements)
     assert any("TEMPLATE template0" in s for s in conn.statements)
+
+
+def test_marker_mode_fail_closed_sur_erreur_de_lecture(monkeypatch):
+    """FAIL CLOSED (revue Codex) : une erreur transitoire de lecture du
+    marqueur (timeout, saturation, permission) = état inconnu → le DROP est
+    REFUSÉ, aucun SQL n'atteint la connexion de maintenance. Seule l'absence
+    PROUVÉE de la base (SQLSTATE 3D000) vaut « rien à protéger »."""
+    from sqlalchemy.exc import OperationalError
+
+    def _boom(url):
+        raise OperationalError("SELECT mode", None, Exception("timeout"))
+
+    monkeypatch.setattr(bootstrap, "_connect", _boom)
+    with pytest.raises(bootstrap.BootstrapError, match="fail closed"):
+        bootstrap._marker_mode(URL)
+
+    conn = _FakeConn()
+    monkeypatch.setattr(
+        bootstrap, "_marker_mode",
+        lambda url: (_ for _ in ()).throw(
+            bootstrap.BootstrapError("état inconnu, DROP REFUSÉ (fail closed)")
+        ),
+    )
+    with pytest.raises(bootstrap.BootstrapError, match="fail closed"):
+        bootstrap._drop_and_recreate(conn, URL)
+    assert conn.statements == []
+
+
+def test_marker_mode_base_inexistante_ok(monkeypatch):
+    """SQLSTATE 3D000 (base inexistante) : rien à protéger → None."""
+    from sqlalchemy.exc import OperationalError
+
+    class _Orig(Exception):
+        sqlstate = "3D000"
+
+    def _absent(url):
+        raise OperationalError("connect", None, _Orig())
+
+    monkeypatch.setattr(bootstrap, "_connect", _absent)
+    assert bootstrap._marker_mode(URL) is None

@@ -116,7 +116,22 @@ def require_consistent_services(*bases: str) -> str | None:
             "n'appartiennent pas au même déploiement — refus de continuer "
             "(schéma de l'incident du 2026-07-27)."
         )
-    return next(iter(suffixes.values()))
+    suffix = next(iter(suffixes.values()))
+    # Des services suffixés -pr-N doivent venir d'un déploiement de PR : la
+    # branche Coolify porte alors TOUJOURS un motif pull/N (vérifié
+    # empiriquement sur cette instance). Branche absente, `main` ou N
+    # divergent = identité invérifiable → refus (conformité stricte, revue
+    # Codex). L'inverse (branche pull/N avec services nus) est déjà refusé
+    # par les appelants via le mode.
+    if suffix is not None:
+        branch_n = branch_pr_number()
+        if branch_n != suffix:
+            raise DeploymentIdentityError(
+                f"services suffixés -pr-{suffix} mais COOLIFY_BRANCH="
+                f"{os.environ.get('COOLIFY_BRANCH')!r} ne porte pas pull/"
+                f"{suffix} : identité de PR invérifiable — refus de continuer."
+            )
+    return suffix
 
 
 def check_api_db_identity() -> None:

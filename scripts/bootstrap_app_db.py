@@ -435,14 +435,16 @@ def _ensure_runtime_role(url: str, password: str) -> None:
 
 
 def _marker_mode(url: str) -> str | None:
-    """Mode enregistré par le marqueur de la base cible.
+    """Mode enregistré par le marqueur de la base cible — FAIL CLOSED.
 
-    None si la base est injoignable/inexistante ou sans marqueur — dans ces
-    cas il n'y a rien de « production » à protéger. Toute autre valeur est le
-    mode du dernier bootstrap complet de CETTE base.
+    None SEULEMENT quand l'absence de marqueur est PROUVÉE : base inexistante
+    (SQLSTATE 3D000 — rien à protéger) ou table de marqueur absente. Toute
+    autre erreur (timeout, saturation, permission, réseau) = état INCONNU →
+    BootstrapError : une garde « absolue » qui laisserait passer le DROP sur
+    un échec transitoire de lecture serait fail-open (revue Codex).
     """
     from sqlalchemy import text
-    from sqlalchemy.exc import OperationalError
+    from sqlalchemy.exc import SQLAlchemyError
 
     try:
         with _connect(url) as conn:
@@ -451,10 +453,18 @@ def _marker_mode(url: str) -> str | None:
             return conn.execute(
                 text(f"SELECT mode FROM {OPS_SCHEMA}.{STATE_TABLE}")
             ).scalar()
-    except OperationalError as exc:
-        cause = str(getattr(exc, "orig", None) or exc).strip().splitlines()[-1]
-        _log(f"base cible injoignable pour lire le marqueur ({cause}) — pas de marqueur")
-        return None
+    except SQLAlchemyError as exc:
+        orig = getattr(exc, "orig", None)
+        sqlstate = getattr(orig, "sqlstate", None)
+        if sqlstate == "3D000":  # invalid_catalog_name : la base n'existe pas
+            _log("base cible inexistante — pas de marqueur à protéger")
+            return None
+        cause = str(orig or exc).strip().splitlines()[-1]
+        raise BootstrapError(
+            "impossible de lire le marqueur de la base cible avant DROP "
+            f"({cause}) : état inconnu, DROP REFUSÉ (fail closed). Réessayer "
+            "quand la base répond, ou vérifier droits/connexion."
+        ) from exc
 
 
 def _refuse_dropping_production(url: str) -> None:
