@@ -37,8 +37,8 @@ backoffice, vérifié (`pg_restore --list`, comptes : 3 doctors, 43 saved_search
 |---|---|---|---|
 | 1 | Frontière figée + backup + rôles SQL | 🔶 backup fait, rôles à créer | dump ci-dessus |
 | 2 | Split runtime : deux moteurs, sessions routées | ✅ | [PR #45](https://github.com/evausesgit/x-med/pull/45) |
-| 3 | Historique Alembic app (`alembic_version_app`, baseline 7 tables) | ⬜ PR 2 | |
-| 4 | Script de seed durci (dump quotidien → prod backup + seed previews) | ⬜ PR 2 | |
+| 3 | Historique Alembic app (`alembic_version_app`, baseline 7 tables) | ✅ | PR 2 |
+| 4 | Script de seed durci (dump quotidien → prod backup + seed previews) | 🔶 script fait ; cron + copie hors machine → étape 9 | PR 2 |
 | 5 | Images : Dockerfile web (npm), CMD API sans migrations, target `init` | ⬜ PR 3 | |
 | 6 | Compose app : db (volume nommé sans `name:`) + init + api + web | ⬜ PR 3 | |
 | 7 | Init bi-mode (`XMED_DEPLOYMENT_MODE=production\|preview`) | ⬜ PR 3 | |
@@ -96,4 +96,16 @@ restreindre l'exposition du `5432` corpus (réseau dédié ou bind `10.0.1.1` + 
 - **2026-07-27** — Backup backoffice vérifié. PR #45 (étape 2) : split runtime,
   revue Codex intégrée (fix transaction `SET LOCAL` du FTS, test de frontière
   app/corpus par listeners SQL, warning de repli d'URL). 55 tests verts avec et
-  sans `CORPUS_DATABASE_URL`.
+  sans `CORPUS_DATABASE_URL`. **Mergée.**
+- **2026-07-27** — PR 2 (étapes 3+4) : `alembic/app` (baseline `app0001` squashée,
+  byte-identique au DDL prod, `alembic_version_app`, schéma `public` explicite,
+  autogenerate désactivé tant que la Base n'est pas scindée) +
+  `scripts/backup_backoffice.py` (verrou flock, dump -Fc transactionnel, sha256,
+  manifeste atomique `latest.json` = source de vérité du seed, `--allow-unversioned`
+  requis pour la base monolithique, rétention qui préserve le dump référencé).
+  Revue Codex intégrée (verrou, échappement `%` ConfigParser, `%(here)s`,
+  version_table_schema, manifeste, fsync, test offline). 61 tests verts.
+  Contrat de bootstrap acté pour la PR 3 : restore → vérif → `stamp app0001` si
+  dump non versionné (jamais de stamp opportuniste : marqueur `bootstrap_complete`
+  posé après `upgrade head` seulement) → `upgrade head` ; révision inconnue =
+  rebase imposé. Ne JAMAIS stamper `x-med-db-1`.
