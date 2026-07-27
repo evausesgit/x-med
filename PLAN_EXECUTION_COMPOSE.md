@@ -35,10 +35,10 @@ backoffice, vérifié (`pg_restore --list`, comptes : 3 doctors, 43 saved_search
 
 | # | Étape | État | Réf |
 |---|---|---|---|
-| 1 | Frontière figée + backup + rôles SQL | 🔶 backup fait, rôles à créer | dump ci-dessus |
+| 1 | Frontière figée + backup + rôles SQL | ✅ (rôles créés et prouvés à l'étape 9) | dump ci-dessus |
 | 2 | Split runtime : deux moteurs, sessions routées | ✅ | [PR #45](https://github.com/evausesgit/x-med/pull/45) |
 | 3 | Historique Alembic app (`alembic_version_app`, baseline 7 tables) | ✅ | PR 2 |
-| 4 | Script de seed durci (dump quotidien → prod backup + seed previews) | 🔶 script fait ; cron + copie hors machine → étape 9 | PR 2 |
+| 4 | Script de seed durci (dump quotidien → prod backup + seed previews) | 🔶 script + cron (4h30, crontab jack) faits ; reste la copie hors machine | PR 2 |
 | 5 | Images : Dockerfile web (npm), CMD API sans migrations, target `init` | ✅ | PR 3 |
 | 6 | Compose app : db (volume nommé sans `name:`) + init + api + web | ✅ | PR 3 |
 | 7 | Init bi-mode (`XMED_DEPLOYMENT_MODE=production\|preview`) | ✅ | PR 3 |
@@ -199,3 +199,24 @@ restreindre l'exposition du `5432` corpus (réseau dédié ou bind `10.0.1.1` + 
   Restent (hors étape 9) : credentials prod figés dans les previews (bloquant
   avant d'ouvrir les previews hors équipe), désactiver les previews du front
   monolithique à la bascule, étape 10 supervisée.
+- **2026-07-27 (post-étape 9, PR #56)** — Bug rapporté sur next : recharger `/`
+  RELANÇAIT la recherche (autorun sur le `?q=` que l'URL porte après un
+  lancement) ; combiné aux pools de connexions par défaut (15, checkout 30 s),
+  un digest simultané est mort sur `QueuePool limit reached` (invisible dans
+  l'historique : les runs en erreur n'y figurent pas). Fix : `?q=` pré-remplit
+  sans jamais lancer (rattachement PRIORITAIRE au run actif, URL resynchronisée,
+  sinon snapshot d'une recherche sauvegardée, sinon input seul — garde
+  `runIdRef` : un clic pendant les fetchs de montage garde la priorité) ; pools
+  dimensionnés (app 10+30 checkout 10 s ; corpus 5+7=12, SOUS les CONNECTION
+  LIMIT des rôles ro). Revue Codex. Bénéficie aussi à la prod actuelle (même
+  front).
+- **2026-07-27 (PR #57)** — **CI GitHub Actions** : pytest + ruff (Postgres de
+  service pgvector/pg16, migrations monolithiques, 78 verts + 11 skips propres
+  sur base vierge — les tests corpus se skippent par fixture) et tsc strict +
+  next build, sur chaque PR et sur main. Les 2 E702 historiques de
+  bench_v1_v2.py corrigés : ruff passe sans exception. Ferme le trou « pas de
+  CI » ouvert depuis le nettoyage. Piège documenté : l'image Postgres redémarre
+  après initdb (attendre le serveur définitif avant les migrations). Épilogue :
+  3 échecs de build de l'API monolithique sur un 403 transitoire du CDN
+  NodeSource — retry passé, zéro impact (l'ancien conteneur servait).
+  Optionnel restant : rendre les checks bloquants (protection de branche).
