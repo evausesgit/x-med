@@ -67,7 +67,13 @@ services:
       # Dumps produits par scripts/backup_backoffice.py (latest.json + .dump).
       # Lecture seule : l'init LIT un fichier, il ne porte aucun credential
       # vers la base source.
-      - ${SEED_DIR:?répertoire hôte des dumps de seed}:/seed:ro
+      # Syntaxe longue OBLIGATOIRE : le validateur Coolify refuse `${VAR}` dans
+      # les volumes en syntaxe courte, mais le whitelist en syntaxe longue
+      # (source `${VAR}` nue — pas de `:?`, seul `:-` est toléré).
+      - type: bind
+        source: ${SEED_DIR}
+        target: /seed
+        read_only: true
 
   api:
     build:
@@ -98,7 +104,10 @@ services:
       # Auth du CLI codex. En preview : dossier VIDE (codex échoue → la
       # recherche dégrade proprement via ses chemins de repli) — jamais
       # d'auth prod en preview.
-      - ${CODEX_AUTH_DIR:?dossier d'auth codex (vide en preview)}:/home/api/.codex
+      # Syntaxe longue : même contrainte Coolify que le seed de l'init.
+      - type: bind
+        source: ${CODEX_AUTH_DIR}
+        target: /home/api/.codex
     networks:
       - default
       - corpus-access
