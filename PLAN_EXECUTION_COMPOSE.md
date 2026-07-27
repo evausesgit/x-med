@@ -43,7 +43,7 @@ backoffice, vérifié (`pg_restore --list`, comptes : 3 doctors, 43 saved_search
 | 6 | Compose app : db (volume nommé sans `name:`) + init + api + web | ✅ | PR 3 |
 | 7 | Init bi-mode (`XMED_DEPLOYMENT_MODE=production\|preview`) | ✅ | PR 3 |
 | 8 | Validation locale des deux modes (checklist ci-dessous) | ✅ déroulée en réel | PR 3 |
-| 9 | Ressource Coolify + previews + MR jetable de recette + Firebase auto | 🔶 ressource en ligne ([next.x-med.ia-do-it.com](https://next.x-med.ia-do-it.com)) ; recette previews en cours | |
+| 9 | Ressource Coolify + previews + MR jetable de recette + Firebase auto | ✅ recette complète (MR #53/#54) | |
 | 10 | Bascule prod (domaine temporaire → copie finale → bascule Traefik) | ⬜ supervisée | |
 
 ### Détail de ce qui reste par étape
@@ -179,3 +179,23 @@ restreindre l'exposition du `5432` corpus (réseau dédié ou bind `10.0.1.1` + 
   seule) ; hostnames internes résolus AU RUNTIME via SERVICE_NAME_DB
   (bootstrap + entrypoint API) ; usage local via docker-compose.app.local.yml.
   Recette encore à terminer sur une nouvelle MR jetable après merge du fix.
+- **2026-07-27 (fin de recette — étape 9 ✅)** — Cycle preview intégralement
+  prouvé sur les MR jetables #53/#54 après trois correctifs Coolify
+  supplémentaires : (a) sources de volume LITTÉRALES obligatoires (le job fait
+  `mkdir -p` sur la source brute : une `${VAR}` suffixée `-pr-N` devient
+  `-pr-N` → crash silencieux, déploiement zombie `in_progress` sans logs) —
+  bonus : le suffixe sur `/home/geekette/.codex` rend l'isolation de l'auth
+  codex STRUCTURELLE (dossier vide auto-créé, 0 fichier vérifié en preview) ;
+  (b) template d'URL `{{pr_id}}-app.x-med.ia-do-it.com` (collision d'fqdn
+  avec les previews du front monolithique — violation d'unicité = zombie) ;
+  (c) build-args : contrairement aux `environment:`, ils S'INTERPOLENT
+  correctement depuis la .env (`${SERVICE_NAME_API}`) — le web de preview vise
+  bien `api-pr-N`. Preuves finales : preview seedée 3/43/986, prod intacte
+  pendant le re-seed, corpus lisible, API healthy avec gardes d'identité,
+  **re-seed au push** (donnée modifiée disparue), **destruction à la
+  fermeture** (0 conteneur, 0 volume en 20 s), URL preview en TLS + Firebase.
+  Diagnostic express des zombies : `deployment_uuid` sans conteneur de build
+  = crash pré-log, chercher dans storage/logs/laravel.log de coolify.
+  Restent (hors étape 9) : credentials prod figés dans les previews (bloquant
+  avant d'ouvrir les previews hors équipe), désactiver les previews du front
+  monolithique à la bascule, étape 10 supervisée.
