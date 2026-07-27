@@ -39,6 +39,16 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    # Réseau d'accès corpus du compose app (PLAN_EXECUTION_COMPOSE.md étape 9) :
+    # l'API de la stack `x-med-app` (et ses previews) joint cette base en lecture
+    # seule via l'alias DNS stable `corpus-db`. Déclaré ici pour SURVIVRE à une
+    # recréation du conteneur — le `docker network connect` fait à la main ne
+    # persiste pas. Appliquer via `docker compose up -d db` (recrée le conteneur,
+    # à faire dans un creux) ; en attendant, la connexion manuelle reste active.
+    networks:
+      default: {}
+      corpus-access:
+        aliases: [corpus-db]
 
   redis:
     image: redis:7-alpine
@@ -51,3 +61,11 @@ services:
 
 volumes:
   pgdata:
+
+networks:
+  # Créé par `docker network create xmed-corpus-access` (fait le 2026-07-27).
+  # Externe : partagé avec la ressource Coolify `x-med-app` sans coupler les
+  # cycles de vie des deux composes.
+  corpus-access:
+    external: true
+    name: xmed-corpus-access
