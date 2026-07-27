@@ -4,6 +4,7 @@
 .venv
 .git
 .claude
+**/__pycache__
 web/node_modules
 web/.next
 documents

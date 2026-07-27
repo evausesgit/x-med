@@ -1,0 +1,9 @@
+# Contexte de build du front : le Dockerfile fait `npm ci` puis `npm run
+# build` — les artefacts locaux n'ont rien à faire dans le contexte.
+node_modules
+.next
+Dockerfile
+.dockerignore
+README.md
+AGENTS.md
+CLAUDE.md

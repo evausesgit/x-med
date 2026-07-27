@@ -1,0 +1,131 @@
+# Compose « app » — front + API + base backoffice + init one-shot.
+# (Le docker-compose.yml existant reste le compose artisanal corpus/redis de
+# l'hôte ; celui-ci est la ressource Coolify du chantier
+# docs/plans/2026-07-24-infra-deux-composes-previews.md.)
+#
+# Chaîne de démarrage : db healthy → init completed → api healthy → web.
+# L'init (scripts/bootstrap_app_db.py) est l'UNIQUE propriétaire des
+# migrations app : s'il échoue, ni api ni web ne démarrent.
+#
+# Réseau : RIEN n'est exposé. Aucun `ports:` — le seul service que Coolify
+# route est `web`, sur son port interne 3000 (cf. web/Dockerfile). L'API
+# n'existe que comme http://api:8800 interne au compose. L'accès au corpus
+# (x-med-db-1, hors compose) passe par le réseau Docker externe
+# `xmed-corpus-access`, attaché à `api` SEULEMENT :
+#   docker network create xmed-corpus-access
+#   docker network connect --alias corpus-db xmed-corpus-access x-med-db-1
+#
+# Aucun `container_name` : Coolify préfixe par projet/PR (previews).
+# Variables : voir .env.app.example (localement : --env-file .env.app.local).
+
+services:
+  db:
+    image: postgres:16-bookworm
+    restart: unless-stopped
+    environment:
+      # xmed_admin = superuser du cluster : réservé à l'init (propriétaire,
+      # migrations, drop/recreate). L'API utilise xmed_app_runtime (DML seul),
+      # créé/réaligné par l'init — jamais les credentials admin.
+      # SERVICE_PASSWORD_* : convention Coolify — mots de passe générés et
+      # injectés automatiquement par la plateforme (une valeur par env).
+      POSTGRES_USER: xmed_admin
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_APPDBADMIN:?mot de passe admin de la base app}
+      POSTGRES_DB: xmed_app
+    volumes:
+      # Volume nommé SANS champ `name:` — condition des previews jetables :
+      # Coolify préfixe le volume par projet/PR et le détruit avec la MR.
+      - backoffice_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xmed_admin -d xmed_app"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # One-shot : seed + migrations de la base app (voir le contrat complet dans
+  # scripts/bootstrap_app_db.py). Sort en 0 = base prête ; sinon la stack ne
+  # démarre pas (depends_on ci-dessous).
+  init:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: init
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Credentials ADMIN : l'init est le seul service à les voir.
+      DATABASE_URL: postgresql+psycopg://xmed_admin:${SERVICE_PASSWORD_APPDBADMIN}@db:5432/xmed_app
+      # Rôle applicatif créé/réaligné par l'init (grants DML rejoués après
+      # chaque restore) — c'est l'identité que l'API utilise.
+      APP_RUNTIME_PASSWORD: ${SERVICE_PASSWORD_APPDBRUNTIME:?mot de passe du rôle runtime}
+      # production = seed une fois puis migrations seules ;
+      # preview    = drop + re-seed à CHAQUE déploiement (données jetables).
+      XMED_DEPLOYMENT_MODE: ${XMED_DEPLOYMENT_MODE:?production ou preview}
+      SEED_DIR: /seed
+    volumes:
+      # Dumps produits par scripts/backup_backoffice.py (latest.json + .dump).
+      # Lecture seule : l'init LIT un fichier, il ne porte aucun credential
+      # vers la base source.
+      - ${SEED_DIR:?répertoire hôte des dumps de seed}:/seed:ro
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      init:
+        condition: service_completed_successfully
+    environment:
+      # Rôle runtime (DML sur les 7 tables, AUCUN DDL) — jamais l'admin.
+      DATABASE_URL: postgresql+psycopg://xmed_app_runtime:${SERVICE_PASSWORD_APPDBRUNTIME}@db:5432/xmed_app
+      # Corpus via le réseau externe (alias stable corpus-db). Rôle lecture
+      # seule : xmed_api_ro en prod, xmed_preview_ro en preview (variable
+      # scopée Coolify) — cf. scripts/create_corpus_roles.sql.
+      CORPUS_DATABASE_URL: ${CORPUS_DATABASE_URL:?URL corpus, hôte corpus-db:5432}
+      # L'init est l'unique propriétaire des migrations app : l'API ne touche
+      # jamais au schéma dans ce compose.
+      RUN_MIGRATIONS_ON_BOOT: "0"
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      USE_NARROW_SEARCH: ${USE_NARROW_SEARCH:-false}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+    volumes:
+      # Auth du CLI codex. En preview : dossier VIDE (codex échoue → la
+      # recherche dégrade proprement via ses chemins de repli) — jamais
+      # d'auth prod en preview.
+      - ${CODEX_AUTH_DIR:?dossier d'auth codex (vide en preview)}:/home/api/.codex
+    networks:
+      - default
+      - corpus-access
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    # api a un healthcheck HTTP dans son image (curl /health) : `healthy`
+    # garantit que les rewrites /api/* du front trouvent une API qui répond.
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      # Allowlist de comptes Google (web/proxy.ts). ⚠️ VIDE = tout compte
+      # Google accepté — la renseigner partout où la stack est exposée.
+      XMED_ALLOWED_EMAILS: ${XMED_ALLOWED_EMAILS:-}
+    # Port interne 3000 (next start) — c'est LUI que Coolify route ; seul
+    # service avec un domaine.
+
+networks:
+  # Réseau créé hors compose (external) : c'est par lui que api atteint la
+  # base corpus x-med-db-1 (alias corpus-db), sans rien exposer sur l'hôte.
+  corpus-access:
+    name: xmed-corpus-access
+    external: true
+
+volumes:
+  backoffice_pgdata:

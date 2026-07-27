@@ -1,4 +1,7 @@
 .env
+# Variables locales du compose app (docker-compose.app.yml) — non commitées,
+# le modèle commité est .env.app.example.
+.env.app.local
 __pycache__/
 *.pyc
 *.pyo

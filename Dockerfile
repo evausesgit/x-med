@@ -1,17 +1,20 @@
-# API X-Med — image FastAPI complète pour Coolify (DEPLOY_BACKEND_COOLIFY.md § 3.1).
+# API X-Med — image FastAPI pour Coolify (DEPLOY_BACKEND_COOLIFY.md § 3.1).
 #
-# Contenu : uv + dépendances cœur ET groupe ml (torch CPU, transformers — la
-# recherche sémantique MedCPT/bge-m3 tourne dans l'API), plus Node 22 + le CLI
-# `codex` (npm global) que l'API shelle pour la recherche PubMed+IA.
+# Trois stages :
+#   - `base` : socle commun (uv + dépendances, Node 22 + CLI codex, code) ;
+#   - `init` : base + postgresql-client-16 (PGDG) + scripts/ — le service
+#     one-shot du compose app qui seed/migre la base backoffice
+#     (`python -m scripts.bootstrap_app_db`, cf. docker-compose.app.yml) ;
+#   - `api`  : le serveur uvicorn. DERNIER stage = cible par défaut d'un
+#     `docker build` sans `--target` : Coolify (prod monolithique actuelle)
+#     builde ce Dockerfile sans cible et doit obtenir l'API, pas l'init.
 #
-# Ce qui N'est PAS dans l'image (fourni au runtime par Coolify) :
-#   - l'auth codex : bind-mount de /home/geekette/.codex → /home/api/.codex
+# Ce qui N'est PAS dans l'image (fourni au runtime) :
+#   - l'auth codex : bind-mount d'un dossier hôte → /home/api/.codex
 #     (uid 1001 dans le conteneur = geekette sur l'hôte, mêmes droits) ;
-#   - le cache des modèles HF (~5 Go) : volume persistant monté sur $HF_HOME,
-#     téléchargés au premier chargement puis réutilisés entre déploiements ;
-#   - la config : DATABASE_URL, CORS_ORIGINS, etc. en variables d'env Coolify.
+#   - la config : DATABASE_URL, CORPUS_DATABASE_URL, CORS_ORIGINS, etc.
 
-FROM python:3.12-slim
+FROM python:3.12-slim AS base
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
@@ -36,9 +39,7 @@ WORKDIR /app
 
 # uid 1001 = geekette sur l'hôte : les bind-mounts (auth codex) restent
 # lisibles/inscriptibles des deux côtés. Même convention que Dockerfile.worker.
-RUN useradd -m -u 1001 api \
- && mkdir -p /data/hf-cache \
- && chown api:api /data/hf-cache
+RUN useradd -m -u 1001 api
 
 # Dépendances d'abord (cache de layer), code ensuite.
 COPY pyproject.toml uv.lock ./
@@ -46,20 +47,67 @@ RUN uv sync --frozen --no-dev --no-install-project
 
 COPY app ./app
 COPY alembic ./alembic
-COPY alembic.ini ./
+COPY alembic.ini alembic_app.ini ./
 
-ENV PATH="/app/.venv/bin:$PATH" \
-    HF_HOME=/data/hf-cache
+ENV PATH="/app/.venv/bin:$PATH"
 
 USER api
 
 EXPOSE 8800
 
-# --start-period large : le premier démarrage télécharge les modèles d'embedding
-# si le cache HF est vide.
-HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+
+# ---------------------------------------------------------------------------
+# Stage `init` — service one-shot du compose app (docker-compose.app.yml).
+# Restaure le seed backoffice (pg_restore 16) puis joue les migrations app ;
+# api/web ne démarrent que s'il sort en 0 (depends_on: service_completed_
+# successfully). Voir scripts/bootstrap_app_db.py pour le contrat complet.
+# ---------------------------------------------------------------------------
+FROM base AS init
+
+USER root
+
+# postgresql-client-16 depuis le dépôt PGDG officiel, majeure épinglée = celle
+# du serveur : le client de la distro suit SA version (15 sous bookworm, 17
+# sous trixie), jamais forcément la nôtre, et un pg_restore d'une autre majeure
+# que le pg_dump est un risque de compatibilité silencieux. Le codename de la
+# suite PGDG est lu dans /etc/os-release : python:3.12-slim a déjà changé de
+# base Debian (bookworm → trixie) sans préavis, un codename en dur casserait.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends gnupg \
+ && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+    | gpg --dearmor -o /usr/share/keyrings/pgdg.gpg \
+ && . /etc/os-release \
+ && echo "deb [signed-by=/usr/share/keyrings/pgdg.gpg] http://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
+    > /etc/apt/sources.list.d/pgdg.list \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends postgresql-client-16 \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY scripts ./scripts
+
+USER api
+
+# Un one-shot n'a pas d'état « healthy » : sans ça il hériterait du healthcheck
+# HTTP du stage api et resterait éternellement « starting » aux yeux du compose.
+HEALTHCHECK NONE
+
+CMD ["python", "-m", "scripts.bootstrap_app_db"]
+
+
+# ---------------------------------------------------------------------------
+# Stage `api` (défaut) — le serveur uvicorn.
+# ---------------------------------------------------------------------------
+FROM base AS api
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD curl -fsS http://localhost:8800/health || exit 1
 
-# Migrations puis serveur : idempotent, aligne le schéma à chaque déploiement
-# (c'était le rôle de scripts/dev_up.sh sur l'hôte).
-CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8800"]
+# Migrations au boot : comportement historique (prod monolithique actuelle,
+# où l'API aligne elle-même le schéma à chaque déploiement). Le compose app
+# met RUN_MIGRATIONS_ON_BOOT=0 : là-bas, l'init est l'unique propriétaire des
+# migrations app et l'API ne touche jamais au schéma.
+ENV RUN_MIGRATIONS_ON_BOOT=1
+
+CMD ["sh", "-c", "\
+  if [ \"${RUN_MIGRATIONS_ON_BOOT:-1}\" = \"1\" ]; then alembic upgrade head; fi \
+  && exec uvicorn app.main:app --host 0.0.0.0 --port 8800"]
