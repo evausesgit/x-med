@@ -7,6 +7,10 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     database_url: str = "postgresql+psycopg://xmed:xmed@localhost:5432/xmed"
+    # Base corpus (miroir PubMed, lecture seule côté API). Non renseignée →
+    # repli sur `database_url` : les deux mondes vivent dans la même base
+    # (infra monolithique actuelle). Voir app/db.py et PLAN_BASES_SEPAREES.md.
+    corpus_database_url: str | None = None
     data_dir: str = "/home/geekette/data/pubmed"
 
     api_host: str = "0.0.0.0"

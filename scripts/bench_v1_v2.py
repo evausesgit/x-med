@@ -37,7 +37,7 @@ from datetime import date
 from pathlib import Path
 
 from app.api.search import DeepSearchRequest, _run_deep_search
-from app.db import SessionLocal
+from app.db import CorpusSessionLocal, SessionLocal
 
 # Requêtes cliniques FR réalistes, réparties sur plusieurs spécialités et types
 # (traitement, dépistage, diagnostic, comparaison de molécules) + une volontairement
@@ -73,8 +73,8 @@ def run_one(query: str, version: str, params: dict, date_from: str, date_to: str
         rrf=params["rrf"], judge_batch=params["judge_batch"],
         local_floor=params["local_floor"], min_score=2,
     )
-    with SessionLocal() as session:
-        res = _run_deep_search(req, session, progress)
+    with CorpusSessionLocal() as corpus, SessionLocal() as app_db:
+        res = _run_deep_search(req, corpus, app_db, progress)
 
     total_s = round(time.monotonic() - t0, 2)
     local_timed_out = any(p["phase"] == "filter_timeout" for p in phases)

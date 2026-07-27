@@ -31,7 +31,7 @@ from zoneinfo import ZoneInfo
 from fastapi import HTTPException
 from sqlalchemy import text as sql_text, update
 
-from app.db import SessionLocal
+from app.db import CorpusSessionLocal, SessionLocal
 from app.services import search_cancel
 from app.services.search_cancel import SearchCancelled
 
@@ -207,8 +207,10 @@ def run_deep_job(
 
     notified = False
     try:
-        with SessionLocal() as session:
-            result = _run_deep_search(req, session, progress)
+        # Deux sessions, une par monde : la recherche lit le corpus, le cache de
+        # traduction (article_fr) vit côté app. Voir app/db.py.
+        with CorpusSessionLocal() as corpus, SessionLocal() as session:
+            result = _run_deep_search(req, corpus, session, progress)
             if sanitize is not None:
                 sanitize(result)
             metrics = _deep_metrics(result)
@@ -237,7 +239,7 @@ def run_deep_job(
             # l'appelant (voir `keep_result_on_stop`) — ne pas laisser le
             # except générique avaler l'annulation.
             try:
-                fr = _translate_kept(result, session, progress)
+                fr = _translate_kept(result, corpus, session, progress)
             except SearchCancelled:
                 if not keep_result_on_stop:
                     raise

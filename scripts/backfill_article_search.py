@@ -21,12 +21,12 @@ import time
 
 from sqlalchemy import text
 
-from app.db import engine
+from app.db import corpus_engine
 
 
 def main() -> None:
     t0 = time.monotonic()
-    with engine.begin() as conn:
+    with corpus_engine.begin() as conn:
         min_year = conn.execute(text("SELECT article_search_min_year()")).scalar_one()
         print(f"Fenêtre : pub_year >= {min_year}. Remplissage de article_search…")
         # INSERT … SELECT en une passe. ON CONFLICT pour l'idempotence (et pour

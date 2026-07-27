@@ -27,7 +27,7 @@ from sqlalchemy.exc import IntegrityError
 from app.api.digest import StopRunResponse
 from app.api.me import Identity, _find_doctor, current_identity, ensure_doctor
 from app.api.search import DeepSearchRequest
-from app.db import SessionLocal
+from app.db import CorpusSessionLocal, SessionLocal
 from app.models import SearchRun
 from app.services import run_store, search_cancel
 from app.services.run_store import ACTIVE_STATUSES, PARIS
@@ -221,7 +221,8 @@ def stop_search_run(
     search_cancel.cancel(token)
     pid = _LOCAL_SEARCH_PIDS.get(token)
     if pid is not None:
-        with SessionLocal() as s:
+        # Le PID est celui du backend CORPUS (la requête FTS y tourne).
+        with CorpusSessionLocal() as s:
             s.scalar(sql_text("SELECT pg_cancel_backend(:pid)"), {"pid": pid})
     return StopRunResponse(stopped=stopped)
 

@@ -19,7 +19,7 @@ import time
 
 from sqlalchemy import select
 
-from app.db import SessionLocal
+from app.db import CorpusSessionLocal
 from app.models import FtpState
 from app.services.pubmed_ftp import list_local_files, md5sum, verify_md5
 from app.tasks.parse_articles import ingest_file
@@ -55,7 +55,7 @@ def ingest_local_files(
         hi = to_num if to_num is not None else 10**9
         files = [f for f in files if (n := _file_num(f.name)) is not None and lo <= n <= hi]
 
-    with SessionLocal() as session:
+    with CorpusSessionLocal() as session:
         done = set(session.scalars(select(FtpState.filename)).all())
 
     todo = [f for f in files if reparse or f.name not in done]
@@ -75,7 +75,7 @@ def ingest_local_files(
             continue
 
         ts = time.time()
-        with SessionLocal() as session:
+        with CorpusSessionLocal() as session:
             stats = ingest_file(session, path)
             session.merge(
                 FtpState(
