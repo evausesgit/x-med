@@ -33,8 +33,19 @@ from app.runtime_env import check_api_db_identity, resolve_db_url
 check_api_db_identity()
 
 # --- Monde app (backoffice) ---
+# Pool dimensionné pour la concurrence réelle : 2 pipelines en arrière-plan
+# (recherche + digest, chacun tenant une session longue) + le polling du front
+# + les endpoints. Le défaut (5+10, checkout 30 s) s'est épuisé le 2026-07-27
+# (digest mort sur « QueuePool limit reached » pendant une recherche + une
+# tempête de rechargements). La base app est dédiée au compose : 40 connexions
+# max restent très en dessous du max_connections Postgres (100).
 engine = create_engine(
-    resolve_db_url(settings.database_url), pool_pre_ping=True, future=True
+    resolve_db_url(settings.database_url),
+    pool_pre_ping=True,
+    future=True,
+    pool_size=10,
+    max_overflow=30,
+    pool_timeout=10,
 )
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False, future=True)
 
@@ -48,10 +59,16 @@ if settings.corpus_database_url is None:
 # Le repli passe par la même résolution runtime que l'engine app (l'URL
 # corpus explicite, elle, porte son propre hôte — corpus-db — et n'est pas
 # concernée par SERVICE_NAME_DB).
+# Pool corpus EXPLICITE à 5+10 = 15 : borné par les CONNECTION LIMIT des
+# rôles read-only (xmed_api_ro 20, xmed_preview_ro 15 — cf.
+# scripts/create_corpus_roles.sql). Ne pas augmenter sans relever les limites.
 corpus_engine = create_engine(
     settings.corpus_database_url or resolve_db_url(settings.database_url),
     pool_pre_ping=True,
     future=True,
+    pool_size=5,
+    max_overflow=10,
+    pool_timeout=10,
 )
 CorpusSessionLocal = sessionmaker(
     bind=corpus_engine, autoflush=False, expire_on_commit=False, future=True
