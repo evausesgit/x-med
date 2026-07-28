@@ -11,6 +11,7 @@ import {
   DoctorProfile,
   updateMyProfile,
 } from "@/lib/api";
+import TagsField from "./TagsField";
 
 const EMPTY: DoctorProfile = {
   specialty_main: "",
@@ -104,9 +105,15 @@ export default function ProfilPage() {
                 required
               />
             </div>
+            <TagsField
+              label="Sous-spécialités"
+              placeholder="ex. rythmologie — Entrée pour valider"
+              hint="Plusieurs sous-spécialités possibles : validez chacune avec Entrée (ou une virgule)."
+              values={p.subspecialties}
+              onChange={(v) => setP({ ...p, subspecialties: v })}
+            />
           </div>
           <div className="filters" style={{ borderTop: 0, marginTop: 12, paddingTop: 0 }}>
-            {field("subspecialties", "Sous-spécialités")}
             {field("pathologies", "Pathologies")}
             {field("treatments", "Traitements")}
             {field("mesh_terms_extra", "Tags MeSH (anglais)")}
