@@ -255,6 +255,46 @@ button:disabled {
   font-weight: 800;
 }
 
+/* Champ multi-valeurs : le cadre imite un input, les valeurs déjà saisies sont
+   des étiquettes et la frappe se poursuit à la suite. */
+.tagfield {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  align-items: center;
+  width: 100%;
+  min-height: 42px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fbfdff;
+  cursor: text;
+}
+
+.tagfield:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* L'input vit dans le cadre : pas de bordure ni de fond propres. */
+.tagfield .tagfield-input {
+  flex: 1 1 140px;
+  width: auto;
+  min-height: 28px;
+  padding: 2px 4px;
+  border: 0;
+  background: transparent;
+}
+
+.tagfield .tagfield-input:focus {
+  box-shadow: none;
+}
+
+.tagfield-hint {
+  color: var(--faint);
+  font-size: 12px;
+}
+
 .suggestions {
   position: absolute;
   z-index: 5;
