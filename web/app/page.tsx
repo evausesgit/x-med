@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   analyzeCompareStream,
   createSearchRun,
@@ -81,6 +81,8 @@ function CopyLinkButton() {
 }
 
 // Concepts MeSH défilants pendant l'attente (rend le temps de recherche vivant).
+// Repli générique : dès que codex a construit la requête, on défile les VRAIS
+// descripteurs MeSH de la recherche en cours (log `codex_done`).
 const MESH_SAMPLES = [
   "Heart Failure",
   "Diabetes Mellitus, Type 2",
@@ -96,9 +98,44 @@ const MESH_SAMPLES = [
   "Cardiovascular Diseases",
 ];
 
+// Animation d'attente : une roue qui tourne + les concepts MeSH qui défilent,
+// un à la fois. Tant que la recherche n'a pas produit ses propres descripteurs,
+// on fait défiler `MESH_SAMPLES` ; ensuite ce sont ceux de la requête en cours.
+function WaitingWheel({ terms }: { terms: string[] }) {
+  const [i, setI] = useState(0);
+  // La liste change en cours de route (générique → MeSH réels) : on repart de
+  // zéro pour ne pas afficher un index hors de la nouvelle liste.
+  useEffect(() => {
+    setI(0);
+    if (terms.length < 2) return;
+    const t = setInterval(() => setI((n) => (n + 1) % terms.length), 1500);
+    return () => clearInterval(t);
+  }, [terms]);
+
+  const current = terms[Math.min(i, terms.length - 1)] ?? "";
+  const next = terms.length > 1 ? terms[(i + 1) % terms.length] : "";
+
+  return (
+    <div className="xm-wait" aria-live="polite">
+      <span className="xm-wheel" aria-hidden="true" />
+      <span className="xm-wait-text">
+        <span className="xm-wait-label">Concepts explorés</span>
+        <span className="xm-wait-reel">
+          {/* `key` force le remontage → l'animation d'entrée rejoue à chaque terme. */}
+          <span className="xm-wait-term" key={`${terms.length}-${i}`}>
+            🔖 {current}
+          </span>
+          {next && <span className="xm-wait-next">{next}</span>}
+        </span>
+      </span>
+    </div>
+  );
+}
+
 // Panneau « Déroulé de la recherche » dans la langue du design : événements SSE
 // en direct (méthodes PubMed) ou, pour les recherches en un seul appel
-// (sémantique / mots-clés), une rotation de concepts MeSH pendant l'attente.
+// (analyse critique), une simple ligne d'état. Dans les deux cas, tant que ça
+// tourne, la roue + les concepts MeSH font patienter (`WaitingWheel`).
 function LiveEvents({
   running,
   variant,
@@ -118,13 +155,19 @@ function LiveEvents({
   // montage du composant (sinon il retombe à zéro à chaque retour sur la page).
   startedAt?: number | null;
 }) {
-  const [i, setI] = useState(0);
   const isPubmed = variant === "pubmed";
-  useEffect(() => {
-    if (isPubmed) return; // les lignes viennent du serveur (SSE)
-    const t = setInterval(() => setI((n) => (n + 1) % MESH_SAMPLES.length), 1300);
-    return () => clearInterval(t);
-  }, [isPubmed]);
+
+  // Termes défilés pendant l'attente : ceux de la requête construite par codex
+  // (log `codex_done`) dès qu'ils arrivent, sinon la liste générique. On passe
+  // par une clé stable (`join`) pour ne pas relancer la rotation à chaque
+  // nouveau log reçu.
+  const meshKey = (logs.find((l) => l.mesh_terms?.length)?.mesh_terms ?? []).join(
+    "|",
+  );
+  const wheelTerms = useMemo(
+    () => (meshKey ? meshKey.split("|") : MESH_SAMPLES),
+    [meshKey],
+  );
 
   // Chrono « la recherche tourne depuis… » : compté depuis `startedAt` (le
   // vrai début du run) quand il est fourni, sinon depuis le montage. Se fige
@@ -191,13 +234,14 @@ function LiveEvents({
               <pre className="xm-live-query">{queryLog.pubmed_query}</pre>
             )}
             {running && <div className="xm-live-hint">{waitHint}</div>}
+            {/* En dernier : le bloc est épinglé en bas du panneau (sticky), il
+                reste donc visible même quand les lignes de log le débordent. */}
+            {running && <WaitingWheel terms={wheelTerms} />}
           </>
         ) : (
           <>
             <div className="xm-live-line">{title}…</div>
-            <span className="xm-live-mesh" key={i}>
-              🔖 {MESH_SAMPLES[i]}
-            </span>
+            {running && <WaitingWheel terms={wheelTerms} />}
           </>
         )}
       </div>
