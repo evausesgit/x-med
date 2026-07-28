@@ -496,15 +496,77 @@
   line-height: 1.5;
   color: var(--muted);
 }
-.xm-live-mesh {
-  display: inline-flex;
+/* --- Bloc d'attente : roue + concepts MeSH qui défilent -------------------- */
+/* Pendant que codex juge les articles il ne se passe rien à l'écran pendant
+   plusieurs dizaines de secondes : la roue et les descripteurs qui défilent
+   montrent que le moteur travaille (et sur quoi). */
+.xm-wait {
+  /* Épinglé en bas du corps scrollable : quand les lignes de log s'accumulent
+     et débordent, l'animation reste sous les yeux. */
+  position: sticky;
+  /* -14px = padding-bas de .xm-live-body : sinon une ligne de log dépasse
+     encore sous le bloc épinglé. */
+  bottom: -14px;
+  display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 6px;
+  gap: 14px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-soft-line);
+  border-radius: 10px;
+}
+.xm-wheel {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  /* Anneau dégradé : plus vivant qu'un simple arc bordé. */
+  background: conic-gradient(
+    from 0deg,
+    transparent 0 25%,
+    var(--accent-soft-line) 55%,
+    var(--accent) 100%
+  );
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 0);
+  mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 0);
+  animation: spin 1.1s linear infinite;
+}
+.xm-wait-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.xm-wait-label {
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: 10.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.xm-wait-reel {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+.xm-wait-term {
+  font-size: 13.5px;
+  font-weight: 600;
   color: var(--accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   animation: meshfade 0.45s ease;
+}
+/* Aperçu du terme suivant : donne le sens du défilement sans voler l'attention. */
+.xm-wait-next {
+  font-size: 12px;
+  color: var(--faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ============================ RESULT CARD (XMedResult) ============================ */
@@ -1137,11 +1199,17 @@
     flex-direction: row;
     align-self: flex-start;
   }
+  /* Écran étroit : un seul terme à la fois, sinon les deux se tronquent. */
+  .xm-wait-next {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .xm-live.running .xm-live-dot,
   .xm-live-spin,
+  .xm-wheel,
+  .xm-wait-term,
   .xmr-ring {
     animation: none;
     transition: none;
