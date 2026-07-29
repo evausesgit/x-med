@@ -114,11 +114,13 @@ services:
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
     volumes:
       # Auth du CLI codex — chemin LITTÉRAL (même contrainte mkdir que le
-      # seed). ISOLATION PREVIEW PAR CONSTRUCTION : Coolify suffixe la
-      # source en `-pr-N` → /home/geekette/.codex-pr-N, dossier VIDE
-      # auto-créé — une preview ne voit jamais l'auth prod, sans dépendre
-      # du scoping preview des variables (inopérant, cf. tracker). codex
-      # sans auth → la recherche dégrade proprement (chemins de repli).
+      # seed). Coolify suffixe la source en `-pr-N` → /home/geekette/.codex-pr-N.
+      # PREVIEWS : codex ACTIF (décision utilisateur 2026-07-29) via un pool de
+      # symlinks hôte .codex-pr-{42..300} → .codex (même contournement que le
+      # seed : l'opt-out is_preview_suffix_enabled est écrasé par le parser à
+      # chaque re-parse, cf. tracker). Les previews partagent donc l'auth codex
+      # prod. Au-delà de la PR 300 : étendre le pool, sinon dossier vide
+      # auto-créé et la recherche dégrade proprement (chemins de repli).
       - type: bind
         source: /home/geekette/.codex
         target: /home/api/.codex

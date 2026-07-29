@@ -259,3 +259,15 @@ restreindre l'exposition du `5432` corpus (réseau dédié ou bind `10.0.1.1` + 
   app du compose (`--allow-unversioned` retiré, dump versionné `app0001`,
   conteneur résolu dynamiquement en excluant les `-pr-N`, sonde SQLAlchemy
   via l'IP Docker car la db ne publie aucun port — testé en réel).
+- **2026-07-29 — codex ACTIVÉ en preview (décision utilisateur, amende
+  l'isolation de l'étape 9).** Pour tester la recherche PubMed+IA de bout en
+  bout sur les previews, l'auth codex prod est désormais partagée avec elles
+  via un pool de symlinks hôte `/home/geekette/.codex-pr-{42..300}` → `.codex`
+  (248 créés, 11 dossiers vides remplacés, `rmdir` seulement — jamais de
+  `rm -rf`). Même contournement que le seed : l'opt-out
+  `local_file_volumes.is_preview_suffix_enabled` ne tient pas (revérifié ce
+  jour : les deux binds de la ressource étaient revenus à `true` après
+  re-parse). Le `mkdir -p` du job de déploiement traverse le symlink sans le
+  détruire ; lien absent (PR > 300) = dossier vide auto-créé et la recherche
+  dégrade comme avant. Conséquence assumée : le code d'une PR voit le token
+  OpenAI prod (dépôt solo). Retour arrière : supprimer les symlinks.
