@@ -265,9 +265,17 @@ restreindre l'exposition du `5432` corpus (réseau dédié ou bind `10.0.1.1` + 
   via un pool de symlinks hôte `/home/geekette/.codex-pr-{42..300}` → `.codex`
   (248 créés, 11 dossiers vides remplacés, `rmdir` seulement — jamais de
   `rm -rf`). Même contournement que le seed : l'opt-out
-  `local_file_volumes.is_preview_suffix_enabled` ne tient pas (revérifié ce
-  jour : les deux binds de la ressource étaient revenus à `true` après
-  re-parse). Le `mkdir -p` du job de déploiement traverse le symlink sans le
+  `local_file_volumes.is_preview_suffix_enabled` ne tient pas — CAUSE RACINE
+  identifiée ce jour dans le source 4.1.2 (latest) : `applicationParser`
+  (parsers.php) réutilise UN SEUL query builder `$resource->fileStorages()`
+  pour tous les volumes, et chaque `whereMountPath()` ACCUMULE une clause
+  `AND mount_path=?` (prouvé via tinker : SQL avec deux `mount_path=?`) ;
+  dès le 2ᵉ volume le lookup renvoie null → repli sur suffixe=true. Le flag
+  per-volume (introduit par coolify#9006, mars 2026) est donc inopérant pour
+  tout volume sauf le premier — bug à remonter upstream. Test empirique fait :
+  flag à `false` sur le bind codex + redéploiement pr-64 → suffixe quand même
+  appliqué ; le flag est laissé à `false` (inoffensif, et le jour où le bug
+  est corrigé upstream : upgrade Coolify puis suppression du pool). Le `mkdir -p` du job de déploiement traverse le symlink sans le
   détruire ; lien absent (PR > 300) = dossier vide auto-créé et la recherche
   dégrade comme avant. Conséquence assumée : le code d'une PR voit le token
   OpenAI prod (dépôt solo). Retour arrière : supprimer les symlinks.
