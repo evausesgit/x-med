@@ -261,26 +261,26 @@ restreindre l'exposition du `5432` corpus (réseau dédié ou bind `10.0.1.1` + 
   via l'IP Docker car la db ne publie aucun port — testé en réel).
 - **2026-07-29 — codex ACTIVÉ en preview (décision utilisateur, amende
   l'isolation de l'étape 9).** Objectif : tester la recherche PubMed+IA de
-  bout en bout sur les previews — prod ET previews montent désormais
-  `/home/geekette/.codex` tel quel, sans suffixe. Mécanisme : le flag
-  officiel `local_file_volumes.is_preview_suffix_enabled=false` sur le bind
-  codex (row id 7, posé en DB, survit aux re-parses) + **fix local d'un bug
-  Coolify 4.1.2** qui rendait ce flag inopérant. CAUSE RACINE (prouvée via
-  tinker) : `applicationParser` (parsers.php) réutilisait UN SEUL query
-  builder `$resource->fileStorages()` pour tous les volumes, chaque
-  `whereMountPath()` ACCUMULANT une clause `AND mount_path=?` — dès le 2ᵉ
-  volume le lookup renvoyait null → repli sur suffixe=true ; le flag
-  per-volume (coolify#9006) n'agissait que sur le 1ᵉʳ volume du compose.
-  Fix appliqué (lignes 707/760, builder frais par lookup ; original
-  sauvegardé en `parsers.php.bak-xmed` dans le conteneur et copié hors
-  conteneur) :
-  `docker exec coolify sed -i '700,780s/$fileStorages->whereMountPath/$resource->fileStorages()->whereMountPath/' /var/www/html/bootstrap/helpers/parsers.php && docker restart coolify`
-  ⚠️ Une MISE À JOUR de Coolify écrase ce fix (code dans l'image, pas dans
-  un volume) : les previews retomberaient sur un dossier vide suffixé
-  (recherche dégradée, rien ne casse) — réappliquer la commande ci-dessus.
-  Bug à remonter upstream (brouillon d'issue rédigé). Le pool de symlinks
-  `.codex-pr-{42..300}` posé plus tôt ce jour comme premier contournement a
-  été SUPPRIMÉ (259 liens) au profit du fix, validé sur la preview pr-64.
-  Le seed garde son pool `~/backups/xmed-pr-{51..300}` (row id 6 laissée à
-  true — comportement inchangé). Conséquence assumée : le code d'une PR
-  voit le token OpenAI prod (dépôt solo).
+  bout en bout sur les previews — prod ET previews montent
+  `/home/geekette/.codex` TEL QUEL, sans suffixe. Mécanisme final, 100 %
+  hors patch : (a) `local_file_volumes.is_preview_suffix_enabled=false`
+  posé en DB sur le bind codex (row id 7 — survit aux re-parses, prouvé) ;
+  (b) service `api` déplacé EN TÊTE du compose. La (b) contourne un bug
+  Coolify 4.1.2 (latest) : `applicationParser` réutilise UN seul query
+  builder `$resource->fileStorages()` et `whereMountPath()` ACCUMULE les
+  clauses `AND mount_path=?` → le flag (coolify#9006) n'est lu que pour le
+  PREMIER volume traité du compose (prouvé via tinker, SQL à double
+  `mount_path=?`). L'ordre YAML des services est sans effet Docker
+  (démarrage piloté par depends_on). Preuve par simulation du parser réel
+  sur PR 64 : ordre actuel → source `.codex-pr-64` ; api en tête → source
+  `.codex` NUE, seed toujours suffixé (son pool `~/backups/xmed-pr-*`
+  inchangé), pgdata toujours isolée. Chemins explorés puis RETIRÉS le même
+  jour : pool de symlinks `.codex-pr-{42..300}` (259 liens, supprimés) et
+  patch local de parsers.php (annulé — original restauré, Coolify
+  redevenu updatable, plus aucune modif locale). Si un upgrade Coolify
+  change le parser : soit le bug est corrigé (le flag agit partout, l'ordre
+  devient indifférent), soit rien ne change — au pire, dossier vide suffixé
+  et recherche dégradée proprement. Bug à remonter upstream (brouillon
+  d'issue rédigé). Conséquence assumée : le code d'une PR voit le token
+  OpenAI prod (dépôt solo). ⚠️ Piège (7) : les previews parsent le compose
+  de MAIN — l'effet ne se voit en preview qu'après merge de la #64.

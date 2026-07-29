@@ -19,6 +19,55 @@
 # Variables : voir .env.app.example (localement : --env-file .env.app.local).
 
 services:
+  # `api` DOIT rester le PREMIER service : son bind codex doit être le
+  # premier volume que le parser Coolify traite (voir le commentaire du
+  # volume plus bas). L'ordre de démarrage réel reste piloté par les
+  # depends_on (db healthy → init completed → api → web).
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      init:
+        condition: service_completed_successfully
+    environment:
+      # Rôle runtime (DML sur les 7 tables, AUCUN DDL) — jamais l'admin.
+      # Même mécanique que l'init : hôte `db`, résolu au runtime via
+      # SERVICE_NAME_DB par l'entrypoint (cf. Dockerfile, stage api).
+      DATABASE_URL: postgresql+psycopg://xmed_app_runtime:${SERVICE_PASSWORD_APPDBRUNTIME}@db:5432/xmed_app
+      # Corpus via le réseau externe (alias stable corpus-db). Rôle lecture
+      # seule : xmed_api_ro en prod, xmed_preview_ro en preview (variable
+      # scopée Coolify) — cf. scripts/create_corpus_roles.sql.
+      CORPUS_DATABASE_URL: ${CORPUS_DATABASE_URL:?URL corpus, hôte corpus-db:5432}
+      # L'init est l'unique propriétaire des migrations app : l'API ne touche
+      # jamais au schéma dans ce compose.
+      RUN_MIGRATIONS_ON_BOOT: "0"
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      USE_NARROW_SEARCH: ${USE_NARROW_SEARCH:-false}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+    volumes:
+      # Auth du CLI codex — chemin LITTÉRAL, monté TEL QUEL en prod comme en
+      # preview (codex actif partout, décision utilisateur 2026-07-29) :
+      # is_preview_suffix_enabled=false est posé sur ce bind en DB Coolify
+      # (row local_file_volumes id 7, survit aux re-parses) ; un bug Coolify
+      # 4.1.2 limite ce flag au PREMIER volume traité du compose — d'où le
+      # service `api` placé en tête (l'ordre YAML est sans effet pour
+      # Docker, cf. tracker 2026-07-29). Si le flag ou l'ordre saute un
+      # jour : dossier vide suffixé, la recherche dégrade proprement.
+      - type: bind
+        source: /home/geekette/.codex
+        target: /home/api/.codex
+    networks:
+      # UNIQUEMENT le réseau corpus (externe, partagé À DESSEIN : lecture
+      # seule vers x-med-db-1). Pas d'autre réseau nommé — l'isolation
+      # prod/preview est le réseau par-déploiement que Coolify attache seul.
+      - corpus-access
+
   db:
     image: postgres:16-bookworm
     restart: unless-stopped
@@ -84,52 +133,6 @@ services:
         source: /home/jack/backups/xmed
         target: /seed
         read_only: true
-
-  api:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: api
-    restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-      init:
-        condition: service_completed_successfully
-    environment:
-      # Rôle runtime (DML sur les 7 tables, AUCUN DDL) — jamais l'admin.
-      # Même mécanique que l'init : hôte `db`, résolu au runtime via
-      # SERVICE_NAME_DB par l'entrypoint (cf. Dockerfile, stage api).
-      DATABASE_URL: postgresql+psycopg://xmed_app_runtime:${SERVICE_PASSWORD_APPDBRUNTIME}@db:5432/xmed_app
-      # Corpus via le réseau externe (alias stable corpus-db). Rôle lecture
-      # seule : xmed_api_ro en prod, xmed_preview_ro en preview (variable
-      # scopée Coolify) — cf. scripts/create_corpus_roles.sql.
-      CORPUS_DATABASE_URL: ${CORPUS_DATABASE_URL:?URL corpus, hôte corpus-db:5432}
-      # L'init est l'unique propriétaire des migrations app : l'API ne touche
-      # jamais au schéma dans ce compose.
-      RUN_MIGRATIONS_ON_BOOT: "0"
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
-      USE_NARROW_SEARCH: ${USE_NARROW_SEARCH:-false}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
-    volumes:
-      # Auth du CLI codex — chemin LITTÉRAL (même contrainte mkdir que le
-      # seed). PREVIEWS : codex ACTIF (décision utilisateur 2026-07-29) —
-      # prod ET previews montent ce même dossier, sans suffixe -pr-N :
-      # is_preview_suffix_enabled=false sur ce bind (local_file_volumes id 7)
-      # + fix local du bug Coolify qui rendait ce flag inopérant (builder
-      # Eloquent pollué, cf. tracker 2026-07-29). ⚠️ Une mise à jour de
-      # Coolify écrase le fix : les previews retomberaient alors sur un
-      # dossier vide suffixé et la recherche dégraderait proprement —
-      # réappliquer le patch (commande dans le tracker).
-      - type: bind
-        source: /home/geekette/.codex
-        target: /home/api/.codex
-    networks:
-      # UNIQUEMENT le réseau corpus (externe, partagé À DESSEIN : lecture
-      # seule vers x-med-db-1). Pas d'autre réseau nommé — l'isolation
-      # prod/preview est le réseau par-déploiement que Coolify attache seul.
-      - corpus-access
 
   web:
     build:
