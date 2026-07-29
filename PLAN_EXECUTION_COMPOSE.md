@@ -260,22 +260,27 @@ restreindre l'exposition du `5432` corpus (réseau dédié ou bind `10.0.1.1` + 
   conteneur résolu dynamiquement en excluant les `-pr-N`, sonde SQLAlchemy
   via l'IP Docker car la db ne publie aucun port — testé en réel).
 - **2026-07-29 — codex ACTIVÉ en preview (décision utilisateur, amende
-  l'isolation de l'étape 9).** Pour tester la recherche PubMed+IA de bout en
-  bout sur les previews, l'auth codex prod est désormais partagée avec elles
-  via un pool de symlinks hôte `/home/geekette/.codex-pr-{42..300}` → `.codex`
-  (248 créés, 11 dossiers vides remplacés, `rmdir` seulement — jamais de
-  `rm -rf`). Même contournement que le seed : l'opt-out
-  `local_file_volumes.is_preview_suffix_enabled` ne tient pas — CAUSE RACINE
-  identifiée ce jour dans le source 4.1.2 (latest) : `applicationParser`
-  (parsers.php) réutilise UN SEUL query builder `$resource->fileStorages()`
-  pour tous les volumes, et chaque `whereMountPath()` ACCUMULE une clause
-  `AND mount_path=?` (prouvé via tinker : SQL avec deux `mount_path=?`) ;
-  dès le 2ᵉ volume le lookup renvoie null → repli sur suffixe=true. Le flag
-  per-volume (introduit par coolify#9006, mars 2026) est donc inopérant pour
-  tout volume sauf le premier — bug à remonter upstream. Test empirique fait :
-  flag à `false` sur le bind codex + redéploiement pr-64 → suffixe quand même
-  appliqué ; le flag est laissé à `false` (inoffensif, et le jour où le bug
-  est corrigé upstream : upgrade Coolify puis suppression du pool). Le `mkdir -p` du job de déploiement traverse le symlink sans le
-  détruire ; lien absent (PR > 300) = dossier vide auto-créé et la recherche
-  dégrade comme avant. Conséquence assumée : le code d'une PR voit le token
-  OpenAI prod (dépôt solo). Retour arrière : supprimer les symlinks.
+  l'isolation de l'étape 9).** Objectif : tester la recherche PubMed+IA de
+  bout en bout sur les previews — prod ET previews montent désormais
+  `/home/geekette/.codex` tel quel, sans suffixe. Mécanisme : le flag
+  officiel `local_file_volumes.is_preview_suffix_enabled=false` sur le bind
+  codex (row id 7, posé en DB, survit aux re-parses) + **fix local d'un bug
+  Coolify 4.1.2** qui rendait ce flag inopérant. CAUSE RACINE (prouvée via
+  tinker) : `applicationParser` (parsers.php) réutilisait UN SEUL query
+  builder `$resource->fileStorages()` pour tous les volumes, chaque
+  `whereMountPath()` ACCUMULANT une clause `AND mount_path=?` — dès le 2ᵉ
+  volume le lookup renvoyait null → repli sur suffixe=true ; le flag
+  per-volume (coolify#9006) n'agissait que sur le 1ᵉʳ volume du compose.
+  Fix appliqué (lignes 707/760, builder frais par lookup ; original
+  sauvegardé en `parsers.php.bak-xmed` dans le conteneur et copié hors
+  conteneur) :
+  `docker exec coolify sed -i '700,780s/$fileStorages->whereMountPath/$resource->fileStorages()->whereMountPath/' /var/www/html/bootstrap/helpers/parsers.php && docker restart coolify`
+  ⚠️ Une MISE À JOUR de Coolify écrase ce fix (code dans l'image, pas dans
+  un volume) : les previews retomberaient sur un dossier vide suffixé
+  (recherche dégradée, rien ne casse) — réappliquer la commande ci-dessus.
+  Bug à remonter upstream (brouillon d'issue rédigé). Le pool de symlinks
+  `.codex-pr-{42..300}` posé plus tôt ce jour comme premier contournement a
+  été SUPPRIMÉ (259 liens) au profit du fix, validé sur la preview pr-64.
+  Le seed garde son pool `~/backups/xmed-pr-{51..300}` (row id 6 laissée à
+  true — comportement inchangé). Conséquence assumée : le code d'une PR
+  voit le token OpenAI prod (dépôt solo).
