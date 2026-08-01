@@ -1,0 +1,18 @@
+{"id":"q01","theme":"cardiologie","intent":"traitement","width":"narrow","query":"Inhibiteurs du SGLT2 dans l'insuffisance cardiaque à fraction d'éjection préservée","date_from":"2024-01-01","date_to":"2026-07-31"}
+{"id":"q02","theme":"diabetologie","intent":"traitement","width":"narrow","query":"Efficacité du sémaglutide oral dans le diabète de type 2","date_from":"2024-01-01","date_to":"2026-07-31"}
+{"id":"q03","theme":"gynecologie","intent":"depistage","width":"broad","query":"Dépistage du cancer du col de l'utérus par test HPV","date_from":"2024-01-01","date_to":"2026-07-31"}
+{"id":"q04","theme":"ophtalmologie","intent":"traitement","width":"broad","query":"Prise en charge de la dégénérescence maculaire liée à l'âge néovasculaire","date_from":"2024-01-01","date_to":"2026-07-31"}
+{"id":"q05","theme":"infectiologie","intent":"traitement","width":"broad","query":"Antibiothérapie de la pneumonie aiguë communautaire de l'adulte","date_from":"2024-01-01","date_to":"2026-07-31"}
+{"id":"q06","theme":"cardiologie","intent":"effet_indesirable","width":"broad","query":"Anticoagulation et risque hémorragique dans la fibrillation atriale","date_from":"2024-01-01","date_to":"2026-07-31"}
+{"id":"q07","theme":"infectiologie","intent":"traitement","width":"narrow","query":"Corticoïdes dans le traitement de la COVID-19 sévère","date_from":"2024-01-01","date_to":"2026-07-31"}
+{"id":"q08","theme":"oncologie","intent":"traitement","width":"narrow","query":"Immunothérapie adjuvante dans le mélanome de stade III","date_from":"2024-01-01","date_to":"2026-07-31"}
+{"id":"q09","theme":"ophtalmologie","intent":"effet_indesirable","width":"rare","query":"accident vasculaire cérébral ischémique par vasospasme ou embolie graisseuse après lipofilling facial","date_from":"2000-01-01","date_to":"2026-07-31"}
+{"id":"q10","theme":"gynecologie","intent":"traitement","width":"narrow","query":"effets du relugolix sur la prise en charge de l'endométriose","date_from":"2000-01-01","date_to":"2026-07-31"}
+{"id":"q11","theme":"gynecologie","intent":"prevention","width":"rare","query":"impact des anti-adhérentiels dans la diminution du risque de synéchie en hystéroscopie","date_from":"2000-01-01","date_to":"2026-07-31"}
+{"id":"q12","theme":"gynecologie","intent":"comparaison","width":"rare","query":"alcoolisation des endométrioses versus kystectomie","date_from":"2000-01-01","date_to":"2026-07-31"}
+{"id":"q13","theme":"gynecologie","intent":"pronostic","width":"rare","query":"isthmocèle et risque de rupture utérine","date_from":"2000-01-01","date_to":"2026-07-31"}
+{"id":"q14","theme":"gynecologie","intent":"fertilite","width":"narrow","query":"impact de la radiofréquence des fibromes sur la fertilité","date_from":"2000-01-01","date_to":"2026-07-31"}
+{"id":"q15","theme":"ophtalmologie","intent":"traitement","width":"narrow","query":"intérêt du vismodegib en traitement néoadjuvant du carcinome basocellulaire","date_from":"2000-01-01","date_to":"2026-07-31"}
+{"id":"q16","theme":"ophtalmologie","intent":"comparaison","width":"narrow","query":"intérêt du tocilizumab versus corticothérapie dans l'orbitopathie dysthyroïdienne","date_from":"2000-01-01","date_to":"2026-07-31"}
+{"id":"q17","theme":"ophtalmologie","intent":"incidence","width":"rare","query":"incidence du syndrome d'hyper IgG4 dans les syndromes d'inflammation orbitaire","date_from":"2000-01-01","date_to":"2026-07-31"}
+{"id":"q18","theme":"ophtalmologie","intent":"facteur_risque","width":"narrow","query":"impact du tabac sur la fréquence et la gravité des orbitopathies dysthyroïdiennes","date_from":"2000-01-01","date_to":"2026-07-31"}

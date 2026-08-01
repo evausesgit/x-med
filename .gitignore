@@ -20,3 +20,9 @@ data/
 .claude/*
 !.claude/skills/
 bench/pubmed_ab_*.json
+# Sorties locales de la boucle autoresearch X-Med (les manifestes/fixtures stables
+# restent versionnés ; les runs réels peuvent contenir des requêtes et abstracts).
+experiments/autoresearch_xmed/artifacts/
+experiments/autoresearch_xmed/results.tsv
+experiments/autoresearch_xmed/results.jsonl
+experiments/autoresearch_xmed/run.log
