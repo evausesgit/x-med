@@ -12,6 +12,7 @@ import {
   getSavedSearch,
   listSavedSearches,
   SavedSearchSummary,
+  sortLabel,
 } from "@/lib/api";
 import { fmtDate, ResultDetail, ShareButton } from "./shared";
 
@@ -90,6 +91,9 @@ export default function SavedSearchesPage() {
                     👤 {s.doctor_name || "Sans profil"} · {s.n_results} article(s)
                     {" · "}
                     {fmtDate(s.created_at)}
+                    {/* Le tri distingue deux enregistrements d'une même
+                        question : sans lui, la liste montrerait des doublons. */}
+                    {sortLabel(s.sort) && <> · {sortLabel(s.sort)}</>}
                   </div>
                 </div>
                 <div className="saved-actions">

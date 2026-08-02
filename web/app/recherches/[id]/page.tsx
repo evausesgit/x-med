@@ -6,7 +6,7 @@
 // donc n'importe qui avec le lien voit les résultats.
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { getSavedSearch, SavedSearchDetail } from "@/lib/api";
+import { getSavedSearch, SavedSearchDetail, sortLabel } from "@/lib/api";
 import { fmtDate, ResultDetail, ShareButton } from "../shared";
 
 export default function SharedSearchPage({
@@ -56,6 +56,8 @@ export default function SharedSearchPage({
           <div className="journal">
             👤 {search.doctor_name || "Sans profil"} · {search.n_results}{" "}
             article(s) · {fmtDate(search.created_at)}
+            {/* Le tri fait partie de l'identité du snapshot partagé. */}
+            {sortLabel(search.sort) && <> · {sortLabel(search.sort)}</>}
           </div>
           <div className="saved-actions" style={{ margin: "12px 0" }}>
             <ShareButton id={search.id} />
