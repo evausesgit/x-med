@@ -70,25 +70,33 @@ score Codex**.
 | `esummary`/`efetch` (résumés manquants) | best-effort | dégrade (titre/résumé absents), pas de 500 |
 | Jugement (Codex) | timeout **420 s** | repli `skipped` (pas de score, tri lexical) |
 | Keep-alive SSE | toutes les **10 s** | évite la coupure proxy pendant le silence du jugement |
-| Base locale (perf) | **~0,4–0,5 s** (requête normale) | 25 M lignes ; ~13 s à froid sans le tuning Postgres |
+| Base locale (perf) | **~0,1–2 s** (concepts en ET) | 25 M lignes ; 11,1 s sur `articles` contre 0,12 s sur `article_search` (TOAST 28 Go froid vs 2,5 Go en cache) |
 
 ### Contraintes techniques
 
 - **2 appels Codex** par recherche initiale (1 requête + 1 jugement de 50) ; chaque
   « 50 de plus » = **+1 appel** jugement. Prompt profil mis en cache.
 - **Abstract tronqué à 1200 caractères** avant envoi au juge (tient dans un seul appel).
-- **Source B = FTS seul** (index GIN, tri `ts_rank`). Le `OR mesh_terms && ARRAY[...]` a
-  été retiré : un descripteur MeSH courant (« Heart Failure ») faisait passer la même
-  requête de 0,4 s à **206 s**. `mesh_terms` ne sert plus qu'à la requête PubMed.
-- **Garde-fou local 120 s** (configurable via `LOCAL_SEARCH_TIMEOUT_MS`) + **bouton stop**
-  côté UI (PR #22). L'ancienne valeur de **8 s** coupait des requêtes larges légitimes et a
-  causé un **faux diagnostic de lenteur** du moteur (voir compte rendu ci-dessous) ; le
-  garde-fou reste nécessaire (mesuré jusqu'à ~493 s sur mots ultra-courants même en FTS seul).
+- **Source B = FTS seul** (index GIN, tri `ts_rank`), sur les **concepts en ET**. Deux
+  conditions ont été retirées ou corrigées pour la même raison — le coût suit le nombre
+  de lignes qui matchent, que `ts_rank` doit toutes détoaster :
+  - le `OR mesh_terms && ARRAY[...]` (un descripteur courant comme « Heart Failure »
+    faisait passer la requête de 0,4 s à **206 s**) ; `mesh_terms` ne sert plus qu'à PubMed ;
+  - le `" OR ".join(keywords_en)` qui aplatissait les concepts : on payait le mot le plus
+    banal de la liste. **268 137 lignes en 92,8 s** pour le OU à plat contre **1 546 lignes
+    en 21 ms** pour le ET des mêmes concepts (fenêtre 2025-2026).
+- **Garde-fou local 15 s** (configurable via `LOCAL_SEARCH_TIMEOUT_MS`) + **bouton stop**
+  côté UI (PR #22). Historique : 8 s coupait des requêtes larges légitimes et a causé un
+  **faux diagnostic de lenteur** du moteur (voir compte rendu ci-dessous) ; monté à 120 s
+  pour mesurer le vrai temps, il faisait alors attendre 2 min pour un abandon. Depuis le
+  passage au ET, une requête saine tient en 0,4 à 2 s : au-delà c'est une anomalie, pas un
+  sujet large, et mieux vaut rendre la main vite avec les seuls résultats PubMed.
 - **Infra Postgres** (indispensable à l'échelle) : `shared_buffers` 128 Mo → **8 Go**,
   `work_mem` 64 Mo, `effective_cache_size` 24 Go, `random_page_cost` 1.1, index FTS (5,7 Go)
   préchauffé (`pg_prewarm`).
 - **Streaming SSE** (`/search/pubmed/deep/stream`) : déroulé en direct (`codex` →
-  `esearch` → `filter_start` → `filter`|`filter_timeout` → `judge` → `done` → `translate`).
+  `esearch` → `filter_start`|`filter_skipped` → [`filter_relax`] →
+  `filter`|`filter_timeout`|`filter_stopped` → `judge` → `done` → `translate`).
 
 **Mesuré, e2e :** SGLT2/HFpEF → local 0,5 s, 150 candidats, 15 retenus ; sujet large →
 coupé à ~9 s (avec l'ancien garde-fou 8 s), repli PubMed, 14 retenus ; requête large à

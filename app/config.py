@@ -47,16 +47,28 @@ class Settings(BaseSettings):
     # (sinon on retombe sur la table complète `articles`). La largeur de la fenêtre
     # est définie UNE seule fois côté SQL (`article_search_min_year()`, migration
     # 0006) — le routage l'interroge, pas de knob applicatif qui pourrait diverger.
-    # `use_narrow_search` reste False tant que le backfill initial n'est pas fait
-    # (sinon on servirait des résultats d'une table incomplète). Voir la migration
-    # 0006 et scripts/backfill_article_search.py.
-    use_narrow_search: bool = False
+    # `use_narrow_search` restait False tant que le backfill initial n'était pas
+    # fait (sinon on servirait des résultats d'une table incomplète). Il l'est :
+    # `article_search` compte exactement autant de lignes que `articles` sur la
+    # fenêtre (3 459 665 des deux côtés, vérifié le 2026-08-02) — le miroir est
+    # complet, le routage est activé. Voir la migration 0006 et
+    # scripts/backfill_article_search.py.
+    #
+    # Ce n'est pas un simple confort : le pré-filtre passe l'essentiel de son temps
+    # à détoaster les tsvectors des lignes trouvées, pour les classer par ts_rank.
+    # Sur `articles` le TOAST fait 28 Go et reste froid ; sur `article_search`, 2,5 Go
+    # qui tiennent en cache. Même requête, mêmes 3 concepts en ET, fenêtre 2025-2026 :
+    # 11,1 s sur `articles` contre 0,12 s sur `article_search`.
+    use_narrow_search: bool = True
 
     # Garde-fou du pré-filtre local (FTS sur ~25 M d'articles) : au-delà de ce
     # délai, Postgres annule la requête et la recherche continue avec PubMed seul.
-    # Monté à 2 min pour l'essai « mesurer le vrai temps » (base censée être chaude
-    # via pg_prewarm) ; le bouton stop du front couvre le cas « ça traîne trop ».
-    local_search_timeout_ms: int = 120_000
+    # C'est le budget TOTAL de l'échelle de relâchement (app/api/search.py).
+    # Ramené de 2 min à 15 s : le pré-filtre interroge maintenant les concepts en
+    # ET, et les requêtes saines mesurées tiennent en 0,4 à 2 s. Au-delà, ce n'est
+    # plus « le sujet est large » mais une anomalie — mieux vaut rendre la main
+    # vite que faire attendre le médecin 2 min pour un abandon.
+    local_search_timeout_ms: int = 15_000
 
     # Notification Hermes/Telegram lorsqu'une recherche PubMed/Codex est lancée.
     # `telegram` cible le home channel Hermes, donc le DM Eva par défaut sur cette machine.
