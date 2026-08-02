@@ -120,6 +120,7 @@ def spy(monkeypatch, corpus):
                 "pubmed_query": f"{LOCAL_TERM}[tiab]",
                 "mesh_terms": ["Neoplasms"],
                 "keywords_en": [LOCAL_TERM],
+                "keyword_groups_en": [[LOCAL_TERM]],
             },
             CodexUsage(input_tokens=100, output_tokens=20),
         )
@@ -178,6 +179,7 @@ def test_v1_runs_end_to_end(session, app_db, spy, corpus):
     assert resp.query_builder == "codex"
     assert resp.judge == "codex"
     assert resp.pubmed_query == f"{LOCAL_TERM}[tiab]"
+    assert resp.keyword_groups_en == [[LOCAL_TERM]]
     assert resp.counts["pubmed"] == len(corpus["a_pmids"])
     assert resp.counts["local"] > 0, "le pré-filtre FTS local n'a rien trouvé"
     assert resp.counts["judged"] == len(spy.judged_pmids)

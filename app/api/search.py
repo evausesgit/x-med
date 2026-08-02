@@ -115,10 +115,10 @@ def _fetch_articles(corpus: Session, pmids: list[int]) -> dict[int, Article]:
 ProgressCallback = Callable[[str, str, dict], None]
 
 
-# --- Méthode v2 « PubMed + codex » : filtre lexical/MeSH → codex lit & juge ---
+# --- Méthode v2 « PubMed + codex » : filtre lexical structuré → codex lit & juge ---
 # Voir PLAN_RECHERCHE_PUBMED_CODEX.md. Étapes :
 #   1. GPT-5.6 → requête structurée (keywords_en + mesh_terms) → PubMed = A
-#   2. même requête sur la base locale (FTS + MeSH) → candidats bornés → B
+#   2. groupes de concepts GPT-5.6 → filtre FTS local → candidats bornés → B
 #   3. fusion A+B, dédup PMID, codex lit les abstracts et score (0-3),
 #      tri pertinence → qualité (evidence_level) → récence = C
 # Le pré-tri sémantique par vecteurs, essayé au début du projet, a été abandonné :
@@ -176,6 +176,7 @@ class DeepSearchResponse(BaseModel):
     pubmed_query: str | None
     mesh_terms: list[str]
     keywords_en: list[str]
+    keyword_groups_en: list[list[str]] = Field(default_factory=list)
     query_builder: Literal["codex", "fallback"]
     judge: Literal["codex", "skipped"]
     codex_limit: bool = False  # quota GPT-5.6 atteint (résultats dégradés)
@@ -212,6 +213,34 @@ def _year(d: str | None) -> int | None:
         return int(str(d)[:4])
     except ValueError:
         return None
+
+
+def _combine_tsqueries(queries: list, operator: str):
+    """Combine des expressions PostgreSQL ``tsquery`` avec un opérateur logique."""
+    result = queries[0]
+    for query in queries[1:]:
+        result = result.op(operator)(query)
+    return result
+
+
+def _build_local_tsquery(keyword_groups: list[list[str]], fallback: str):
+    """Construit ``OR`` dans chaque concept et ``AND`` entre concepts.
+
+    Chaque terme est envoyé séparément à ``websearch_to_tsquery`` : les opérateurs
+    de groupes sont alors portés par PostgreSQL (`||`/`&&`) et ne dépendent pas de
+    la précédence d'une chaîne websearch aplatie.
+    """
+    group_queries = []
+    for group in keyword_groups:
+        terms = [term for term in group if isinstance(term, str) and term.strip()]
+        if not terms:
+            continue
+        term_queries = [func.websearch_to_tsquery("english", term) for term in terms]
+        group_queries.append(_combine_tsqueries(term_queries, "||"))
+
+    if not group_queries:
+        return func.websearch_to_tsquery("english", fallback)
+    return _combine_tsqueries(group_queries, "&&")
 
 
 def _date_bound(d: str | None) -> date | None:
@@ -354,6 +383,7 @@ def _run_deep_search(
         QueryBuildError,
         build_pubmed_query,
         is_usage_limit,
+        normalize_keyword_groups,
     )
 
     codex_limit = False
@@ -377,12 +407,17 @@ def _run_deep_search(
     pubmed_query: str | None = None
     mesh: list[str] = []
     keywords: list[str] = []
+    keyword_groups: list[list[str]] = []
     emit("codex", "🚀 Construction de la requête PubMed (GPT-5.6)…")
     try:
         pq, qb_usage = build_pubmed_query(req.query)
         pubmed_query = pq["pubmed_query"]
         mesh = pq.get("mesh_terms", [])
         keywords = pq.get("keywords_en", [])
+        keyword_groups = normalize_keyword_groups(
+            pq.get("keyword_groups_en"), keywords
+        )
+        keywords = [term for group in keyword_groups for term in group]
         term = pubmed_query
         codex_tokens["query"] = qb_usage.total_tokens
         emit("codex_done", f"🧠 Requête PubMed construite · {_fmt_tokens(qb_usage)}",
@@ -417,8 +452,7 @@ def _run_deep_search(
     # voie qu'on fouille le fonds documentaire, plutôt qu'un écran figé.
     emit("filter_start",
          "🗄️ Recherche dans la base locale PubMed (~25 M d'articles)…")
-    ts = " OR ".join(keywords) if keywords else req.query
-    tsq = func.websearch_to_tsquery("english", ts)
+    tsq = _build_local_tsquery(keyword_groups, req.query)
     # Pré-filtre = FTS seul (index GIN + tri ts_rank) : ~0,4 s sur 25 M lignes.
     # /!\ On N'AJOUTE PLUS `OR mesh_terms && ARRAY[...]` : un descripteur MeSH courant
     # (ex. « Heart Failure ») matche des millions d'articles que ts_rank doit tous
@@ -634,6 +668,7 @@ def _run_deep_search(
         pubmed_query=pubmed_query,
         mesh_terms=mesh,
         keywords_en=keywords,
+        keyword_groups_en=keyword_groups,
         query_builder=builder,
         judge=judge_mode,
         codex_limit=codex_limit,
@@ -663,7 +698,7 @@ def _run_deep_search(
 def _deep_metrics(result: DeepSearchResponse) -> dict:
     """Métriques v2 pour la notification Hermes (vrais tokens GPT-5.6)."""
     return {
-        "method": "v2 (filtre lexical/MeSH + jugement codex)",
+        "method": "v2 (filtre FTS structuré + jugement codex)",
         "pubmed_query": result.pubmed_query,
         "pubmed_total_hits": result.counts.get("pubmed"),
         "merged_candidates": result.counts.get("merged"),
