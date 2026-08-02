@@ -47,18 +47,20 @@ class Settings(BaseSettings):
     # (sinon on retombe sur la table complète `articles`). La largeur de la fenêtre
     # est définie UNE seule fois côté SQL (`article_search_min_year()`, migration
     # 0006) — le routage l'interroge, pas de knob applicatif qui pourrait diverger.
-    # `use_narrow_search` restait False tant que le backfill initial n'était pas
-    # fait (sinon on servirait des résultats d'une table incomplète). Il l'est :
-    # `article_search` compte exactement autant de lignes que `articles` sur la
-    # fenêtre (3 459 665 des deux côtés, vérifié le 2026-08-02) — le miroir est
-    # complet, le routage est activé. Voir la migration 0006 et
+    # Le défaut restait False tant que le backfill initial n'était pas fait (sinon
+    # on servirait des résultats d'une table incomplète) ; la production l'activait
+    # déjà par `USE_NARROW_SEARCH=true`. Le backfill EST fait — `article_search`
+    # compte exactement autant de lignes que `articles` sur la fenêtre (3 459 665
+    # des deux côtés, vérifié le 2026-08-02) — donc le défaut rejoint la production
+    # au lieu de la contredire. Voir la migration 0006 et
     # scripts/backfill_article_search.py.
     #
-    # Ce n'est pas un simple confort : le pré-filtre passe l'essentiel de son temps
-    # à détoaster les tsvectors des lignes trouvées, pour les classer par ts_rank.
-    # Sur `articles` le TOAST fait 28 Go et reste froid ; sur `article_search`, 2,5 Go
-    # qui tiennent en cache. Même requête, mêmes 3 concepts en ET, fenêtre 2025-2026 :
-    # 11,1 s sur `articles` contre 0,12 s sur `article_search`.
+    # Ce que ça change concrètement (surtout en dev, où rien n'était positionné) :
+    # le pré-filtre passe l'essentiel de son temps à détoaster les tsvectors des
+    # lignes trouvées, pour les classer par ts_rank. Sur `articles` le TOAST fait
+    # 28 Go et reste froid ; sur `article_search`, 2,5 Go qui tiennent en cache.
+    # Même requête, mêmes 3 concepts en ET, fenêtre 2025-2026 : 11,1 s sur
+    # `articles` contre 0,12 s sur `article_search`.
     use_narrow_search: bool = True
 
     # Garde-fou du pré-filtre local (FTS sur ~25 M d'articles) : au-delà de ce
