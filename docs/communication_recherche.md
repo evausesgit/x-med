@@ -40,7 +40,7 @@ supplémentaire à l'IA.
 **Recherche PubMed + IA — `/search/pubmed/deep` — v1 vs v2, contraintes**
 
 Pipeline en 3 temps, **2 sources en parallèle** (A = PubMed live E-utilities · B = base
-locale Postgres, **~25 M articles / 63 Go**), puis jugement Codex. Les deux versions ne
+locale Postgres, **~25 M articles / 75 Go**), puis jugement Codex. Les deux versions ne
 changent QUE la **sélection des candidats à faire juger** ; le **tri final est toujours le
 score Codex**.
 

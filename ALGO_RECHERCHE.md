@@ -56,7 +56,7 @@ seul** → les deux comptent.
 | | **A — PubMed en direct** | **B — Base locale** |
 |---|---|---|
 | **Ce que c'est** | API NCBI E-utilities (`esearch`) | Notre miroir Postgres de PubMed |
-| **Couverture** | Le monde entier, temps réel | ~**25 M articles / 63 Go** (miroir ~complet) |
+| **Couverture** | Le monde entier, temps réel | ~**25 M articles / 75 Go** (miroir ~complet) |
 | **Comment on cherche** | Requête experte Codex, tri « Best Match » PubMed | Plein-texte (FTS, index GIN) trié par `ts_rank` |
 | **Combien on prend** | `k_pubmed` = **20** (fenêtre étroite) | `max_local` = **≤ 200** |
 | **Vitesse typique** | ~0,5–1 s (réseau NCBI) | ~**0,4–0,5 s** (index préchargé) |
@@ -269,10 +269,25 @@ FONCTION analyser_plus(PRM, pmids = remaining[0:50]):
 - **Tailles / seuils** : `k_pubmed`=20 (A) · `max_local`≤200 (B) · `judge_batch`=50
   (lus par lot) · `min_score`=2 (garde ≥ pertinent) · abstract **tronqué à 1200 car.**
   avant envoi au juge.
-- **Infra Postgres (indispensable à l'échelle 25 M)** : base de 63 Go, index FTS de
-  5,7 Go. Config custom (`docker-compose.yml`) : `shared_buffers`=8 Go, `work_mem`=64 Mo,
-  `effective_cache_size`=24 Go, `random_page_cost`=1.1, index FTS **préchauffé**
-  (`pg_prewarm`). Sans ce réglage, une requête locale coûte ~13 s à froid (vs 0,4 s).
+- **Infra Postgres (indispensable à l'échelle 25 M)** : base de 75 Go, index FTS de
+  6,0 Go sur `articles` (1,4 Go sur `article_search`). Config custom
+  (`docker-compose.yml`) : `shared_buffers`=14 Go, `work_mem`=64 Mo,
+  `effective_cache_size`=24 Go, `random_page_cost`=1.1, `effective_io_concurrency`=4,
+  `track_io_timing`=on, index FTS **préchauffé** (`pg_prewarm`, `autoprewarm` actif).
+
+  ⚠️ **Le stockage est du disque mécanique** : 2× Seagate Exos 7200 tr/min en RAID1
+  (`rotational=1`). Mesuré en O_DIRECT : lecture aléatoire de 8 Ko = 6,14 ms,
+  séquentielle = 0,076 ms — un ratio de **81×**. C'est LA contrainte qui gouverne tout
+  le reste : la seule variable qui compte est de savoir si les blocs sont en RAM.
+  Même requête, même plan, selon l'état du cache : **88 718 ms** à froid,
+  **11 141 ms** après `pg_prewarm` partiel, **222 ms** pleinement chaud.
+  `article_search` pèse 7 704 Mo, d'où le passage de `shared_buffers` à 14 Go — à 8 Go
+  elle « rentrait juste » et se faisait évincer en permanence.
+
+  > L'ancienne valeur documentée ici, « ~13 s à froid », n'était pas fausse à
+  > l'époque : elle datait d'une base plus petite. Le corpus ayant grossi, le cas
+  > froid s'est dégradé jusqu'aux 88 s mesurés le 2026-08-03. Ce n'est pas une
+  > correction d'erreur mais le constat d'une dérive.
 - **Coût** : 2 appels Codex par recherche initiale (1 requête + 1 jugement de 50) ;
   chaque « 50 de plus » = 1 appel jugement supplémentaire.
 
