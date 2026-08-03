@@ -13,6 +13,7 @@ import {
   PubmedLog,
   saveSearch,
   searchPubmedDeepMoreStream,
+  SORT_LABEL,
   stopLocalSearch,
   stopSearchRun,
 } from "@/lib/api";
@@ -22,6 +23,7 @@ import type {
   SearchRun,
   SearchRunHistory,
   SearchRunSummary,
+  SearchSort,
 } from "@/lib/api";
 import Link from "next/link";
 import XMedResult, { deepRelevance, StructuredAbstract } from "./XMedResult";
@@ -249,18 +251,31 @@ function LiveEvents({
   );
 }
 
+// Tri d'un run passé : il se relit dans ses paramètres (`rrf` = fusion RRF).
+const runSort = (run: SearchRunSummary): SearchSort => (run.params.rrf ? "v2" : "v1");
+
+// Un tri venant de l'extérieur (URL, snapshot sauvegardé) n'est repris que s'il
+// est reconnu — sinon on retombe sur le tri par défaut du sélecteur.
+const asSort = (v: string | null | undefined): SearchSort | null =>
+  v === "v1" || v === "v2" ? v : null;
+
 // Sauvegarde du résultat v2 courant : snapshot complet rattaché à un profil.
+// `sort` = tri du résultat AFFICHÉ (pas la position courante du sélecteur, qui
+// ne s'appliquera qu'à la prochaine recherche) : la même question peut ainsi
+// être sauvegardée deux fois, une par tri, sans que l'une écrase l'autre.
 function SaveSearchBar({
   deep,
   query,
   dateFrom,
   dateTo,
+  sort,
   alreadySavedId,
 }: {
   deep: DeepSearchResponse;
   query: string;
   dateFrom: string;
   dateTo: string;
+  sort: SearchSort;
   alreadySavedId?: string;
 }) {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
@@ -276,7 +291,7 @@ function SaveSearchBar({
   useEffect(() => {
     setSavedId(alreadySavedId ?? null);
     setError(null);
-  }, [query, alreadySavedId]);
+  }, [query, sort, alreadySavedId]);
 
   async function save() {
     setBusy(true);
@@ -287,6 +302,7 @@ function SaveSearchBar({
         payload: deep,
         doctor_id: doctorId || null,
         method: "v2",
+        sort,
         params: { date_from: dateFrom, date_to: dateTo },
       });
       setSavedId(s.id);
@@ -318,8 +334,14 @@ function SaveSearchBar({
           ✓ Sauvegardée — <Link href="/recherches">voir mes recherches</Link>
         </span>
       ) : (
-        <button type="button" className="primary" onClick={save} disabled={busy}>
-          {busy ? "…" : "💾 Sauvegarder cette recherche"}
+        <button
+          type="button"
+          className="primary"
+          onClick={save}
+          disabled={busy}
+          title={`La même question sauvegardée avec l'autre tri fera une seconde entrée (ici : ${SORT_LABEL[sort]})`}
+        >
+          {busy ? "…" : `💾 Sauvegarder cette recherche (${SORT_LABEL[sort]})`}
         </button>
       )}
       {error && (
@@ -348,7 +370,7 @@ export default function Home() {
   // Algo PubMed : v1 (tri par score IA) ou v2 « hybride re-classé » (tri par
   // pertinence PubMed Best Match + k_pubmed élevé). Ref pour éviter une lecture
   // périmée dans runSearch au moment où on bascule.
-  const [algo, setAlgo] = useState<"v1" | "v2">("v1");
+  const [algo, setAlgo] = useState<SearchSort>("v1");
   const algoRef = useRef(algo);
   // Curseurs v2 : total analysé par lot (judge_batch) et minimum d'articles locaux
   // garantis dans le lot (local_floor). N'ont d'effet qu'en v2 (fusion RRF).
@@ -356,6 +378,11 @@ export default function Home() {
   const [localFloor, setLocalFloor] = useState(0);
 
   const [deep, setDeep] = useState<DeepSearchResponse | null>(null);
+  // Tri du résultat AFFICHÉ — distinct de `algo`, qui est la position du
+  // sélecteur et ne vaudra que pour la prochaine recherche. C'est ce tri-là
+  // qu'on sauvegarde, sinon un simple clic sur le sélecteur ferait enregistrer
+  // un résultat sous une étiquette de tri qui n'est pas la sienne.
+  const [resultSort, setResultSort] = useState<SearchSort>(algo);
   const [savedHit, setSavedHit] = useState<{ id: string; created_at: string } | null>(null);
   const [logs, setLogs] = useState<PubmedLog[]>([]);
   const [loading, setLoading] = useState(false);
@@ -514,14 +541,17 @@ export default function Home() {
   );
 
   // Se raccroche à un run actif (retour sur la page, 409 au lancement dans un
-  // autre onglet…) : on reprend sa question, ses dates et son déroulé.
+  // autre onglet…) : on reprend sa question, ses dates, son tri et son déroulé.
   function attachRun(run: SearchRunSummary) {
     setQ(run.query);
     if (run.date_from) setDateFrom(run.date_from);
     if (run.date_to) setDateTo(run.date_to);
+    const sort = runSort(run);
+    switchAlgo(sort);
+    setResultSort(sort);
     // L'URL reflète le run auquel on se raccroche : un reload retombe sur la
     // même question (pré-remplie, jamais relancée — cf. effet de montage).
-    syncUrl(run.query, run.date_from ?? undefined, run.date_to ?? undefined);
+    syncUrl(run.query, run.date_from ?? undefined, run.date_to ?? undefined, sort);
     setError(null);
     setDeep(null);
     setSavedHit(null);
@@ -659,11 +689,14 @@ export default function Home() {
     });
   }
 
-  function syncUrl(query: string, from?: string, to?: string) {
+  // L'URL porte aussi le tri : deux snapshots de la même question ne se
+  // distinguent que par lui, un lien sans tri en rouvrirait un au hasard.
+  function syncUrl(query: string, from?: string, to?: string, sort?: SearchSort) {
     const sp = new URLSearchParams();
     if (query.trim()) sp.set("q", query.trim());
     if (from ?? dateFrom) sp.set("from", from ?? dateFrom);
     if (to ?? dateTo) sp.set("to", to ?? dateTo);
+    sp.set("sort", sort ?? algoRef.current);
     window.history.replaceState(null, "", `?${sp.toString()}`);
   }
 
@@ -671,7 +704,7 @@ export default function Home() {
   // est asynchrone) pour que la PROCHAINE recherche lise la bonne valeur. Ne
   // relance rien : comme les dates et les curseurs, ce choix ne prend effet
   // qu'au clic sur « Explorer » — seul déclencheur d'une recherche.
-  function switchAlgo(v: "v1" | "v2") {
+  function switchAlgo(v: SearchSort) {
     if (v === algo) return;
     algoRef.current = v;
     setAlgo(v);
@@ -692,6 +725,11 @@ export default function Home() {
     const query = sp.get("q");
     const from = sp.get("from");
     const to = sp.get("to");
+    // Le lien porte le tri du snapshot visé : on remet le sélecteur dessus pour
+    // rouvrir LE bon des deux enregistrements possibles de cette question.
+    const sort = asSort(sp.get("sort")) ?? algoRef.current;
+    switchAlgo(sort);
+    setResultSort(sort);
     if (from) setDateFrom(from);
     if (to) setDateTo(to);
     if (query) setQ(query);
@@ -713,9 +751,11 @@ export default function Home() {
           query: query.trim(),
           date_from: from ?? undefined,
           date_to: to ?? undefined,
+          sort,
         });
         if (fresh() && existing) {
           setDeep(existing.payload);
+          setResultSort(asSort(existing.sort) ?? sort);
           setSavedHit({ id: existing.id, created_at: existing.created_at });
         }
       } catch {
@@ -744,7 +784,8 @@ export default function Home() {
     setQ(summary.query);
     setDateFrom(summary.date_from ?? "");
     setDateTo(summary.date_to ?? "");
-    switchAlgo(summary.params.rrf ? "v2" : "v1");
+    switchAlgo(runSort(summary));
+    setResultSort(runSort(summary));
     if (summary.params.judge_batch) setJudgeBatch(summary.params.judge_batch);
     if (summary.params.local_floor != null)
       setLocalFloor(summary.params.local_floor);
@@ -769,11 +810,15 @@ export default function Home() {
     const from = opts.dateFrom ?? (dateFrom || undefined);
     const to = opts.dateTo ?? (dateTo || undefined);
     const runId = ++runIdRef.current;
+    // Le tri est figé ici, au lancement : c'est celui du résultat qui va
+    // s'afficher, quoi que fasse le sélecteur ensuite.
+    const sort = algoRef.current;
+    setResultSort(sort);
     setLoading(true);
     setRunStartedAt(Date.now());
     setError(null);
     setCodexLimit(false);
-    syncUrl(query, from, to);
+    syncUrl(query, from, to, sort);
     if (!query) {
       setLoading(false);
       return;
@@ -795,6 +840,7 @@ export default function Home() {
           query,
           date_from: from,
           date_to: to,
+          sort,
         });
       } catch {
         /* lookup best-effort : en cas d'échec, on relance la recherche */
@@ -1073,6 +1119,12 @@ export default function Home() {
                   )}
                 </>
               )}
+              {" · "}
+              {/* Tri de CE résultat : le sélecteur, lui, vaut pour la prochaine
+                  recherche — les deux peuvent différer. */}
+              <span title="Tri utilisé pour ce résultat (le sélecteur « TRI » ne s'applique qu'à la prochaine recherche)">
+                {SORT_LABEL[resultSort]}
+              </span>
             </span>
             <CopyLinkButton />
           </div>
@@ -1107,6 +1159,7 @@ export default function Home() {
               query={q.trim()}
               dateFrom={dateFrom}
               dateTo={dateTo}
+              sort={resultSort}
               alreadySavedId={savedHit?.id}
             />
           )}

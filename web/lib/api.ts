@@ -544,12 +544,31 @@ export async function updateProfile(id: string, profile: DoctorProfile): Promise
 // ---------- Recherches sauvegardées ----------
 // On enregistre le snapshot complet d'une recherche (la réponse v2 telle
 // qu'affichée) pour la rouvrir/relire plus tard sans relancer codex.
+// Le tri (sélecteur « TRI ») fait partie de l'identité de la recherche : la même
+// question peut être sauvegardée une fois en v1 et une fois en v2, chacune
+// retrouvée par son propre tri.
+export type SearchSort = "v1" | "v2";
+
+// Libellés du tri, identiques à ceux du sélecteur « TRI » de l'accueil. Ici
+// plutôt que dans une page : accueil, liste et lien partagé les affichent tous.
+export const SORT_LABEL: Record<SearchSort, string> = {
+  v1: "tri v1 · score IA",
+  v2: "tri v2 · fusion RRF",
+};
+
+// Tri d'une recherche sauvegardée, prêt à afficher. Les lignes d'avant le champ
+// n'en portent pas : on n'invente rien et on n'affiche alors aucune étiquette.
+export function sortLabel(sort: SearchSort | string | null | undefined): string | null {
+  return sort === "v1" || sort === "v2" ? SORT_LABEL[sort] : null;
+}
+
 export interface SavedSearchSummary {
   id: string;
   doctor_id: string | null;
   doctor_name: string | null;
   query: string;
   method: string;
+  sort: SearchSort | null; // null = sauvegardée avant l'ajout du tri
   n_results: number;
   created_at: string;
 }
@@ -564,6 +583,7 @@ export async function saveSearch(body: {
   doctor_id?: string | null;
   method?: string;
   params?: Record<string, unknown> | null;
+  sort?: SearchSort;
 }): Promise<SavedSearchDetail> {
   const res = await fetch(`${API_BASE}/saved-searches`, {
     method: "POST",
@@ -581,16 +601,19 @@ export async function listSavedSearches(): Promise<SavedSearchSummary[]> {
 }
 
 // Avant de relancer une recherche v2 (coûteuse en tokens codex), on regarde si
-// un snapshot identique a déjà été sauvegardé. Renvoie le plus récent, ou null.
+// un snapshot identique a déjà été sauvegardé — même question, mêmes dates ET
+// même tri. Renvoie le plus récent, ou null.
 export async function lookupSavedSearch(params: {
   query: string;
   method?: string;
   date_from?: string;
   date_to?: string;
+  sort?: SearchSort;
 }): Promise<SavedSearchDetail | null> {
   const sp = new URLSearchParams({ query: params.query, method: params.method ?? "v2" });
   if (params.date_from) sp.set("date_from", params.date_from);
   if (params.date_to) sp.set("date_to", params.date_to);
+  if (params.sort) sp.set("sort", params.sort);
   const res = await fetch(`${API_BASE}/saved-searches/lookup?${sp.toString()}`);
   if (!res.ok) return null;
   return res.json();
