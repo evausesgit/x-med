@@ -71,6 +71,28 @@ expliquer le score du reranker lorsqu'un tel modèle aura été évalué.
 | Scheduler | Celery Beat |
 | API interne | FastAPI |
 | Déploiement | Docker Compose |
+| Stockage | **Disque mécanique** — 2× Seagate Exos 7200 tr/min, RAID1 (md2) |
+
+### La contrainte de stockage gouverne le tuning Postgres
+
+L'hôte n'a **pas de SSD**. Mesuré en O_DIRECT sur ces disques : lecture aléatoire de
+8 Ko = **6,14 ms**, séquentielle = **0,076 ms** — un ratio de **81×**. Toute décision de
+conception qui multiplie les accès aléatoires se paie donc au prix fort, et c'est la
+première chose à vérifier devant une lenteur.
+
+Corollaire mesuré le 2026-08-03 : sur le pré-filtre FTS, la seule variable qui compte
+est de savoir si les blocs sont en RAM. Même requête, même plan — **88 718 ms** à froid,
+**222 ms** pleinement chaud. Ni le CPU ni la RAM ne sont en cause (pressions cgroup
+`cpu.full` et `memory.full` à 0,00 pendant les requêtes lentes, 200/200 échantillons de
+`wait_event` en `IO/DataFileRead`).
+
+D'où le dimensionnement de `shared_buffers` à **14 Go** dans `docker-compose.yml` :
+`article_search` pèse 7 704 Mo et doit y tenir **avec de la marge**. Détail des
+paramètres et de leur justification : commentaires du `docker-compose.yml`.
+
+⚠️ Ne pas régler `random_page_cost` comme pour un SSD. Et attention aux plans qui
+relisent le heap pour chaque ligne matchée (`ORDER BY ts_rank`) : c'est la lecture du
+heap, pas l'index GIN, qui coûte.
 
 ---
 
