@@ -254,10 +254,23 @@ FONCTION analyser_plus(PRM, pmids = remaining[0:50]):
   étape avec son chrono) puis un événement `result`. Un **keep-alive toutes les 10 s**
   empêche un proxy de couper pendant le silence du jugement (~50 s). Étapes émises :
   `codex` → `codex_done` → `esearch` → `esearch_done` → `filter_start` → (`filter` |
-  `filter_timeout`) → `judge` → `judge_done` → `done` → `translate` → `translate_done`.
+  `filter_timeout`) → `judge` → `judge_done` → `judge_detail` → `done` → `translate` →
+  `translate_done`.
   `filter_start` est émis **avant** la requête locale (sinon l'UI resterait figée sur la
   ligne PubMed pendant la recherche en base) ; `filter_timeout` remplace `filter` quand
   le garde-fou 8 s se déclenche.
+- **`judge_detail` — la trace auditable du tri.** Ce jalon porte, dans sa clé
+  `judgements`, le verdict de **chaque abstract soumis** au juge : `pmid`, titre
+  (tronqué à 160 caractères), `score`, `relevance_pct`, `reason`, `kept`. C'est la
+  **seule** trace des articles ÉCARTÉS : ils ne sont ni dans `results` (filtrés par
+  `min_score`) ni dans `remaining` (le vivier jamais soumis), et la sortie brute de
+  codex n'est pas conservée (`run_codex` écrit dans un `TemporaryDirectory`). Sans lui,
+  un « 50 jugés → 3 retenus » est inauditable. Un article soumis dont codex n'a rien
+  renvoyé garde `score: null` — jamais confondu avec un rejet argumenté.
+  Persisté avec les autres jalons dans `search_runs.logs` (et `digest_runs.logs`), donc
+  relisible après coup ; le front l'affiche replié sous la ligne de log correspondante.
+  Les lots « 50 de plus » l'émettent aussi, mais ne sont rattachés à aucun run : leur
+  détail vit le temps de la page.
 - **Récap des timeouts / limites, par étape** :
   | Étape | Limite | Au-delà |
   |---|---|---|

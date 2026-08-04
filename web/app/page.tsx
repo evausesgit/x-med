@@ -20,6 +20,7 @@ import {
 import type {
   CompareResult,
   DeepHit,
+  Judgement,
   SearchRun,
   SearchRunHistory,
   SearchRunSummary,
@@ -138,6 +139,49 @@ function WaitingWheel({ terms }: { terms: string[] }) {
 // en direct (méthodes PubMed) ou, pour les recherches en un seul appel
 // (analyse critique), une simple ligne d'état. Dans les deux cas, tant que ça
 // tourne, la roue + les concepts MeSH font patienter (`WaitingWheel`).
+// Verdict de codex sur chaque abstract soumis, replié par défaut : c'est la
+// seule vue où les articles ÉCARTÉS existent (les résultats ne montrent que les
+// retenus). Sert à comprendre un « 50 jugés → 3 retenus » qui surprend.
+function JudgeDetail({ rows }: { rows: Judgement[] }) {
+  const kept = rows.filter((r) => r.kept).length;
+  return (
+    <details className="xm-judge">
+      <summary className="xm-judge-sum">
+        Voir le verdict des {rows.length} articles évalués ({kept} retenus,{" "}
+        {rows.length - kept} écartés)
+      </summary>
+      <div className="xm-judge-rows">
+        {rows.map((r) => (
+          <div
+            key={r.pmid}
+            className={`xm-judge-row ${r.kept ? "kept" : "dropped"}`}
+          >
+            <span className="xm-judge-score">
+              {r.score === null ? "—" : r.score}
+              {r.relevance_pct !== null && ` · ${r.relevance_pct}%`}
+            </span>
+            <span className="xm-judge-txt">
+              <a
+                href={`https://pubmed.ncbi.nlm.nih.gov/${r.pmid}/`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {r.title}
+              </a>
+              {r.reason && <em className="xm-judge-why">{r.reason}</em>}
+              {r.score === null && (
+                <em className="xm-judge-why">
+                  Soumis au juge, mais absent de sa réponse.
+                </em>
+              )}
+            </span>
+          </div>
+        ))}
+      </div>
+    </details>
+  );
+}
+
 function LiveEvents({
   running,
   variant,
@@ -216,8 +260,11 @@ function LiveEvents({
           <>
             {logs.length === 0 && <div className="xm-live-line">{title}…</div>}
             {logs.map((l, k) => (
-              <div key={k} className="xm-live-line">
-                {l.msg}
+              <div key={k}>
+                <div className="xm-live-line">{l.msg}</div>
+                {l.judgements && l.judgements.length > 0 && (
+                  <JudgeDetail rows={l.judgements} />
+                )}
               </div>
             ))}
             {stopLocal && (
@@ -791,8 +838,13 @@ export default function Home() {
       setLocalFloor(summary.params.local_floor);
     try {
       const run = await getSearchRun(summary.id);
-      if (mountedRef.current && runId === runIdRef.current)
+      if (mountedRef.current && runId === runIdRef.current) {
         setDeep(run.payload);
+        // Le déroulé fait partie du run : on le rejoue aussi (panneau figé,
+        // `running=false`). C'est là que se consulte le détail du jugement —
+        // le seul endroit où les articles ÉCARTÉS par codex sont visibles.
+        setLogs(run.logs);
+      }
     } catch {
       if (mountedRef.current && runId === runIdRef.current)
         setError("Impossible de rouvrir cette recherche — rechargez la page.");

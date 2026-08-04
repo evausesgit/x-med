@@ -338,6 +338,44 @@ def _fmt_tokens(usage) -> str:
     return f"{n} tokens"
 
 
+# Titre tronqué dans la trace du jugement : la trace est persistée dans les
+# jalons du run (JSONB), on la garde de l'ordre du Ko, pas du Mo.
+JUDGE_LOG_TITLE_CHARS = 160
+
+
+def _judge_detail(
+    submitted: list[int],
+    titles: Callable[[int], str],
+    scores: dict[int, object],
+    min_score: int,
+) -> list[dict]:
+    """Verdict de codex pour CHAQUE article soumis au juge — y compris les
+    rejetés, qui sinon ne laissent aucune trace (ils ne sont ni dans `results`,
+    ni dans `remaining`) et rendent le « 50 jugés → 3 retenus » inauditable.
+
+    Un article soumis dont codex n'a rien renvoyé apparaît avec `score: null`
+    (jamais silencieusement confondu avec un rejet). Trié comme le classement
+    final (score, puis %), pour se lire dans le même ordre que les résultats.
+    """
+    rows: list[dict] = []
+    for p in submitted:
+        j = scores.get(p)
+        score = getattr(j, "score", None)
+        rows.append({
+            "pmid": p,
+            "title": titles(p)[:JUDGE_LOG_TITLE_CHARS],
+            "score": score,
+            "relevance_pct": getattr(j, "relevance_pct", None),
+            "reason": getattr(j, "reason", None),
+            "kept": score is not None and score >= min_score,
+        })
+    rows.sort(key=lambda r: (
+        -(r["score"] if r["score"] is not None else -1),
+        -(r["relevance_pct"] or 0),
+    ))
+    return rows
+
+
 def _run_deep_search(
     req: DeepSearchRequest,
     corpus: Session,
@@ -575,6 +613,13 @@ def _run_deep_search(
         )
         codex_tokens["judge"] = judge_usage.total_tokens
         emit("judge_done", f"🧠 Jugement terminé · {_fmt_tokens(judge_usage)}")
+        # Trace auditable du tri : le verdict de chaque abstract soumis, retenu
+        # ou non. Persistée avec les jalons du run, donc relisible plus tard.
+        detail = _judge_detail(first_batch, _title, scores, req.min_score)
+        emit("judge_detail",
+             f"🔍 Détail du jugement · {len(detail)} articles évalués, "
+             f"{sum(1 for r in detail if r['kept'])} retenus",
+             judgements=detail)
     except JudgeError as e:
         judge_mode = "skipped"  # repli : pas de score, tri lexical + récence
         rest = []  # jugement HS → pas de pagination « 50 de plus »
@@ -743,6 +788,14 @@ def _run_deep_more(
         )
         codex_tokens["judge"] = judge_usage.total_tokens
         emit("judge_done", f"🧠 Jugement terminé · {_fmt_tokens(judge_usage)}")
+        # Même trace que la recherche initiale (cf. `_judge_detail`) : les lots
+        # « 50 de plus » ne sont pas rattachés au run, elle vit donc le temps de
+        # la page — mais le déroulé reste complet à l'écran.
+        detail = _judge_detail(judgeable, _title, scores, req.min_score)
+        emit("judge_detail",
+             f"🔍 Détail du jugement · {len(detail)} articles évalués, "
+             f"{sum(1 for r in detail if r['kept'])} retenus",
+             judgements=detail)
     except JudgeError as e:
         judge_mode = "skipped"
         if is_usage_limit(str(e)):

@@ -496,6 +496,75 @@
   line-height: 1.5;
   color: var(--muted);
 }
+/* --- Détail du jugement : le verdict de chaque abstract soumis ------------- */
+/* Replié par défaut (c'est une vue d'audit, pas le résultat) ; les écartés sont
+   grisés et barrés d'un ✗ pour se distinguer d'un coup d'œil des retenus. */
+.xm-judge {
+  margin: 6px 0 4px 14px;
+  font-size: 12.5px;
+}
+/* Le déroulé vit dans 280px de haut ; déplié, le verdict porte jusqu'à 50
+   lignes — on donne de l'air au panneau plutôt que d'imbriquer deux zones de
+   défilement (qui se disputeraient la molette). */
+.xm-live-body:has(.xm-judge[open]) {
+  max-height: 520px;
+}
+.xm-judge-sum {
+  cursor: pointer;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.xm-judge-rows {
+  margin-top: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  overflow: hidden;
+}
+.xm-judge-row {
+  display: flex;
+  gap: 10px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--line);
+  line-height: 1.45;
+}
+.xm-judge-row:last-child {
+  border-bottom: none;
+}
+.xm-judge-row.dropped {
+  color: var(--muted);
+}
+.xm-judge-score {
+  flex: 0 0 auto;
+  min-width: 62px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.xm-judge-row.kept .xm-judge-score {
+  color: #2f8a63;
+  font-weight: 600;
+}
+.xm-judge-row.kept .xm-judge-score::before {
+  content: "✓ ";
+}
+.xm-judge-row.dropped .xm-judge-score::before {
+  content: "✗ ";
+}
+.xm-judge-txt {
+  min-width: 0; /* sinon un titre long déborde du panneau au lieu de wrapper */
+}
+.xm-judge-txt a {
+  color: inherit;
+}
+.xm-judge-why {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 /* --- Bloc d'attente : roue + concepts MeSH qui défilent -------------------- */
 /* Pendant que codex juge les articles il ne se passe rien à l'écran pendant
    plusieurs dizaines de secondes : la roue et les descripteurs qui défilent
