@@ -105,9 +105,13 @@ class _Spy:
         self.judged_pmids: list[int] = []
         self.judge_calls = 0
         self.events: list[tuple[str, str]] = []
+        # Données portées par les jalons (le jalon `judge_detail` transporte le
+        # verdict de chaque abstract soumis).
+        self.event_data: dict[str, dict] = {}
 
     def progress(self, phase, msg, data):
         self.events.append((phase, msg))
+        self.event_data[phase] = data
 
 
 @pytest.fixture
@@ -291,8 +295,46 @@ def test_judge_failure_degrades_without_losing_results(session, app_db, spy, mon
 def test_progress_events_cover_the_pipeline(session, app_db, spy):
     _run_deep_search(_req(rrf=True), session, app_db, spy.progress)
     phases = [p for p, _ in spy.events]
-    for expected in ("codex", "esearch", "filter_start", "judge", "done"):
+    for expected in ("codex", "esearch", "filter_start", "judge", "judge_detail", "done"):
         assert expected in phases, f"jalon de progression manquant : {expected}"
+
+
+def test_judge_detail_traces_the_articles_dropped_by_the_judge(
+    session, app_db, spy, monkeypatch
+):
+    """Le besoin qui a motivé le jalon : après un « 10 jugés → 5 retenus », les
+    5 écartés ne sont dans AUCUNE autre sortie (ni `results`, ni `remaining`).
+    Le jalon `judge_detail` doit les porter, avec leur note et leur raison."""
+
+    def alternating_judge(query, items):
+        spy.judge_calls += 1
+        spy.judged_pmids = [i["pmid"] for i in items]
+        scores = {
+            i["pmid"]: Judgement(
+                score=3 if k % 2 == 0 else 0,
+                reason="retenu" if k % 2 == 0 else "hors sujet",
+                relevance_pct=90 if k % 2 == 0 else 5,
+            )
+            for k, i in enumerate(items)
+        }
+        return scores, CodexUsage(input_tokens=500, output_tokens=50)
+
+    monkeypatch.setattr(codex_judge, "judge_articles", alternating_judge)
+    resp = _run_deep_search(_req(rrf=True, judge_batch=10), session, app_db, spy.progress)
+
+    rows = spy.event_data["judge_detail"]["judgements"]
+    assert len(rows) == len(spy.judged_pmids), "une ligne par abstract soumis"
+
+    kept_pmids = {h.pmid for h in resp.results}
+    dropped = [r for r in rows if not r["kept"]]
+    assert dropped, "la doublure écarte un article sur deux"
+    for r in dropped:
+        assert r["pmid"] not in kept_pmids
+        assert r["pmid"] not in resp.remaining, (
+            "un écarté n'est pas dans le vivier restant : le jalon est sa seule trace"
+        )
+        assert r["reason"] == "hors sujet", "la raison du rejet doit être conservée"
+    assert {r["pmid"] for r in rows if r["kept"]} == kept_pmids
 
 
 # --------------------------------------------------------------------------- #

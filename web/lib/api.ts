@@ -2,11 +2,24 @@
 // fonctionnent quel que soit l'hôte depuis lequel le navigateur ouvre le site.
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "/api";
 
+// Verdict de codex sur UN article soumis au juge — y compris les rejetés, qui
+// n'apparaissent nulle part ailleurs (ni dans les résultats, ni dans le reste
+// du vivier). `score: null` = article soumis mais absent de la réponse de codex.
+export interface Judgement {
+  pmid: number;
+  title: string;
+  score: number | null; // 0–3
+  relevance_pct: number | null; // 0–100
+  reason: string | null;
+  kept: boolean; // score ≥ seuil de conservation
+}
+
 export interface PubmedLog {
   phase: string;
   msg: string;
   pubmed_query?: string;
   mesh_terms?: string[];
+  judgements?: Judgement[]; // jalon `judge_detail` uniquement
 }
 
 
