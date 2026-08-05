@@ -1,4 +1,4 @@
-"""Traduction FR d'abstracts par le CLI codex (GPT-5.6), avec cache article_fr.
+"""Traduction FR d'abstracts par le CLI codex (GPT-5.4), avec cache article_fr.
 
 Étape 4 du plan « PubMed + codex » : on traduit en français les abstracts des
 articles retenus, pour les médecins. Les traductions sont mises en cache dans la

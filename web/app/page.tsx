@@ -641,7 +641,7 @@ export default function Home() {
       onResult: (res) => {
         if (res.codex_limit) {
           setAnalysisError(
-            "Limite d'usage GPT-5.6 atteinte — réessayez l'analyse plus tard.",
+            "Limite d'usage GPT-5.4 atteinte — réessayez l'analyse plus tard.",
           );
         } else {
           setAnalysis(res);
@@ -1097,7 +1097,7 @@ export default function Home() {
         style={{ margin: "12px 2px 0", color: "var(--faint)", fontSize: 12.5 }}
       >
         L’IA construit une requête experte, on pré-filtre la base en local
-        (mots-clés + MeSH), puis GPT-5.6 lit et juge uniquement ces candidats —
+        (mots-clés + MeSH), puis GPT-5.4 lit et juge uniquement ces candidats —
         rapide, insensible à la largeur de la période.
       </p>
 
@@ -1127,8 +1127,8 @@ export default function Home() {
 
       {codexLimit && (
         <div className="xm-banner error" role="alert">
-          🚫 <b>Limite d’usage GPT-5.6 atteinte.</b> Les recherches «&nbsp;PubMed +
-          codex&nbsp;» reposent sur GPT-5.6 (construction de la requête, tri et
+          🚫 <b>Limite d’usage GPT-5.4 atteinte.</b> Les recherches «&nbsp;PubMed +
+          codex&nbsp;» reposent sur GPT-5.4 (construction de la requête, tri et
           traduction) : le quota est épuisé pour le moment. Les résultats sont en{" "}
           <b>mode dégradé</b> (sans tri intelligent ni traduction FR). Réessayez un
           peu plus tard.

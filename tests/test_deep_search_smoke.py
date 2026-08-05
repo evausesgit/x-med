@@ -4,7 +4,7 @@
 
 C'est le test le plus proche du réel : il exécute la vraie fonction
 `_run_deep_search` contre la vraie base, en remplaçant seulement les **trois
-appels externes** (constructeur de requête GPT-5.6, PubMed E-utilities, juge
+appels externes** (constructeur de requête GPT-5.4, PubMed E-utilities, juge
 codex). Il couvre donc tout ce que les tests 1 à 3 ne voient pas : le pré-filtre
 FTS, la fenêtre de dates, l'assemblage et le tri de la réponse, la pagination
 `remaining`, et les replis quand codex tombe.

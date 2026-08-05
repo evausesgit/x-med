@@ -25,13 +25,12 @@ class Settings(BaseSettings):
     ncbi_tool: str = "x-med"
     ncbi_email: str | None = None
     codex_bin: str = "codex"
-    # Répartition par tâche (comparatif Artificial Analysis, juillet 2026) :
-    # - Terra : même prix que gpt-5.4 mais plus intelligent (Index 55 vs 51) et
-    #   ~13 % plus rapide → requête PubMed, jugement, critique.
-    # - Luna : l'intelligence de gpt-5.4 (Index 51) pour 2,5× moins cher et
-    #   ~47 % plus rapide → traduction (le poste le plus gourmand en output).
-    codex_model: str = "gpt-5.6-terra"
-    codex_model_translate: str = "gpt-5.6-luna"
+    # Retour à gpt-5.4 sur tous les postes (requête PubMed, jugement, critique,
+    # traduction) : c'est le modèle sur lequel le pipeline a été réglé et mesuré.
+    # Le knob `codex_model_translate` reste séparé — il permet de re-router la
+    # seule traduction sur un modèle moins cher sans toucher au reste.
+    codex_model: str = "gpt-5.4"
+    codex_model_translate: str = "gpt-5.4"
     # Effort de raisonnement PINNÉ par appel : sans ça, codex hérite du
     # config.toml du CODEX_HOME ambiant (« high » sur le poste de dev via la
     # config Hermes, indéterminé en prod) — la traduction tournait en high
