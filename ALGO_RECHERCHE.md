@@ -128,7 +128,19 @@ FONCTION recherche(PRM, date_from, date_to):
   # ---- 2a. Source B = notre base locale (filtre plein-texte FTS) ----
   # "FTS" = full-text search = recherche plein-texte Postgres sur titre+résumé.
   # La base est un miroir ~complet de PubMed : ~25 M articles / 63 Go.
-  # On cherche les articles dont le TEXTE matche les mots-clés anglais (en OU).
+  # On cherche les articles dont le TEXTE matche les CONCEPTS de Codex, combinés
+  # en ET — chaque concept étant le OU de ses synonymes :
+  #     (endometriosis OU endometriotic) ET (endometrioma OU « chocolate cyst »)
+  #
+  # ⚠️ C'est LE point de performance. Avant, les mots-clés étaient aplatis en un
+  # seul OU (« endometriosis OU cyst OU surgery OU pain ») : le coût d'une FTS est
+  # dominé par le NOMBRE DE LIGNES QUI MATCHENT (le tri ts_rank doit détoaster le
+  # tsvector de chacune), donc on payait le mot le plus BANAL de la liste. Mesuré
+  # sur la fenêtre 2025-2026 : 268 137 lignes en 92,8 s pour le OU à plat, contre
+  # 1 546 lignes en 21 ms pour le ET des mêmes concepts. Le défaut était pervers :
+  # plus la question clinique était précise, plus Codex émettait de concepts, donc
+  # plus le risque qu'un mot banal (« pain » seul = 103 611 articles sur 2025-2026)
+  # fasse exploser le temps était grand.
   #
   # ⚠️ On n'ajoute PLUS de condition MeSH ici (avant : « OR mesh_article ∩ mesh_terms »).
   # À l'échelle de 25 M lignes, un descripteur MeSH courant (ex. « Heart Failure »)
@@ -137,22 +149,36 @@ FONCTION recherche(PRM, date_from, date_to):
   # sont déjà exhaustifs (synonymes cliniques + molécules) et Codex re-juge derrière,
   # donc le gain de rappel du MeSH était marginal. mesh_terms ne sert donc qu'à la
   # requête PubMed (1a/1b), PAS au vivier local.
-  texte_recherché = keywords_en joints par " OR "   (sinon PRM brut)
+  concepts = concepts_en de Codex                    # [[synonymes], [synonymes], …]
+  SI pas de concepts MAIS des keywords_en → UN seul groupe (ancien OU à plat)
+  SI ni l'un ni l'autre (Codex HS)         → on SAUTE le vivier local (B = ∅)
+      # On n'envoie JAMAIS la question FRANÇAISE à un index anglais : elle n'en tire
+      # quasi aucun lexème utile et B retombait à 0 sans le dire.
 
-  # Garde-fou latence (LOCAL_SEARCH_TIMEOUT_MS = 8 s) : sur un sujet à mots ultra-
-  # courants (« bleeding », « stroke »…), même le FTS seul peut prendre des minutes.
-  # La requête est donc bornée à 8 s (statement_timeout Postgres, isolé dans un
-  # savepoint). Si dépassé → on ABANDONNE le vivier local (B = ∅) et on continue
-  # sur PubMed seul, plutôt que de faire attendre le médecin.
-  ESSAYER (statement_timeout = 8 s):
-      B_pmids = SELECT pmid FROM articles
-                WHERE  texte matche texte_recherché         # FTS (index GIN)
-                  AND  pub_year ≥ année(date_from)           # filtres date
+  # Garde-fou latence (LOCAL_SEARCH_TIMEOUT_MS = 15 s) : budget TOTAL de l'échelle
+  # ci-dessous (statement_timeout Postgres, isolé dans sa propre transaction).
+  # Depuis le passage au ET, une requête saine tient en 0,4 à 2 s : au-delà ce n'est
+  # plus « le sujet est large » mais une anomalie → on ABANDONNE le vivier local
+  # (B = ∅) et on continue sur PubMed seul, plutôt que de faire attendre le médecin.
+  ESSAYER (dans le budget restant):
+      B_pmids = SELECT pmid FROM articles      # ou article_search si la fenêtre le permet
+                WHERE  texte matche (concept₁ ET concept₂ ET …)   # FTS (index GIN)
+                  AND  pub_year ≥ année(date_from)                # filtres date
                   AND  pub_year ≤ année(date_to)
-                ORDER BY pertinence_lexicale DESC            # "ts_rank"
-                LIMIT max_local                              # ≤ 200
-  SINON (timeout 8 s dépassé):
+                ORDER BY pertinence_lexicale DESC                 # "ts_rank"
+                LIMIT max_local                                   # ≤ 200
+  SINON (budget dépassé):
       B_pmids = []                                           # repli : PubMed seul
+
+  # ---- 2a-bis. Échelle de relâchement ----
+  # Le ET de tous les concepts est rapide mais parfois trop sévère : un article
+  # pertinent peut ne pas employer le vocabulaire d'UN des concepts. Si B < 30 ET
+  # qu'il y a ≥ 3 concepts, on rejoue une variante par concept retiré (les autres
+  # restant en ET) et on fusionne en tourniquet, le palier strict gardant la tête.
+  # JAMAIS moins de 2 concepts en ET : en dessous on retombe sur les centaines de
+  # milliers de lignes que tout ceci corrige.
+  # Mesuré (« kystes d'endométriose », 2025-2026, 3 concepts) : 236 articles en
+  # 1,9 s pour le ET strict ; 348 en 0,4 s et 1 488 en 1,3 s pour les variantes.
 
   # ---- 2b. Fusion A ∪ B ----
   # On concatène A PUIS B et on déduplique en gardant le 1er vu.
