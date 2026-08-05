@@ -31,13 +31,15 @@ class Settings(BaseSettings):
     # seule traduction sur un modèle moins cher sans toucher au reste.
     codex_model: str = "gpt-5.4"
     codex_model_translate: str = "gpt-5.4"
-    # Effort de raisonnement PINNÉ par appel : sans ça, codex hérite du
-    # config.toml du CODEX_HOME ambiant (« high » sur le poste de dev via la
-    # config Hermes, indéterminé en prod) — la traduction tournait en high
-    # sans raison. medium = défaut OpenAI, suffisant pour requête/jugement ;
-    # low pour la traduction (tâche mécanique, gros volume d'output).
-    codex_reasoning: str = "medium"
-    codex_reasoning_translate: str = "low"
+    # Effort de raisonnement : high sur tous les postes, traduction comprise —
+    # c'est le régime sous lequel le pipeline tournait avant le 23/07, celui sur
+    # lequel la qualité a été jugée. Il reste PINNÉ par appel : sans le flag,
+    # codex irait lire l'effort dans le config.toml du CODEX_HOME ambiant, un
+    # fichier qui n'appartient pas à x-med (« high » aujourd'hui côté hôte, mais
+    # rien ne le garantit, et le défaut du CLI serait « medium »). Même valeur
+    # qu'avant, donc, mais imposée par x-med au lieu d'être subie.
+    codex_reasoning: str = "high"
+    codex_reasoning_translate: str = "high"
     codex_abstract_timeout: int = 900
 
     # Table étroite de recherche FTS (`article_search`) : fenêtre glissante des
