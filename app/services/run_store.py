@@ -201,7 +201,9 @@ def run_deep_job(
         cancel_state.raise_if_cancelled()
         elapsed = round(time.monotonic() - t0, 1)
         data = {k: v for k, v in data.items() if k not in strip_log_keys}
-        event = {"phase": phase, "msg": f"{msg} ({elapsed}s)", "elapsed_s": elapsed, **data}
+        # Le temps est une DONNÉE du jalon (`elapsed_s`), pas un bout de phrase :
+        # le front en tire le cumulé ET l'écart avec le jalon précédent.
+        event = {"phase": phase, "msg": msg, "elapsed_s": elapsed, **data}
         progress_events.append(event)
         append_log(model, run_id, event)
 
