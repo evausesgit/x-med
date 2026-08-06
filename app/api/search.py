@@ -692,12 +692,16 @@ def _run_deep_search(
             ),
         ))
 
-    # Tri final : TOUJOURS la pertinence évaluée par Codex (score → % → niveau de preuve
-    # → récence), quel que soit l'algo. RRF ne sert qu'à CHOISIR les candidats à juger ;
-    # il ne classe jamais ce que voit le médecin. La fenêtre de dates ne rétrograde
-    # PAS les articles hors période : s'ils sont les plus pertinents, ils sont en tête
-    # (c'est tout l'intérêt de ne plus borner esearch) — le badge les signale.
+    # Tri final, en DEUX BLOCS : d'abord les articles de la fenêtre demandée, puis
+    # les autres. Le médecin a choisi une période, elle prime — mais elle ne fait
+    # plus disparaître le reste (cf. esearch non borné), elle le range dessous.
+    # Dans chaque bloc : TOUJOURS la pertinence évaluée par Codex (score → % →
+    # niveau de preuve → récence), quel que soit l'algo. RRF ne sert qu'à CHOISIR
+    # les candidats à juger ; il ne classe jamais ce que voit le médecin.
+    # Cas limite voulu : quand la fenêtre ne contient rien (sujet à littérature
+    # ancienne), le 2e bloc est toute la liste — on n'affiche pas une page vide.
     hits.sort(key=lambda h: (
+        h.out_of_window,  # False (0) avant True (1)
         -(h.score if h.score is not None else -1),
         -(h.relevance_pct if h.relevance_pct is not None else -1),
         h.evidence_level if h.evidence_level is not None else 99,
@@ -719,7 +723,7 @@ def _run_deep_search(
     if n_oow:
         emit("out_of_window",
              f"📅 {n_oow} article(s) retenu(s) hors de votre fenêtre de dates — "
-             "conservés parce que jugés pertinents (badge « hors période »).")
+             "classés après ceux de la période, jamais écartés.")
 
     emit("done", f"✅ {len(hits)} articles retenus")
 
@@ -887,7 +891,10 @@ def _run_deep_more(
             ),
         ))
 
+    # Même règle que la recherche initiale : fenêtre demandée d'abord, hors
+    # période ensuite — sinon la fusion côté front mélangerait deux ordres.
     hits.sort(key=lambda h: (
+        h.out_of_window,
         -(h.score if h.score is not None else -1),
         -(h.relevance_pct if h.relevance_pct is not None else -1),
         h.evidence_level if h.evidence_level is not None else 99,

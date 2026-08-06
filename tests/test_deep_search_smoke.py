@@ -230,6 +230,65 @@ def test_local_only_candidates_stay_date_bounded(session, app_db, spy):
         )
 
 
+def test_in_window_articles_are_ranked_before_out_of_window_ones(
+    session, app_db, spy, corpus, monkeypatch
+):
+    """Tri en deux blocs : la période demandée d'abord, le reste ensuite.
+
+    Le cas doit être DISCRIMINANT : on donne à l'article ancien le MEILLEUR score
+    (3 contre 2). Sans la clé `out_of_window` en tête du tri il serait premier —
+    le départage par année suffirait sinon à le renvoyer en fin de liste, et le
+    test passerait pour une mauvaise raison.
+    """
+    OLD_PMID = 999_000_002
+
+    def with_old(term, retmax=20, sort="relevance", reldate=None,
+                 mindate=None, maxdate=None):
+        # L'ancien est placé en TÊTE de la liste PubMed : seul le tri final peut
+        # le renvoyer en fin de liste.
+        return 1, [OLD_PMID, *corpus["a_pmids"][:retmax - 1]]
+
+    def judge_old_best(query, items):
+        scores = {
+            i["pmid"]: Judgement(
+                score=3 if i["pmid"] == OLD_PMID else 2,
+                reason="doublure",
+                relevance_pct=99 if i["pmid"] == OLD_PMID else 50,
+            )
+            for i in items
+        }
+        return scores, CodexUsage(input_tokens=500, output_tokens=50)
+
+    monkeypatch.setattr(codex_judge, "judge_articles", judge_old_best)
+    monkeypatch.setattr(pubmed_eutils, "esearch", with_old)
+    monkeypatch.setattr(
+        pubmed_eutils, "esummary",
+        lambda pmids: {
+            OLD_PMID: pubmed_eutils.PubmedHit(
+                pmid=OLD_PMID, title="Article ancien mais pertinent",
+                journal="J. Ancien", pub_year=1997, doi=None,
+            )
+        },
+    )
+    monkeypatch.setattr(
+        pubmed_eutils, "efetch_abstracts",
+        lambda pmids: {OLD_PMID: "Un abstract jugé aussi pertinent que les autres."},
+    )
+
+    resp = _run_deep_search(_req(rrf=False), session, app_db, spy.progress)
+
+    flags = [h.out_of_window for h in resp.results]
+    assert flags == sorted(flags), (
+        "les articles hors période doivent former un bloc CONTIGU en fin de liste, "
+        f"pas s'intercaler : {[(h.pmid, h.pub_year, h.out_of_window) for h in resp.results]}"
+    )
+    assert resp.results[-1].pmid == OLD_PMID, (
+        "l'article de 1997 doit passer derrière ceux de la période MALGRÉ son "
+        "meilleur score — c'est la période qui prime, pas la pertinence brute"
+    )
+    assert any(not f for f in flags), "le test n'a pas de témoin dans la fenêtre"
+
+
 def test_out_of_window_pubmed_article_is_kept_and_flagged(
     session, app_db, spy, monkeypatch
 ):
