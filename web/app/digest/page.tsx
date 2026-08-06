@@ -16,11 +16,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
+  fmtSeconds,
   generateDigest,
   getDigestHistory,
   getDigestRun,
   getMe,
   stopDigestRun,
+  withTimings,
   type DigestHistory,
   type DigestRun,
   type DigestRunSummary,
@@ -324,9 +326,19 @@ export default function DigestPage() {
                 Composition de la recherche à partir de votre profil…
               </div>
             )}
-            {current?.logs.map((l, k) => (
+            {withTimings(current?.logs ?? []).map((l, k) => (
               <div key={k} className="xm-live-line">
-                {l.msg}
+                {l.elapsed !== null && (
+                  <span className="xm-live-clock">
+                    <span className="xm-live-cum">{fmtSeconds(l.elapsed)}</span>
+                    {l.delta !== null && (
+                      <span className="xm-live-delta">
+                        +{fmtSeconds(l.delta)}
+                      </span>
+                    )}
+                  </span>
+                )}
+                {l.text}
               </div>
             ))}
           </div>

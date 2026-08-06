@@ -1201,7 +1201,7 @@ def search_pubmed_deep_more_stream(
 
         def progress(phase: str, msg: str, data: dict) -> None:
             elapsed = round(time.monotonic() - t0, 1)
-            events.put(("log", {"phase": phase, "msg": f"{msg} ({elapsed}s)", **data}))
+            events.put(("log", {"phase": phase, "msg": msg, "elapsed_s": elapsed, **data}))
 
         def produce() -> None:
             try:
@@ -1410,7 +1410,7 @@ def analyze_compare_stream(
 
         def progress(phase: str, msg: str, data: dict) -> None:
             elapsed = round(time.monotonic() - t0, 1)
-            events.put(("log", {"phase": phase, "msg": f"{msg} ({elapsed}s)", **data}))
+            events.put(("log", {"phase": phase, "msg": msg, "elapsed_s": elapsed, **data}))
 
         def produce() -> None:
             try:

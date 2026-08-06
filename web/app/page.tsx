@@ -6,6 +6,7 @@ import {
   createSearchRun,
   DeepSearchResponse,
   Doctor,
+  fmtSeconds,
   getSearchRun,
   getSearchRunHistory,
   listDoctors,
@@ -16,6 +17,7 @@ import {
   SORT_LABEL,
   stopLocalSearch,
   stopSearchRun,
+  withTimings,
 } from "@/lib/api";
 import type {
   CompareResult,
@@ -236,6 +238,10 @@ function LiveEvents({
       : "Recherche en cours";
   const queryLog = logs.find((l) => l.pubmed_query);
 
+  // Chaque jalon porte son temps cumulé et l'écart avec le précédent : on voit
+  // d'un coup d'œil quelle étape a coûté cher (pré-filtre local vs jugement).
+  const timedLogs = useMemo(() => withTimings(logs), [logs]);
+
   // Message de patience adapté au temps écoulé : l'utilisateur sait à quoi
   // s'attendre et n'a pas l'impression que « ça a planté ».
   const waitHint =
@@ -259,9 +265,23 @@ function LiveEvents({
         {isPubmed ? (
           <>
             {logs.length === 0 && <div className="xm-live-line">{title}…</div>}
-            {logs.map((l, k) => (
+            {timedLogs.map((l, k) => (
               <div key={k}>
-                <div className="xm-live-line">{l.msg}</div>
+                <div className="xm-live-line">
+                  {l.elapsed !== null && (
+                    <span className="xm-live-clock">
+                      <span className="xm-live-cum">
+                        {fmtSeconds(l.elapsed)}
+                      </span>
+                      {l.delta !== null && (
+                        <span className="xm-live-delta">
+                          +{fmtSeconds(l.delta)}
+                        </span>
+                      )}
+                    </span>
+                  )}
+                  {l.text}
+                </div>
                 {l.judgements && l.judgements.length > 0 && (
                   <JudgeDetail rows={l.judgements} />
                 )}
