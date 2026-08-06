@@ -26,3 +26,7 @@ experiments/autoresearch_xmed/artifacts/
 experiments/autoresearch_xmed/results.tsv
 experiments/autoresearch_xmed/results.jsonl
 experiments/autoresearch_xmed/run.log
+
+# Diagnostic ponctuel du 06/08 : pool et artefacts du diagnostic juge
+/pool_fes.jsonl
+/artifacts/

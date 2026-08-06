@@ -13,6 +13,7 @@ import hashlib
 import json
 import os
 import platform
+import re
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -46,6 +47,36 @@ BLIND_FORBIDDEN_FIELDS = (
     "judge_input_by",
     "top_k_by",
 )
+
+_NEUTRAL_EXAMPLES = (
+    "   - « Mesure directement la prévalence de l'affection étudiée dans la "
+    "population visée. »\n"
+    "   - « Analyse l'association entre les deux facteurs cliniques de la "
+    "question. »\n"
+    "   - « Évalue un signe clinique comme outil de dépistage de la pathologie. »\n"
+)
+
+_EXAMPLE_LINES = re.compile(r"(?:[ ]{3}- «[^\n]*»\n)+")
+
+
+def neutral_prompt_head() -> str:
+    """Prompt du juge de production, exemples de style dé-thématisés.
+
+    `codex_judge._PROMPT_HEAD` porte trois exemples permanents consacrés au
+    floppy eyelid syndrome et à l'apnée du sommeil, alors qu'il sert TOUTES les
+    questions. Cette variante ne remplace QUE ces trois lignes : barème,
+    consignes et format sont repris octet pour octet, pour qu'un écart mesuré
+    ne puisse venir que de là.
+    """
+
+    head, replaced = _EXAMPLE_LINES.subn(_NEUTRAL_EXAMPLES, codex_judge._PROMPT_HEAD, count=1)
+    if replaced != 1:
+        raise JudgeScreenError(
+            "exemples introuvables dans le prompt du juge : la variante "
+            "'neutral' ne peut plus garantir un changement à une seule variable"
+        )
+    return head
+
 
 _COMPACT_PROMPT_HEAD = (
     "Évalue la pertinence clinique de chaque article pour la question ci-dessous, "
@@ -89,6 +120,10 @@ class JudgeConfig:
     max_abstract_chars: int = codex_judge.MAX_ABSTRACT_CHARS
     abstract_mode: str = "head"
     prompt_style: str = "baseline"
+    # Métadonnées jointes à chaque article. `no_evidence` retire le « niveau de
+    # preuve 1-4 » entré dans le payload du juge le 23/07 (commit 4f6de6b) et
+    # que le rollback de modèle (#73) ne défait pas.
+    metadata_mode: str = "full"
     shards: int = 1
     repetitions: int = 1
 
@@ -103,8 +138,10 @@ class JudgeConfig:
                 raise JudgeScreenError(f"{name} doit être un entier strictement positif")
         if self.abstract_mode not in {"head", "head_tail"}:
             raise JudgeScreenError("abstract_mode doit valoir head ou head_tail")
-        if self.prompt_style not in {"baseline", "compact"}:
-            raise JudgeScreenError("prompt_style doit valoir baseline ou compact")
+        if self.prompt_style not in {"baseline", "compact", "neutral"}:
+            raise JudgeScreenError("prompt_style doit valoir baseline, compact ou neutral")
+        if self.metadata_mode not in {"full", "no_evidence"}:
+            raise JudgeScreenError("metadata_mode doit valoir full ou no_evidence")
         if self.shards not in {1, 2} or isinstance(self.shards, bool):
             raise JudgeScreenError("shards doit valoir 1 ou 2")
 
@@ -114,6 +151,7 @@ class JudgeConfig:
             self.abstract_mode == "head"
             and self.max_abstract_chars == codex_judge.MAX_ABSTRACT_CHARS
             and self.prompt_style == "baseline"
+            and self.metadata_mode == "full"
             and self.shards == 1
         )
 
@@ -236,9 +274,20 @@ def build_prompt(query: str, items: list[dict], config: JudgeConfig) -> str:
         }
         for item in items
     ]
-    if config.exact_production_prompt:
-        return codex_judge._PROMPT_HEAD.format(prm=query) + codex_judge._render_articles(articles)
-    head = codex_judge._PROMPT_HEAD if config.prompt_style == "baseline" else _COMPACT_PROMPT_HEAD
+    if config.metadata_mode == "no_evidence":
+        for article in articles:
+            article["evidence_level"] = None
+    if config.prompt_style == "baseline":
+        head = codex_judge._PROMPT_HEAD
+    elif config.prompt_style == "neutral":
+        head = neutral_prompt_head()
+    else:
+        head = _COMPACT_PROMPT_HEAD
+    # Le rendu de production est réutilisé tel quel dès que le traitement des
+    # résumés est celui de la prod : les bras `neutral` et `no_evidence` ne
+    # doivent différer de la baseline que par leur variable propre.
+    if config.abstract_mode == "head" and config.max_abstract_chars == codex_judge.MAX_ABSTRACT_CHARS:
+        return head.format(prm=query) + codex_judge._render_articles(articles)
     return head.format(prm=query) + _render_variant(articles, config)
 
 
@@ -464,7 +513,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--batch-size", type=int, default=50)
     parser.add_argument("--max-abstract-chars", type=int, default=codex_judge.MAX_ABSTRACT_CHARS)
     parser.add_argument("--abstract-mode", choices=("head", "head_tail"), default="head")
-    parser.add_argument("--prompt-style", choices=("baseline", "compact"), default="baseline")
+    parser.add_argument(
+        "--prompt-style", choices=("baseline", "compact", "neutral"), default="baseline"
+    )
+    parser.add_argument(
+        "--metadata-mode", choices=("full", "no_evidence"), default="full"
+    )
     parser.add_argument("--shards", type=int, choices=(1, 2), default=1)
     parser.add_argument("--repetitions", type=int, default=1)
     return parser
@@ -480,6 +534,7 @@ def main() -> None:
             max_abstract_chars=args.max_abstract_chars,
             abstract_mode=args.abstract_mode,
             prompt_style=args.prompt_style,
+            metadata_mode=args.metadata_mode,
             shards=args.shards,
             repetitions=args.repetitions,
         )
