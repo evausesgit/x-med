@@ -104,6 +104,9 @@ class _Spy:
     def __init__(self):
         self.judged_pmids: list[int] = []
         self.judge_calls = 0
+        # Bornes de dates reçues par esearch — doivent rester None (cf. le test
+        # `test_esearch_is_not_date_bounded`).
+        self.esearch_dates: tuple[str | None, str | None] | None = None
         self.events: list[tuple[str, str]] = []
         # Données portées par les jalons (le jalon `judge_detail` transporte le
         # verdict de chaque abstract soumis).
@@ -130,6 +133,7 @@ def spy(monkeypatch, corpus):
 
     def fake_esearch(term, retmax=20, sort="relevance", reldate=None,
                      mindate=None, maxdate=None):
+        s.esearch_dates = (mindate, maxdate)
         pmids = corpus["a_pmids"][:retmax]
         return len(pmids), pmids
 
@@ -199,11 +203,73 @@ def test_results_are_sorted_by_judged_relevance(session, app_db, spy):
     assert keys == sorted(keys), "le tri final doit rester le score du juge"
 
 
-def test_date_window_is_respected(session, app_db, spy):
+def test_esearch_is_not_date_bounded(session, app_db, spy):
+    """PubMed est interrogé SANS bornes de dates, même quand la recherche en a.
+
+    Régression : avec le défaut « depuis 2025 », un sujet à littérature ancienne
+    (floppy eyelid syndrome × glaucome à pression normale) renvoyait 0 article
+    alors que PubMed en a une douzaine. La fenêtre ne filtre plus le rappel, elle
+    ne sert plus qu'à signaler les articles hors période.
+    """
+    _run_deep_search(_req(rrf=True), session, app_db, spy.progress)
+    assert spy.esearch_dates == (None, None), (
+        "esearch ne doit plus recevoir mindate/maxdate : le filtrage amont "
+        f"vidait les résultats des sujets anciens (reçu : {spy.esearch_dates})"
+    )
+
+
+def test_local_only_candidates_stay_date_bounded(session, app_db, spy):
+    """Le vivier LOCAL reste borné : `_prefilter_source` s'appuie sur la borne
+    basse pour rester sur la table chaude. Seul PubMed est débridé."""
     resp = _run_deep_search(_req(rrf=True), session, app_db, spy.progress)
     for h in resp.results:
-        if h.pub_year is not None:
+        if h.source == "local" and h.pub_year is not None:
             assert 2025 <= h.pub_year <= 2026, f"{h.pmid} hors fenêtre : {h.pub_year}"
+        assert h.out_of_window is False, (
+            f"{h.pmid} ({h.pub_year}) est dans la fenêtre, il ne doit pas être marqué"
+        )
+
+
+def test_out_of_window_pubmed_article_is_kept_and_flagged(
+    session, app_db, spy, monkeypatch
+):
+    """Un article PubMed ANCIEN, jugé pertinent, est rendu — marqué, pas écarté.
+
+    C'est la contrepartie du débridage d'esearch : plutôt qu'une page vide, le
+    médecin voit l'article de 1997 avec un badge « hors période ».
+    """
+    OLD_PMID, OLD_YEAR = 999_000_001, 1997
+
+    def only_old(term, retmax=20, sort="relevance", reldate=None,
+                 mindate=None, maxdate=None):
+        spy.esearch_dates = (mindate, maxdate)
+        return 1, [OLD_PMID]
+
+    monkeypatch.setattr(pubmed_eutils, "esearch", only_old)
+    monkeypatch.setattr(
+        pubmed_eutils, "esummary",
+        lambda pmids: {
+            OLD_PMID: pubmed_eutils.PubmedHit(
+                pmid=OLD_PMID, title="Floppy eyelid syndrome and normal tension glaucoma",
+                journal="Ophthalmology", pub_year=OLD_YEAR, doi=None,
+            )
+        },
+    )
+    monkeypatch.setattr(
+        pubmed_eutils, "efetch_abstracts",
+        lambda pmids: {OLD_PMID: "Association between floppy eyelid syndrome and NTG."},
+    )
+
+    resp = _run_deep_search(_req(rrf=False, max_local=0), session, app_db, spy.progress)
+
+    hit = next((h for h in resp.results if h.pmid == OLD_PMID), None)
+    assert hit is not None, "l'article hors fenêtre a été écarté au lieu d'être rendu"
+    assert hit.pub_year == OLD_YEAR
+    assert hit.out_of_window is True, "il doit porter le badge « hors période »"
+    assert resp.counts["kept_out_of_window"] == 1
+    assert any(p == "out_of_window" for p, _ in spy.events), (
+        "le déroulé doit annoncer les articles retenus hors fenêtre"
+    )
 
 
 def test_sources_are_labelled(session, app_db, spy, corpus):

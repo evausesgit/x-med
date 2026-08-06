@@ -40,6 +40,10 @@ export interface DeepHit {
   abstract: string | null; // abstract original (EN)
   abstract_fr: string | null; // traduction FR (cache ou streamée)
   title_fr?: string | null; // titre traduit FR (cache ou streamé)
+  /** hors de la fenêtre de dates demandée : PubMed n'est plus borné par les
+      dates (rappel maximal), donc un article ancien peut remonter s'il est le
+      seul pertinent — affiché avec un badge « hors période ». */
+  out_of_window?: boolean;
 }
 
 export interface DeepSearchResponse {
@@ -357,8 +361,14 @@ export function searchPubmedDeepMoreStream(
   query: string,
   pmids: number[],
   handlers: DeepStreamHandlers<DeepMoreResponse>,
+  dateFrom?: string,
+  dateTo?: string,
 ): EventSource {
+  // Les dates ne filtrent pas ce lot : elles servent à marquer « hors période »
+  // les articles anciens, exactement comme dans la recherche initiale.
   const sp = new URLSearchParams({ query, pmids: pmids.join(",") });
+  if (dateFrom) sp.set("date_from", dateFrom);
+  if (dateTo) sp.set("date_to", dateTo);
   const es = new EventSource(
     `${API_BASE}/search/pubmed/deep/more/stream?${sp.toString()}`,
   );

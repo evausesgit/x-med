@@ -733,7 +733,10 @@ export default function Home() {
               }
             : prev,
         ),
-    });
+    },
+      dateFrom || undefined,
+      dateTo || undefined,
+    );
   }
 
   // L'URL porte aussi le tri : deux snapshots de la même question ne se
@@ -1278,6 +1281,18 @@ export default function Home() {
           )}
           {analysis && <CritiquePanel result={analysis} order={analysisOrder} />}
 
+          {/* PubMed n'est plus borné par les dates : sur un sujet dont la
+              littérature est ancienne, les seuls articles pertinents peuvent être
+              hors fenêtre. On les affiche et on le dit, au lieu d'une page vide. */}
+          {deep.results.some((r) => r.out_of_window) && (
+            <p className="xm-banner">
+              📅 {deep.results.filter((r) => r.out_of_window).length} article(s) ci-dessous
+              ont été publiés hors de la période demandée ({dateFrom || "—"} →{" "}
+              {dateTo || "—"}). Ils sont affichés, marqués « hors période », parce
+              qu'ils font partie des plus pertinents pour votre question.
+            </p>
+          )}
+
           <div>
             {deep.results.map((r, i) => {
               const d = resolveLang(r);
@@ -1311,6 +1326,7 @@ export default function Home() {
                         ? "A · PubMed"
                         : "B · local"
                   }
+                  outOfWindow={r.out_of_window}
                   pubmedUrl={r.pubmed_url}
                   sourceTitle={r.title}
                   revealLabel="Résumé structuré"
