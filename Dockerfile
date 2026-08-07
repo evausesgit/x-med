@@ -25,9 +25,10 @@ ENV UV_LINK_MODE=copy \
 # Node 22 (NodeSource — le nodejs de bookworm est trop vieux pour codex) puis le
 # CLI codex, épinglé : son format d'événements `exec --json` est parsé par
 # app/services/codex_cli.py, une montée de version silencieuse pourrait le casser.
-# ⚠️ La version doit suivre les modèles de app/config.py : les slugs gpt-5.6-*
-# sont refusés par le backend OpenAI en dessous de 0.145.0 (« requires a newer
-# version of Codex », erreur 400) — tout appel codex échoue alors en prod.
+# ⚠️ La version doit suivre les modèles de app/config.py. On reste en 0.145.0
+# bien que le retour à gpt-5.4 ne l'exige plus (elle sert gpt-5.4 sans souci) :
+# elle reste requise si on re-route un jour sur les slugs gpt-5.6-*, refusés par
+# le backend OpenAI en dessous (« requires a newer version of Codex », 400).
 RUN apt-get update \
  && apt-get install -y --no-install-recommends curl ca-certificates \
  && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \

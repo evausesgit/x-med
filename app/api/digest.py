@@ -168,7 +168,7 @@ def generate_digest(
 
     # Fenêtre : exactement `days` dates calendaires, bornée des deux côtés
     # (PubMed contient des dates de publication futures). `require_builder=True` :
-    # sans query-builder GPT-5.6, le digest échoue proprement plutôt que
+    # sans query-builder GPT-5.4, le digest échoue proprement plutôt que
     # d'envoyer le metaprompt français brut à PubMed.
     today = summary.digest_date
     req = DeepSearchRequest(

@@ -1,4 +1,4 @@
-"""Traduction FR d'abstracts par le CLI codex (GPT-5.6), avec cache article_fr.
+"""Traduction FR d'abstracts par le CLI codex (GPT-5.4), avec cache article_fr.
 
 Étape 4 du plan « PubMed + codex » : on traduit en français les abstracts des
 articles retenus, pour les médecins. Les traductions sont mises en cache dans la
@@ -119,9 +119,10 @@ def translate_abstracts(
 
     prompt = _PROMPT_HEAD + _render(items)
     try:
-        # Modèle dédié (moins cher, raisonnement bas) : la traduction est le
-        # poste le plus gourmand en tokens de sortie et n'exige ni le modèle
-        # de tête ni de la réflexion.
+        # Knobs dédiés à la traduction, aujourd'hui alignés sur ceux du reste
+        # du pipeline (gpt-5.4 / high). Ils restent séparés parce que c'est le
+        # poste le plus gourmand en tokens de sortie : s'il faut un jour le
+        # dégrader pour le coût, ça se fait ici sans toucher au reste.
         data, usage = run_codex(
             prompt, _SCHEMA, timeout,
             model=settings.codex_model_translate,

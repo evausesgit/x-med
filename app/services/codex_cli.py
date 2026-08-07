@@ -80,10 +80,10 @@ def run_codex(
     """Lance `codex exec` avec un schéma JSON imposé. Retourne (data, usage).
 
     `model` et `reasoning` remplacent les défauts (settings.codex_model /
-    settings.codex_reasoning) pour cet appel — la traduction tourne sur un
-    modèle moins cher en raisonnement bas. L'effort est TOUJOURS passé
-    explicitement : sinon codex hériterait du config.toml du CODEX_HOME
-    ambiant, qui n'appartient pas à x-med.
+    settings.codex_reasoning) pour cet appel — la traduction passe par ses
+    propres knobs, aujourd'hui alignés sur les mêmes valeurs. L'effort est
+    TOUJOURS passé explicitement : sinon codex hériterait du config.toml du
+    CODEX_HOME ambiant, qui n'appartient pas à x-med.
 
     Lève `CodexCliError` si codex échoue / sortie illisible, `SearchCancelled` si
     le process a été tué par le bouton « Arrêter la recherche » (jeton d'annulation
