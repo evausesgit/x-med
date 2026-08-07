@@ -118,12 +118,15 @@ class _Spy:
 def spy(monkeypatch, corpus):
     s = _Spy()
 
-    def fake_build(question, timeout=180):
+    def fake_build(question, timeout=180, session=None):
         return (
             {
                 "pubmed_query": f"{LOCAL_TERM}[tiab]",
                 "mesh_terms": ["Neoplasms"],
                 "keywords_en": [LOCAL_TERM],
+                # Mots-clés groupés par concept : c'est cette structure que le
+                # pré-filtre local rejoue en ET (voir _local_tsquery).
+                "concepts_en": [[LOCAL_TERM]],
             },
             CodexUsage(input_tokens=100, output_tokens=20),
         )
@@ -268,7 +271,7 @@ def test_local_floor_reserves_slots_in_the_real_pipeline(session, app_db, spy, c
 
 
 def test_query_builder_failure_falls_back_to_the_raw_question(session, app_db, spy, monkeypatch):
-    def boom(question, timeout=180):
+    def boom(question, timeout=180, session=None):
         raise QueryBuildError("codex indisponible")
 
     monkeypatch.setattr(query_builder, "build_pubmed_query", boom)
@@ -277,6 +280,38 @@ def test_query_builder_failure_falls_back_to_the_raw_question(session, app_db, s
     assert resp.query_builder == "fallback"
     assert resp.judge == "codex"
     assert resp.results, "un échec du constructeur ne doit pas vider la recherche"
+    # Sans codex il n'y a pas de mot-clé ANGLAIS : le pré-filtre local est sauté
+    # au lieu d'envoyer la question FRANÇAISE à un index anglais (vivier 0 muet).
+    phases = [p for p, _ in spy.events]
+    assert "filter_skipped" in phases
+    assert "filter_start" not in phases
+    assert resp.counts["local"] == 0
+
+
+def test_the_and_of_concepts_actually_restricts_the_pool(session, app_db, spy, monkeypatch):
+    """Deux concepts en ET ⊂ un concept seul — le ET filtre vraiment (vraie base).
+
+    C'est la propriété qui rend le pré-filtre rapide : chaque concept ajouté
+    réduit le nombre de lignes que `ORDER BY ts_rank` doit détoaster.
+    """
+    def two_concepts(question, timeout=180, session=None):
+        return (
+            {
+                "pubmed_query": f"{LOCAL_TERM}[tiab]",
+                "mesh_terms": [],
+                "keywords_en": [LOCAL_TERM, PUBMED_ONLY_TERM],
+                "concepts_en": [[LOCAL_TERM], [PUBMED_ONLY_TERM]],
+            },
+            CodexUsage(input_tokens=100, output_tokens=20),
+        )
+
+    wide = _run_deep_search(_req(rrf=True), session, app_db, spy.progress)
+    monkeypatch.setattr(query_builder, "build_pubmed_query", two_concepts)
+    narrow = _run_deep_search(_req(rrf=True), session, app_db, spy.progress)
+
+    assert wide.counts["local"] > 0, "le pré-filtre FTS local n'a rien trouvé"
+    # Les deux sujets sont disjoints (dermatologie / gynécologie) : leur ET est vide.
+    assert narrow.counts["local"] < wide.counts["local"]
 
 
 def test_judge_failure_degrades_without_losing_results(session, app_db, spy, monkeypatch):

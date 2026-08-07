@@ -963,10 +963,13 @@ export default function Home() {
   }
 
   // La requête FTS locale tourne si le dernier événement du déroulé est
-  // `filter_start` : l'événement suivant (filter / filter_timeout / filter_stopped)
-  // la clôt et fait disparaître le bouton stop de lui-même.
+  // `filter_start` (première tentative) ou `filter_relax` (le vivier était étroit,
+  // on rejoue en relâchant un concept) : l'événement suivant (filter /
+  // filter_timeout / filter_stopped) la clôt et fait disparaître le bouton stop.
   const localSearching =
-    loading && logs.length > 0 && logs[logs.length - 1].phase === "filter_start";
+    loading &&
+    logs.length > 0 &&
+    ["filter_start", "filter_relax"].includes(logs[logs.length - 1].phase);
 
   async function handleStopLocal() {
     if (!currentRunIdRef.current) return;
