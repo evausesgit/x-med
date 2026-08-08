@@ -327,6 +327,8 @@ const asSort = (v: string | null | undefined): SearchSort | null =>
   v === "v1" || v === "v2" ? v : null;
 
 // Sauvegarde du résultat v2 courant : snapshot complet rattaché à un profil.
+// Affichée à droite de la barre de recherche, elle n'apparaît qu'une fois un
+// résultat sauvegardable à l'écran.
 // `sort` = tri du résultat AFFICHÉ (pas la position courante du sélecteur, qui
 // ne s'appliquera qu'à la prochaine recherche) : la même question peut ainsi
 // être sauvegardée deux fois, une par tri, sans que l'une écrase l'autre.
@@ -381,12 +383,16 @@ function SaveSearchBar({
   }
 
   return (
-    <div className="save-bar">
-      <label className="save-bar-label">Profil</label>
+    <div className="xm-save-inline">
+      <label className="xm-save-label" htmlFor="save-doctor">
+        Profil
+      </label>
       <select
+        id="save-doctor"
         value={doctorId}
         onChange={(e) => setDoctorId(e.target.value)}
         disabled={busy || !!savedId}
+        title="Profil médecin auquel rattacher cette recherche sauvegardée"
       >
         <option value="">— Aucun profil —</option>
         {doctors.map((d) => (
@@ -397,8 +403,8 @@ function SaveSearchBar({
         ))}
       </select>
       {savedId ? (
-        <span className="meta" style={{ margin: 0 }}>
-          ✓ Sauvegardée — <Link href="/recherches">voir mes recherches</Link>
+        <span className="xm-save-done">
+          ✓ Sauvegardée — <Link href="/recherches">mes recherches</Link>
         </span>
       ) : (
         <button
@@ -406,16 +412,12 @@ function SaveSearchBar({
           className="primary"
           onClick={save}
           disabled={busy}
-          title={`La même question sauvegardée avec l'autre tri fera une seconde entrée (ici : ${SORT_LABEL[sort]})`}
+          title={`Sauvegarder ce résultat pour le profil choisi. La même question sauvegardée avec l'autre tri fera une seconde entrée (ici : ${SORT_LABEL[sort]})`}
         >
-          {busy ? "…" : `💾 Sauvegarder cette recherche (${SORT_LABEL[sort]})`}
+          {busy ? "…" : "💾 Sauvegarder"}
         </button>
       )}
-      {error && (
-        <span className="error" style={{ margin: 0 }}>
-          {error}
-        </span>
-      )}
+      {error && <span className="xm-save-error">{error}</span>}
     </div>
   );
 }
@@ -999,45 +1001,60 @@ export default function Home() {
     <main className="xm-page">
       <h1 className="xm-hero">Que recherchez-vous aujourd’hui, Docteur&nbsp;?</h1>
 
-      <form
-        className="xm-searchbar"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (justStopped) return; // voir handleStopSearch : anti double-clic/Entrée
-          runSearch();
-        }}
-      >
-        {SearchIcon}
-        <input
-          type="text"
-          placeholder="Décrivez votre question clinique en français…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
-        {loading ? (
-          // Pendant une recherche PubMed + IA, « Explorer » devient « Arrêter » :
-          // on peut abandonner à tout moment pour corriger ou reformuler.
-          <button
-            type="button"
-            className="xm-explore xm-explore-stop"
-            onClick={handleStopSearch}
-            disabled={stoppingRun}
-            title="Arrêter la recherche en cours (pour corriger ou changer votre question)"
-          >
-            {stoppingRun ? "⏹ Arrêt…" : "⏹ Arrêter"}
-          </button>
-        ) : justStopped ? (
-          // Fenêtre de garde : le bouton reste visiblement « arrêté » un court
-          // instant plutôt que de redevenir aussitôt cliquable au même endroit.
-          <button type="button" className="xm-explore" disabled>
-            ⏹ Arrêté
-          </button>
-        ) : (
-          <button type="submit" className="xm-explore" disabled={loading}>
-            {loading ? "…" : "Explorer →"}
-          </button>
+      {/* Barre de recherche + sauvegarde par profil, côte à côte : le bloc de
+          droite n'apparaît que lorsqu'il y a un résultat à sauvegarder. */}
+      <div className="xm-searchrow">
+        <form
+          className="xm-searchbar"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (justStopped) return; // voir handleStopSearch : anti double-clic/Entrée
+            runSearch();
+          }}
+        >
+          {SearchIcon}
+          <input
+            type="text"
+            placeholder="Décrivez votre question clinique en français…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          {loading ? (
+            // Pendant une recherche PubMed + IA, « Explorer » devient « Arrêter » :
+            // on peut abandonner à tout moment pour corriger ou reformuler.
+            <button
+              type="button"
+              className="xm-explore xm-explore-stop"
+              onClick={handleStopSearch}
+              disabled={stoppingRun}
+              title="Arrêter la recherche en cours (pour corriger ou changer votre question)"
+            >
+              {stoppingRun ? "⏹ Arrêt…" : "⏹ Arrêter"}
+            </button>
+          ) : justStopped ? (
+            // Fenêtre de garde : le bouton reste visiblement « arrêté » un court
+            // instant plutôt que de redevenir aussitôt cliquable au même endroit.
+            <button type="button" className="xm-explore" disabled>
+              ⏹ Arrêté
+            </button>
+          ) : (
+            <button type="submit" className="xm-explore" disabled={loading}>
+              {loading ? "…" : "Explorer →"}
+            </button>
+          )}
+        </form>
+
+        {deep && !loading && deep.results.length > 0 && (
+          <SaveSearchBar
+            deep={deep}
+            query={q.trim()}
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            sort={resultSort}
+            alreadySavedId={savedHit?.id}
+          />
         )}
-      </form>
+      </div>
 
       <div className="xm-method-row">
         <div className="xm-daterange">
@@ -1225,16 +1242,8 @@ export default function Home() {
             </p>
           )}
 
-          {!loading && deep.results.length > 0 && (
-            <SaveSearchBar
-              deep={deep}
-              query={q.trim()}
-              dateFrom={dateFrom}
-              dateTo={dateTo}
-              sort={resultSort}
-              alreadySavedId={savedHit?.id}
-            />
-          )}
+          {/* La sauvegarde par profil vit désormais à droite de la barre de
+              recherche (voir .xm-searchrow), plus sous les résultats. */}
 
           {deep.pubmed_query && (
             <details className="explanation">
