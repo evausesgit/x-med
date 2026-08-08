@@ -1174,33 +1174,6 @@ export default function Home() {
       {/* ---------- Résultats PubMed v2 (deep) ---------- */}
       {deep && (
         <>
-          <div className="xm-results-head">
-            <span className="xm-results-count">
-              {deep.counts.kept ?? 0} retenu(s) · {deep.counts.judged ?? 0} jugés codex ·{" "}
-              {deep.counts.merged ?? 0} fusionnés
-              {deep.counts.kept_local != null && (
-                <>
-                  {" · "}
-                  <span className="xm-src pm">
-                    {deep.counts.kept_pubmed ?? 0} PubMed
-                  </span>
-                  {" · "}
-                  <span className="xm-src lo">{deep.counts.kept_local ?? 0} local</span>
-                  {(deep.counts.kept_both ?? 0) > 0 && (
-                    <> · {deep.counts.kept_both} les deux</>
-                  )}
-                </>
-              )}
-              {" · "}
-              {/* Tri de CE résultat : le sélecteur, lui, vaut pour la prochaine
-                  recherche — les deux peuvent différer. */}
-              <span title="Tri utilisé pour ce résultat (le sélecteur « TRI » ne s'applique qu'à la prochaine recherche)">
-                {SORT_LABEL[resultSort]}
-              </span>
-            </span>
-            <CopyLinkButton />
-          </div>
-
           {savedHit && (
             <p
               className="xm-banner info"
@@ -1253,6 +1226,36 @@ export default function Home() {
               )}
             </details>
           )}
+
+          {/* Verdict de codex sur les articles : il vient APRÈS la requête
+              PubMed générée + les mots-clés, pour se lire dans l'ordre du
+              raisonnement (ce qu'on a cherché → ce qui en a été retenu). */}
+          <div className="xm-results-head">
+            <span className="xm-results-count">
+              {deep.counts.kept ?? 0} retenu(s) · {deep.counts.judged ?? 0} jugés codex ·{" "}
+              {deep.counts.merged ?? 0} fusionnés
+              {deep.counts.kept_local != null && (
+                <>
+                  {" · "}
+                  <span className="xm-src pm">
+                    {deep.counts.kept_pubmed ?? 0} PubMed
+                  </span>
+                  {" · "}
+                  <span className="xm-src lo">{deep.counts.kept_local ?? 0} local</span>
+                  {(deep.counts.kept_both ?? 0) > 0 && (
+                    <> · {deep.counts.kept_both} les deux</>
+                  )}
+                </>
+              )}
+              {" · "}
+              {/* Tri de CE résultat : le sélecteur, lui, vaut pour la prochaine
+                  recherche — les deux peuvent différer. */}
+              <span title="Tri utilisé pour ce résultat (le sélecteur « TRI » ne s'applique qu'à la prochaine recherche)">
+                {SORT_LABEL[resultSort]}
+              </span>
+            </span>
+            <CopyLinkButton />
+          </div>
 
           {deep.judge === "skipped" && (
             <p className="xm-banner warn">
