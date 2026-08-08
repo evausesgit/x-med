@@ -709,31 +709,10 @@
   font-size: 11.5px;
   font-weight: 600;
 }
-/* Séparateur ouvrant le bloc « hors période » : marque la frontière du tri en
-   deux blocs (période demandée d'abord, le reste ensuite). Filet + retrait :
-   assez visible pour qu'on comprenne le changement de bloc, assez discret pour
-   ne pas concurrencer les cartes d'articles. */
-.xm-oow-sep {
-  margin: 26px 0 14px;
-  padding: 10px 0 0;
-  border-top: 1px solid var(--border, #e2d2b4);
-}
-.xm-oow-sep-title {
-  display: block;
-  font-size: 13px;
-  font-weight: 700;
-  color: #7a5a1a;
-}
-.xm-oow-sep p {
-  margin: 4px 0 0;
-  font-size: 12.5px;
-  line-height: 1.5;
-  color: var(--muted);
-}
-
 /* « hors période » : l'article sort de la fenêtre de dates demandée mais reste
-   affiché (PubMed n'est plus borné par les dates). Ton neutre-ambré : c'est une
-   information de contexte, pas une alerte. */
+   affiché et classé au mérite (PubMed n'est plus borné par les dates, et la
+   date n'entre pas dans le tri). Ton neutre-ambré : c'est une information de
+   contexte, pas une alerte. */
 .xmr-oow {
   padding: 2px 9px;
   border-radius: 5px;

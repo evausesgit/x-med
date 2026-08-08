@@ -169,9 +169,10 @@ class DeepHit(BaseModel):
     abstract: str | None = None  # abstract original (EN), toujours fourni si dispo
     abstract_fr: str | None = None  # traduction FR (cache ou streamée), si dispo
     title_fr: str | None = None  # titre traduit FR (cache ou streamé), si dispo
-    # Article hors de la fenêtre de dates demandée. esearch n'étant plus borné, un
-    # article ancien peut être le seul pertinent : on l'affiche, signalé, plutôt que
-    # de rendre une page vide. Toujours False si aucune fenêtre n'a été demandée.
+    # Article hors de la fenêtre de dates demandée. Purement INDICATIF : ce drapeau
+    # n'intervient ni dans le filtrage ni dans le tri (cf. le tri final, par
+    # pertinence seule), il sert au badge « hors période » qui dit au médecin que
+    # l'article est ancien. Toujours False si aucune fenêtre n'a été demandée.
     out_of_window: bool = False
 
 
@@ -474,9 +475,9 @@ def _run_deep_search(
         # renvoyait 0 article là où PubMed en a (ex. floppy eyelid syndrome ×
         # glaucome à pression normale : 12 articles, aucun après 2023 — la même
         # recherche sur pubmed.ncbi.nlm.nih.gov aboutissait, la nôtre non).
-        # La fenêtre devient une PRÉFÉRENCE d'affichage, plus un couperet amont :
-        # les articles hors fenêtre sont jugés comme les autres et affichés s'ils
-        # sont les seuls pertinents, marqués `out_of_window` (badge « hors période »).
+        # La fenêtre devient une simple INDICATION, plus un couperet amont : les
+        # articles hors fenêtre sont jugés, classés et affichés au mérite comme les
+        # autres, marqués `out_of_window` (badge « hors période »).
         # Le vivier LOCAL, lui, reste borné : `_prefilter_source` s'appuie sur la
         # borne basse pour rester sur la table chaude (~0,4 s vs ~150 s).
         _, a_pmids = eut.esearch(term, retmax=req.k_pubmed)
@@ -692,16 +693,17 @@ def _run_deep_search(
             ),
         ))
 
-    # Tri final, en DEUX BLOCS : d'abord les articles de la fenêtre demandée, puis
-    # les autres. Le médecin a choisi une période, elle prime — mais elle ne fait
-    # plus disparaître le reste (cf. esearch non borné), elle le range dessous.
-    # Dans chaque bloc : TOUJOURS la pertinence évaluée par Codex (score → % →
-    # niveau de preuve → récence), quel que soit l'algo. RRF ne sert qu'à CHOISIR
-    # les candidats à juger ; il ne classe jamais ce que voit le médecin.
-    # Cas limite voulu : quand la fenêtre ne contient rien (sujet à littérature
-    # ancienne), le 2e bloc est toute la liste — on n'affiche pas une page vide.
+    # Tri final : TOUJOURS la pertinence évaluée par Codex (score → % → niveau de
+    # preuve → récence), quel que soit l'algo. RRF ne sert qu'à CHOISIR les
+    # candidats à juger ; il ne classe jamais ce que voit le médecin.
+    # La fenêtre de dates n'entre PAS dans le tri : sur un sujet dont la
+    # littérature de référence est ancienne, trier la période en premier enterrait
+    # la vraie réponse (mesuré : les recommandations de traitement du syndrome de
+    # Susac, 98 % de pertinence, passaient sous un article de revue à 82 % dont le
+    # seul mérite était sa date). Les articles hors période sont donc classés au
+    # mérite comme les autres, et signalés à l'affichage par `out_of_window`
+    # (badge « hors période ») pour que le médecin sache toujours ce qu'il lit.
     hits.sort(key=lambda h: (
-        h.out_of_window,  # False (0) avant True (1)
         -(h.score if h.score is not None else -1),
         -(h.relevance_pct if h.relevance_pct is not None else -1),
         h.evidence_level if h.evidence_level is not None else 99,
@@ -723,7 +725,7 @@ def _run_deep_search(
     if n_oow:
         emit("out_of_window",
              f"📅 {n_oow} article(s) retenu(s) hors de votre fenêtre de dates — "
-             "classés après ceux de la période, jamais écartés.")
+             "classés au mérite comme les autres, et signalés dans la liste.")
 
     emit("done", f"✅ {len(hits)} articles retenus")
 
@@ -891,10 +893,9 @@ def _run_deep_more(
             ),
         ))
 
-    # Même règle que la recherche initiale : fenêtre demandée d'abord, hors
-    # période ensuite — sinon la fusion côté front mélangerait deux ordres.
+    # Même règle que la recherche initiale : pertinence seule, la fenêtre ne
+    # classe pas — sinon la fusion côté front mélangerait deux ordres.
     hits.sort(key=lambda h: (
-        h.out_of_window,
         -(h.score if h.score is not None else -1),
         -(h.relevance_pct if h.relevance_pct is not None else -1),
         h.evidence_level if h.evidence_level is not None else 99,

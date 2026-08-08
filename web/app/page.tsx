@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   analyzeCompareStream,
   createSearchRun,
@@ -663,24 +663,24 @@ export default function Home() {
     lang,
   );
 
-  // Classement identique au backend : d'abord les articles de la fenêtre de
-  // dates demandée, puis ceux hors période ; dans chaque bloc, score décroissant
-  // (non jugé en dernier), pertinence fine, niveau de preuve croissant, année
-  // décroissante. Doit rester synchronisé avec le tri de `_run_deep_search` :
-  // les lots « 50 de plus » sont fusionnés ici, pas re-triés par le backend.
+  // Classement identique au backend : le plus pertinent d'abord, point. Score
+  // décroissant (non jugé en dernier), pertinence fine, niveau de preuve
+  // croissant, année décroissante. La fenêtre de dates ne classe PAS — elle est
+  // signalée article par article (badge « hors période »). Doit rester
+  // synchronisé avec le tri de `_run_deep_search` : les lots « 50 de plus » sont
+  // fusionnés ici, pas re-triés par le backend.
   const sortDeep = (rows: DeepHit[]): DeepHit[] =>
     [...rows].sort(
       (a, b) =>
-        Number(a.out_of_window ?? false) - Number(b.out_of_window ?? false) ||
         (b.score ?? -1) - (a.score ?? -1) ||
         (b.relevance_pct ?? -1) - (a.relevance_pct ?? -1) ||
         (a.evidence_level ?? 99) - (b.evidence_level ?? 99) ||
         (b.pub_year ?? 0) - (a.pub_year ?? 0),
     );
 
-  // Frontière des deux blocs : index du premier article hors période dans la
-  // liste déjà triée. -1 quand il n'y en a aucun → le séparateur ne sort jamais.
-  const firstOutOfWindow = deep?.results.findIndex((r) => r.out_of_window) ?? -1;
+  // Combien d'articles retenus sont hors de la fenêtre demandée. Sert seulement
+  // à afficher la mention d'ensemble au-dessus de la liste ; 0 → pas de mention.
+  const nOutOfWindow = deep?.results.filter((r) => r.out_of_window).length ?? 0;
 
   // « Analyser 50 de plus » : juge le prochain lot de `remaining` puis fusionne.
   // Bloqué tant qu'un run est actif (`loading`) : la fusion locale serait
@@ -1255,6 +1255,20 @@ export default function Home() {
             <p className="xm-banner warn">Aucun article jugé pertinent pour cette recherche.</p>
           )}
 
+          {/* PubMed n'est plus borné par les dates : la liste est classée par
+              pertinence seule, donc un article ancien peut être en tête. On
+              l'annonce ici pour que l'ordre ne passe pas pour une erreur, et
+              chaque article concerné porte le badge « hors période ». */}
+          {nOutOfWindow > 0 && (
+            <p className="xm-banner info">
+              📅 {nOutOfWindow} article{nOutOfWindow > 1 ? "s" : ""} de cette liste{" "}
+              {nOutOfWindow > 1 ? "ont été publiés" : "a été publié"} hors de la période
+              demandée ({dateFrom || "—"} → {dateTo || "—"}). Le classement suit la
+              pertinence de votre question, pas la date : ces articles sont signalés
+              « hors période » là où ils tombent.
+            </p>
+          )}
+
           {/* Barre d'analyse critique : apparaît dès qu'un article est coché. */}
           {selected.length > 0 && (
             <div className="xm-compare-bar">
@@ -1294,69 +1308,49 @@ export default function Home() {
             {deep.results.map((r, i) => {
               const d = resolveLang(r);
               return (
-                <Fragment key={`deep-${r.pmid}`}>
-                  {/* Frontière entre les deux blocs. PubMed n'est plus borné par les
-                      dates : sur un sujet à littérature ancienne, les seuls articles
-                      pertinents sont hors fenêtre. Ils passent après ceux de la
-                      période — mais on dit pourquoi, plutôt que de laisser croire à
-                      un tri au hasard. Si l'index vaut 0, la fenêtre n'a RIEN donné
-                      et le séparateur ouvre la liste : c'est l'explication qui
-                      remplace la page vide d'avant. */}
-                  {i === firstOutOfWindow && (
-                    <div className="xm-oow-sep">
-                      <span className="xm-oow-sep-title">
-                        📅 Hors de la période demandée ({dateFrom || "—"} → {dateTo || "—"})
-                      </span>
-                      <p>
-                        {firstOutOfWindow === 0
-                          ? "Aucun article de cette période ne répond à votre question. Voici les plus pertinents publiés avant — c'est parfois là qu'est toute la littérature du sujet."
-                          : `${deep.results.length - firstOutOfWindow} article(s) plus anciens, classés après ceux de votre période mais retenus parce que jugés pertinents.`}
-                      </p>
-                    </div>
-                  )}
-                  <XMedResult
-                    rank={i + 1}
-                    title={d.title}
-                    journal={r.journal}
-                    year={r.pub_year}
-                    level={r.evidence_level}
-                    relevance={
-                      r.score != null
-                        ? deepRelevance(r.score, r.relevance_pct)
-                        : undefined
-                    }
-                    contribution={r.reason}
-                    extraActions={
-                      <SelectButton
-                        selected={selected.includes(r.pmid)}
-                        disabled={
-                          !selected.includes(r.pmid) && selected.length >= MAX_COMPARE
-                        }
-                        onToggle={() => toggleSelected(r.pmid)}
-                      />
-                    }
-                    sourceTag={
-                      r.source === "both"
-                        ? "A · PubMed + B · local"
-                        : r.source === "pubmed"
-                          ? "A · PubMed"
-                          : "B · local"
-                    }
-                    outOfWindow={r.out_of_window}
-                    pubmedUrl={r.pubmed_url}
-                    sourceTitle={r.title}
-                    revealLabel="Résumé structuré"
-                    revealBodyClassName="xmr-sections"
-                    revealHead={
-                      <LanguageToggle lang={lang} onChange={setLang} busy={translating} />
-                    }
-                    spoken={d.abstract ?? r.reason ?? undefined}
-                  >
-                    {d.abstract ? (
-                      <StructuredAbstract abstract={d.abstract} translated={d.translated} />
-                    ) : undefined}
-                  </XMedResult>
-                </Fragment>
+                <XMedResult
+                  key={`deep-${r.pmid}`}
+                  rank={i + 1}
+                  title={d.title}
+                  journal={r.journal}
+                  year={r.pub_year}
+                  level={r.evidence_level}
+                  relevance={
+                    r.score != null
+                      ? deepRelevance(r.score, r.relevance_pct)
+                      : undefined
+                  }
+                  contribution={r.reason}
+                  extraActions={
+                    <SelectButton
+                      selected={selected.includes(r.pmid)}
+                      disabled={
+                        !selected.includes(r.pmid) && selected.length >= MAX_COMPARE
+                      }
+                      onToggle={() => toggleSelected(r.pmid)}
+                    />
+                  }
+                  sourceTag={
+                    r.source === "both"
+                      ? "A · PubMed + B · local"
+                      : r.source === "pubmed"
+                        ? "A · PubMed"
+                        : "B · local"
+                  }
+                  outOfWindow={r.out_of_window}
+                  pubmedUrl={r.pubmed_url}
+                  sourceTitle={r.title}
+                  revealLabel="Résumé structuré"
+                  revealBodyClassName="xmr-sections"
+                  revealHead={
+                    <LanguageToggle lang={lang} onChange={setLang} busy={translating} />
+                  }
+                  spoken={d.abstract ?? r.reason ?? undefined}
+                >
+                  {d.abstract ? (
+                    <StructuredAbstract abstract={d.abstract} translated={d.translated} />
+                  ) : undefined}
+                </XMedResult>
               );
             })}
           </div>

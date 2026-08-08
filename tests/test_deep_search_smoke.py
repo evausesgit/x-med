@@ -230,22 +230,25 @@ def test_local_only_candidates_stay_date_bounded(session, app_db, spy):
         )
 
 
-def test_in_window_articles_are_ranked_before_out_of_window_ones(
+def test_ranking_follows_relevance_even_when_the_best_is_out_of_window(
     session, app_db, spy, corpus, monkeypatch
 ):
-    """Tri en deux blocs : la période demandée d'abord, le reste ensuite.
+    """Le plus pertinent est premier, même publié hors de la fenêtre demandée.
 
-    Le cas doit être DISCRIMINANT : on donne à l'article ancien le MEILLEUR score
-    (3 contre 2). Sans la clé `out_of_window` en tête du tri il serait premier —
-    le départage par année suffirait sinon à le renvoyer en fin de liste, et le
-    test passerait pour une mauvaise raison.
+    Mesuré en conditions réelles : trier la période demandée en premier enterrait
+    la vraie réponse sur les sujets à littérature ancienne (les recommandations de
+    traitement du syndrome de Susac, 98 % de pertinence, passaient sous un article
+    à 82 % dont le seul mérite était sa date). La date n'entre donc pas dans le
+    tri, elle est signalée par `out_of_window`.
+
+    Le cas est DISCRIMINANT : on donne à l'article ancien le MEILLEUR score
+    (3 contre 2), et on le place en tête de la liste PubMed. S'il repassait
+    dernier, c'est qu'une clé de date se serait réintroduite dans le tri.
     """
     OLD_PMID = 999_000_002
 
     def with_old(term, retmax=20, sort="relevance", reldate=None,
                  mindate=None, maxdate=None):
-        # L'ancien est placé en TÊTE de la liste PubMed : seul le tri final peut
-        # le renvoyer en fin de liste.
         return 1, [OLD_PMID, *corpus["a_pmids"][:retmax - 1]]
 
     def judge_old_best(query, items):
@@ -277,15 +280,16 @@ def test_in_window_articles_are_ranked_before_out_of_window_ones(
 
     resp = _run_deep_search(_req(rrf=False), session, app_db, spy.progress)
 
+    ordre = [(h.pmid, h.pub_year, h.out_of_window) for h in resp.results]
+    assert resp.results[0].pmid == OLD_PMID, (
+        "l'article de 1997 est le mieux jugé (score 3 / 99 %) : il doit être PREMIER "
+        f"malgré sa date, sinon la fenêtre s'est réinvitée dans le tri — {ordre}"
+    )
+    assert resp.results[0].out_of_window is True, (
+        "…et il doit rester marqué « hors période » : on le montre en tête, mais on "
+        "ne cache pas au médecin qu'il est ancien"
+    )
     flags = [h.out_of_window for h in resp.results]
-    assert flags == sorted(flags), (
-        "les articles hors période doivent former un bloc CONTIGU en fin de liste, "
-        f"pas s'intercaler : {[(h.pmid, h.pub_year, h.out_of_window) for h in resp.results]}"
-    )
-    assert resp.results[-1].pmid == OLD_PMID, (
-        "l'article de 1997 doit passer derrière ceux de la période MALGRÉ son "
-        "meilleur score — c'est la période qui prime, pas la pertinence brute"
-    )
     assert any(not f for f in flags), "le test n'a pas de témoin dans la fenêtre"
 
 
