@@ -106,6 +106,7 @@ def _sanitize_digest_payload(label: str):
         result.pubmed_query = None
         result.mesh_terms = []
         result.keywords_en = []
+        result.keyword_groups_en = []
 
     return sanitize
 

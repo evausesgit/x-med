@@ -101,6 +101,7 @@ export interface DeepSearchResponse {
   pubmed_query: string | null;
   mesh_terms: string[];
   keywords_en: string[];
+  keyword_groups_en?: string[][];
   query_builder: "codex" | "fallback";
   judge: "codex" | "skipped";
   codex_limit?: boolean;
