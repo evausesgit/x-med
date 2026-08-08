@@ -318,6 +318,73 @@ function LiveEvents({
   );
 }
 
+// Nombre de recherches récentes proposées (le rail vertical en tient plus que
+// l'ancienne ligne de puces).
+const RECENT_MAX = 12;
+
+type RecentProps = {
+  runs: SearchRunSummary[];
+  disabled: boolean;
+  onOpen: (run: SearchRunSummary) => void;
+};
+
+const recentTitle = (r: SearchRunSummary) =>
+  `${r.query} · ${dayShortFr(r.created_at)} · ${r.n_results} article(s) retenu(s)`;
+
+// Rail « Récentes » : colonne de droite, collante sous la nav. Sortir
+// l'historique du flux principal garde la barre de recherche ET les premiers
+// résultats visibles ensemble, sans scroller.
+function RecentRail({ runs, disabled, onOpen }: RecentProps) {
+  return (
+    <aside className="xm-recent-rail" aria-label="Recherches récentes">
+      <div className="xm-recent-inner">
+        <span className="xm-method-label">RÉCENTES</span>
+        <ul className="xm-recent-list">
+          {runs.map((r) => (
+            <li key={r.id}>
+              <button
+                type="button"
+                className="xm-recent-item"
+                disabled={disabled}
+                title={recentTitle(r)}
+                onClick={() => onOpen(r)}
+              >
+                <span className="xm-recent-q">{r.query}</span>
+                <span className="xm-recent-meta">
+                  {dayShortFr(r.created_at)} · {r.n_results} article
+                  {r.n_results > 1 ? "s" : ""}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </aside>
+  );
+}
+
+// Même historique, repli pour écran étroit : la ligne de puces d'origine.
+function RecentChips({ runs, disabled, onOpen }: RecentProps) {
+  return (
+    <div className="xm-recent-chips">
+      <span className="xm-method-label">RÉCENTES</span>
+      {runs.slice(0, 8).map((r) => (
+        <button
+          key={r.id}
+          type="button"
+          className="xmr-act"
+          disabled={disabled}
+          title={recentTitle(r)}
+          onClick={() => onOpen(r)}
+        >
+          {truncate(r.query, 40)}
+          <span style={{ color: "var(--faint)" }}> · {dayShortFr(r.created_at)}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // Tri d'un run passé : il se relit dans ses paramètres (`rrf` = fusion RRF).
 const runSort = (run: SearchRunSummary): SearchSort => (run.params.rrf ? "v2" : "v1");
 
@@ -470,6 +537,10 @@ export default function Home() {
   const [runStartedAt, setRunStartedAt] = useState<number | null>(null);
   // Historique des recherches abouties du compte (« Récentes »).
   const [history, setHistory] = useState<SearchRunHistory | null>(null);
+  const recentRuns = useMemo(
+    () => history?.runs.slice(0, RECENT_MAX) ?? [],
+    [history],
+  );
   // Verrou du POST /search/runs : un double-clic lancerait deux recherches
   // (la 2e prendrait un 409 mais démarrerait sa propre boucle de polling).
   const [launching, setLaunching] = useState(false);
@@ -996,382 +1067,383 @@ export default function Home() {
   }
 
   return (
-    <main className="xm-page">
-      <h1 className="xm-hero">Que recherchez-vous aujourd’hui, Docteur&nbsp;?</h1>
+    <main className="xm-page xm-page-split">
+      {/* Colonne principale : titre, barre de recherche, réglages, résultats.
+          Le rail « Récentes » vit à droite pour ne pas repousser les premiers
+          résultats sous la ligne de flottaison. */}
+      <div className="xm-col-main">
+        <h1 className="xm-hero">Que recherchez-vous aujourd’hui, Docteur&nbsp;?</h1>
 
-      <form
-        className="xm-searchbar"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (justStopped) return; // voir handleStopSearch : anti double-clic/Entrée
-          runSearch();
-        }}
-      >
-        {SearchIcon}
-        <input
-          type="text"
-          placeholder="Décrivez votre question clinique en français…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
-        {loading ? (
-          // Pendant une recherche PubMed + IA, « Explorer » devient « Arrêter » :
-          // on peut abandonner à tout moment pour corriger ou reformuler.
-          <button
-            type="button"
-            className="xm-explore xm-explore-stop"
-            onClick={handleStopSearch}
-            disabled={stoppingRun}
-            title="Arrêter la recherche en cours (pour corriger ou changer votre question)"
-          >
-            {stoppingRun ? "⏹ Arrêt…" : "⏹ Arrêter"}
-          </button>
-        ) : justStopped ? (
-          // Fenêtre de garde : le bouton reste visiblement « arrêté » un court
-          // instant plutôt que de redevenir aussitôt cliquable au même endroit.
-          <button type="button" className="xm-explore" disabled>
-            ⏹ Arrêté
-          </button>
-        ) : (
-          <button type="submit" className="xm-explore" disabled={loading}>
-            {loading ? "…" : "Explorer →"}
-          </button>
-        )}
-      </form>
-
-      <div className="xm-method-row">
-        <div className="xm-daterange">
-          <svg viewBox="0 0 24 24">
-            <rect x="3" y="5" width="18" height="16" rx="2" />
-            <path d="M3 9h18M8 3v4M16 3v4" />
-          </svg>
-          <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-          <span className="sep">→</span>
-          <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-        </div>
-
-        <div
-          className="xm-algo-toggle"
-          title="v1 = tri par score IA · v2 = tri par pertinence PubMed (Best Match) + vivier PubMed élargi"
+        <form
+          className="xm-searchbar"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (justStopped) return; // voir handleStopSearch : anti double-clic/Entrée
+            runSearch();
+          }}
         >
-          <span className="xm-method-label">TRI</span>
-          <button
-            type="button"
-            className={`xm-chip ${algo === "v1" ? "on" : ""}`}
-            onClick={() => switchAlgo("v1")}
-          >
-            v1 · score IA
-          </button>
-          <button
-            type="button"
-            className={`xm-chip ${algo === "v2" ? "on" : ""}`}
-            onClick={() => switchAlgo("v2")}
-          >
-            v2 · fusion RRF
-          </button>
-        </div>
-      </div>
-
-      {/* Curseurs v2 : total analysé par lot + minimum local garanti dans le lot. */}
-      {algo === "v2" && (
-        <div className="xm-sliders">
-          <label className="xm-slider">
-            <span>
-              Analysés par lot : <strong>{judgeBatch}</strong>
-            </span>
-            <input
-              type="range"
-              min={20}
-              max={100}
-              step={10}
-              value={judgeBatch}
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                setJudgeBatch(v);
-                setLocalFloor((f) => Math.min(f, v));
-              }}
-            />
-          </label>
-          <label className="xm-slider">
-            <span>
-              Minimum local garanti : <strong>{localFloor}</strong>
-            </span>
-            <input
-              type="range"
-              min={0}
-              max={judgeBatch}
-              step={5}
-              value={localFloor}
-              onChange={(e) => setLocalFloor(Number(e.target.value))}
-            />
-          </label>
-          <span className="xm-slider-hint">
-            RRF choisit les candidats · le tri reste par score Codex · appliqué à la
-            prochaine recherche
-          </span>
-        </div>
-      )}
-
-      <p
-        className="meta"
-        style={{ margin: "12px 2px 0", color: "var(--faint)", fontSize: 12.5 }}
-      >
-        L’IA construit une requête experte, on pré-filtre la base en local
-        (mots-clés + MeSH), puis GPT-5.6 lit et juge uniquement ces candidats —
-        rapide, insensible à la largeur de la période.
-      </p>
-
-      {/* Historique : recherches abouties du compte, rouvertes sans relancer
-          (le résultat complet attend en base — aucun nouvel appel codex). */}
-      {history !== null && history.runs.length > 0 && (
-        <div
-          className="xm-method-row"
-          style={{ marginTop: 14, gap: 8, flexWrap: "wrap" }}
-        >
-          <span className="xm-method-label">RÉCENTES</span>
-          {history.runs.slice(0, 8).map((r) => (
+          {SearchIcon}
+          <input
+            type="text"
+            placeholder="Décrivez votre question clinique en français…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          {loading ? (
+            // Pendant une recherche PubMed + IA, « Explorer » devient « Arrêter » :
+            // on peut abandonner à tout moment pour corriger ou reformuler.
             <button
-              key={r.id}
               type="button"
-              className="xmr-act"
-              disabled={loading || launching}
-              title={`${r.query} · ${dayShortFr(r.created_at)} · ${r.n_results} article(s) retenu(s)`}
-              onClick={() => void openRun(r)}
+              className="xm-explore xm-explore-stop"
+              onClick={handleStopSearch}
+              disabled={stoppingRun}
+              title="Arrêter la recherche en cours (pour corriger ou changer votre question)"
             >
-              {truncate(r.query, 40)}
-              <span style={{ color: "var(--faint)" }}> · {dayShortFr(r.created_at)}</span>
+              {stoppingRun ? "⏹ Arrêt…" : "⏹ Arrêter"}
             </button>
-          ))}
-        </div>
-      )}
+          ) : justStopped ? (
+            // Fenêtre de garde : le bouton reste visiblement « arrêté » un court
+            // instant plutôt que de redevenir aussitôt cliquable au même endroit.
+            <button type="button" className="xm-explore" disabled>
+              ⏹ Arrêté
+            </button>
+          ) : (
+            <button type="submit" className="xm-explore" disabled={loading}>
+              {loading ? "…" : "Explorer →"}
+            </button>
+          )}
+        </form>
 
-      {codexLimit && (
-        <div className="xm-banner error" role="alert">
-          🚫 <b>Limite d’usage GPT-5.6 atteinte.</b> Les recherches «&nbsp;PubMed +
-          codex&nbsp;» reposent sur GPT-5.6 (construction de la requête, tri et
-          traduction) : le quota est épuisé pour le moment. Les résultats sont en{" "}
-          <b>mode dégradé</b> (sans tri intelligent ni traduction FR). Réessayez un
-          peu plus tard.
-        </div>
-      )}
-
-      {error && <p className="xm-banner error">⚠ {error}</p>}
-
-      {(loading || loadingMore || logs.length > 0) && (
-        <LiveEvents
-          running={loading || loadingMore}
-          variant="pubmed"
-          logs={logs}
-          startedAt={runStartedAt}
-          stopLocal={
-            localSearching
-              ? { stopping: stoppingLocal, onStop: handleStopLocal }
-              : null
-          }
-        />
-      )}
-
-      {/* ---------- Résultats PubMed v2 (deep) ---------- */}
-      {deep && (
-        <>
-          <div className="xm-results-head">
-            <span className="xm-results-count">
-              {deep.counts.kept ?? 0} retenu(s) · {deep.counts.judged ?? 0} jugés codex ·{" "}
-              {deep.counts.merged ?? 0} fusionnés
-              {deep.counts.kept_local != null && (
-                <>
-                  {" · "}
-                  <span className="xm-src pm">
-                    {deep.counts.kept_pubmed ?? 0} PubMed
-                  </span>
-                  {" · "}
-                  <span className="xm-src lo">{deep.counts.kept_local ?? 0} local</span>
-                  {(deep.counts.kept_both ?? 0) > 0 && (
-                    <> · {deep.counts.kept_both} les deux</>
-                  )}
-                </>
-              )}
-              {" · "}
-              {/* Tri de CE résultat : le sélecteur, lui, vaut pour la prochaine
-                  recherche — les deux peuvent différer. */}
-              <span title="Tri utilisé pour ce résultat (le sélecteur « TRI » ne s'applique qu'à la prochaine recherche)">
-                {SORT_LABEL[resultSort]}
-              </span>
-            </span>
-            <CopyLinkButton />
+        <div className="xm-method-row">
+          <div className="xm-daterange">
+            <svg viewBox="0 0 24 24">
+              <rect x="3" y="5" width="18" height="16" rx="2" />
+              <path d="M3 9h18M8 3v4M16 3v4" />
+            </svg>
+            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+            <span className="sep">→</span>
+            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
           </div>
 
-          {savedHit && (
-            <p
-              className="xm-banner info"
-              style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}
+          <div
+            className="xm-algo-toggle"
+            title="v1 = tri par score IA · v2 = tri par pertinence PubMed (Best Match) + vivier PubMed élargi"
+          >
+            <span className="xm-method-label">TRI</span>
+            <button
+              type="button"
+              className={`xm-chip ${algo === "v1" ? "on" : ""}`}
+              onClick={() => switchAlgo("v1")}
             >
+              v1 · score IA
+            </button>
+            <button
+              type="button"
+              className={`xm-chip ${algo === "v2" ? "on" : ""}`}
+              onClick={() => switchAlgo("v2")}
+            >
+              v2 · fusion RRF
+            </button>
+          </div>
+        </div>
+
+        {/* Curseurs v2 : total analysé par lot + minimum local garanti dans le lot. */}
+        {algo === "v2" && (
+          <div className="xm-sliders">
+            <label className="xm-slider">
               <span>
-                💾 Résultat déjà sauvegardé le{" "}
-                {new Date(savedHit.created_at).toLocaleDateString("fr-FR", {
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                })}{" "}
-                — affiché sans relancer codex.
+                Analysés par lot : <strong>{judgeBatch}</strong>
               </span>
-              <button
-                type="button"
-                style={{ minHeight: 32, padding: "4px 12px" }}
-                onClick={() => runSearch({ force: true })}
-              >
-                Relancer quand même
-              </button>
-            </p>
-          )}
+              <input
+                type="range"
+                min={20}
+                max={100}
+                step={10}
+                value={judgeBatch}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  setJudgeBatch(v);
+                  setLocalFloor((f) => Math.min(f, v));
+                }}
+              />
+            </label>
+            <label className="xm-slider">
+              <span>
+                Minimum local garanti : <strong>{localFloor}</strong>
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={judgeBatch}
+                step={5}
+                value={localFloor}
+                onChange={(e) => setLocalFloor(Number(e.target.value))}
+              />
+            </label>
+            <span className="xm-slider-hint">
+              RRF choisit les candidats · le tri reste par score Codex · appliqué à la
+              prochaine recherche
+            </span>
+          </div>
+        )}
 
-          {!loading && deep.results.length > 0 && (
-            <SaveSearchBar
-              deep={deep}
-              query={q.trim()}
-              dateFrom={dateFrom}
-              dateTo={dateTo}
-              sort={resultSort}
-              alreadySavedId={savedHit?.id}
-            />
-          )}
+        <p
+          className="meta"
+          style={{ margin: "12px 2px 0", color: "var(--faint)", fontSize: 12.5 }}
+        >
+          L’IA construit une requête experte, on pré-filtre la base en local
+          (mots-clés + MeSH), puis GPT-5.6 lit et juge uniquement ces candidats —
+          rapide, insensible à la largeur de la période.
+        </p>
 
-          {deep.pubmed_query && (
-            <details className="explanation">
-              <summary>Requête PubMed générée + mots-clés</summary>
-              <p className="abstract" style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}>
-                {deep.pubmed_query}
-              </p>
-              {deep.keywords_en.length > 0 && (
-                <div className="tags">
-                  {deep.keywords_en.slice(0, 12).map((t) => (
-                    <span className="tag" key={t}>
-                      {t}
+        {/* Écran étroit : le rail de droite disparaît, l'historique revient en
+            ligne sous les réglages (même données, même action). */}
+        {recentRuns.length > 0 && (
+          <RecentChips
+            runs={recentRuns}
+            disabled={loading || launching}
+            onOpen={(r) => void openRun(r)}
+          />
+        )}
+
+        {codexLimit && (
+          <div className="xm-banner error" role="alert">
+            🚫 <b>Limite d’usage GPT-5.6 atteinte.</b> Les recherches «&nbsp;PubMed +
+            codex&nbsp;» reposent sur GPT-5.6 (construction de la requête, tri et
+            traduction) : le quota est épuisé pour le moment. Les résultats sont en{" "}
+            <b>mode dégradé</b> (sans tri intelligent ni traduction FR). Réessayez un
+            peu plus tard.
+          </div>
+        )}
+
+        {error && <p className="xm-banner error">⚠ {error}</p>}
+
+        {(loading || loadingMore || logs.length > 0) && (
+          <LiveEvents
+            running={loading || loadingMore}
+            variant="pubmed"
+            logs={logs}
+            startedAt={runStartedAt}
+            stopLocal={
+              localSearching
+                ? { stopping: stoppingLocal, onStop: handleStopLocal }
+                : null
+            }
+          />
+        )}
+
+        {/* ---------- Résultats PubMed v2 (deep) ---------- */}
+        {deep && (
+          <>
+            <div className="xm-results-head">
+              <span className="xm-results-count">
+                {deep.counts.kept ?? 0} retenu(s) · {deep.counts.judged ?? 0} jugés codex ·{" "}
+                {deep.counts.merged ?? 0} fusionnés
+                {deep.counts.kept_local != null && (
+                  <>
+                    {" · "}
+                    <span className="xm-src pm">
+                      {deep.counts.kept_pubmed ?? 0} PubMed
                     </span>
-                  ))}
-                </div>
-              )}
-            </details>
-          )}
-
-          {deep.judge === "skipped" && (
-            <p className="xm-banner warn">
-              ⚠ codex indisponible : tri lexical de repli (pas de jugement de pertinence).
-            </p>
-          )}
-          {deep.results.length === 0 && (
-            <p className="xm-banner warn">Aucun article jugé pertinent pour cette recherche.</p>
-          )}
-
-          {/* Barre d'analyse critique : apparaît dès qu'un article est coché. */}
-          {selected.length > 0 && (
-            <div className="xm-compare-bar">
-              <span className="xm-compare-count">
-                <strong>{selected.length}</strong> / {MAX_COMPARE} sélectionné
-                {selected.length > 1 ? "s" : ""} pour l&apos;analyse
+                    {" · "}
+                    <span className="xm-src lo">{deep.counts.kept_local ?? 0} local</span>
+                    {(deep.counts.kept_both ?? 0) > 0 && (
+                      <> · {deep.counts.kept_both} les deux</>
+                    )}
+                  </>
+                )}
+                {" · "}
+                {/* Tri de CE résultat : le sélecteur, lui, vaut pour la prochaine
+                    recherche — les deux peuvent différer. */}
+                <span title="Tri utilisé pour ce résultat (le sélecteur « TRI » ne s'applique qu'à la prochaine recherche)">
+                  {SORT_LABEL[resultSort]}
+                </span>
               </span>
-              <span className="xm-compare-actions">
+              <CopyLinkButton />
+            </div>
+
+            {savedHit && (
+              <p
+                className="xm-banner info"
+                style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}
+              >
+                <span>
+                  💾 Résultat déjà sauvegardé le{" "}
+                  {new Date(savedHit.created_at).toLocaleDateString("fr-FR", {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })}{" "}
+                  — affiché sans relancer codex.
+                </span>
+                <button
+                  type="button"
+                  style={{ minHeight: 32, padding: "4px 12px" }}
+                  onClick={() => runSearch({ force: true })}
+                >
+                  Relancer quand même
+                </button>
+              </p>
+            )}
+
+            {!loading && deep.results.length > 0 && (
+              <SaveSearchBar
+                deep={deep}
+                query={q.trim()}
+                dateFrom={dateFrom}
+                dateTo={dateTo}
+                sort={resultSort}
+                alreadySavedId={savedHit?.id}
+              />
+            )}
+
+            {deep.pubmed_query && (
+              <details className="explanation">
+                <summary>Requête PubMed générée + mots-clés</summary>
+                <p className="abstract" style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}>
+                  {deep.pubmed_query}
+                </p>
+                {deep.keywords_en.length > 0 && (
+                  <div className="tags">
+                    {deep.keywords_en.slice(0, 12).map((t) => (
+                      <span className="tag" key={t}>
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </details>
+            )}
+
+            {deep.judge === "skipped" && (
+              <p className="xm-banner warn">
+                ⚠ codex indisponible : tri lexical de repli (pas de jugement de pertinence).
+              </p>
+            )}
+            {deep.results.length === 0 && (
+              <p className="xm-banner warn">Aucun article jugé pertinent pour cette recherche.</p>
+            )}
+
+            {/* Barre d'analyse critique : apparaît dès qu'un article est coché. */}
+            {selected.length > 0 && (
+              <div className="xm-compare-bar">
+                <span className="xm-compare-count">
+                  <strong>{selected.length}</strong> / {MAX_COMPARE} sélectionné
+                  {selected.length > 1 ? "s" : ""} pour l&apos;analyse
+                </span>
+                <span className="xm-compare-actions">
+                  <button
+                    type="button"
+                    className="primary"
+                    disabled={selected.length < 2 || analyzing}
+                    onClick={runAnalysis}
+                    title={
+                      selected.length < 2
+                        ? "Sélectionnez au moins 2 articles"
+                        : "Lancer l'analyse critique comparative"
+                    }
+                  >
+                    {analyzing ? "Analyse en cours…" : "🔬 Analyser la sélection"}
+                  </button>
+                  <button type="button" className="xmr-act" onClick={clearSelection}>
+                    Effacer
+                  </button>
+                </span>
+              </div>
+            )}
+
+            {/* Déroulé live de l'analyse codex. */}
+            {analyzing && <LiveEvents running variant="other" logs={analysisLogs} />}
+            {analysisError && (
+              <p className="xm-banner warn">⚠ {analysisError}</p>
+            )}
+            {analysis && <CritiquePanel result={analysis} order={analysisOrder} />}
+
+            <div>
+              {deep.results.map((r, i) => {
+                const d = resolveLang(r);
+                return (
+                  <XMedResult
+                    key={`deep-${r.pmid}`}
+                    rank={i + 1}
+                    title={d.title}
+                    journal={r.journal}
+                    year={r.pub_year}
+                    level={r.evidence_level}
+                    relevance={
+                      r.score != null
+                        ? deepRelevance(r.score, r.relevance_pct)
+                        : undefined
+                    }
+                    contribution={r.reason}
+                    extraActions={
+                      <SelectButton
+                        selected={selected.includes(r.pmid)}
+                        disabled={
+                          !selected.includes(r.pmid) && selected.length >= MAX_COMPARE
+                        }
+                        onToggle={() => toggleSelected(r.pmid)}
+                      />
+                    }
+                    sourceTag={
+                      r.source === "both"
+                        ? "A · PubMed + B · local"
+                        : r.source === "pubmed"
+                          ? "A · PubMed"
+                          : "B · local"
+                    }
+                    pubmedUrl={r.pubmed_url}
+                    sourceTitle={r.title}
+                    revealLabel="Résumé structuré"
+                    revealBodyClassName="xmr-sections"
+                    revealHead={
+                      <LanguageToggle lang={lang} onChange={setLang} busy={translating} />
+                    }
+                    spoken={d.abstract ?? r.reason ?? undefined}
+                  >
+                    {d.abstract ? (
+                      <StructuredAbstract abstract={d.abstract} translated={d.translated} />
+                    ) : undefined}
+                  </XMedResult>
+                );
+              })}
+            </div>
+
+            {deep.judge === "codex" && (deep.remaining?.length ?? 0) > 0 && (
+              <div style={{ textAlign: "center", marginTop: 16 }}>
                 <button
                   type="button"
                   className="primary"
-                  disabled={selected.length < 2 || analyzing}
-                  onClick={runAnalysis}
-                  title={
-                    selected.length < 2
-                      ? "Sélectionnez au moins 2 articles"
-                      : "Lancer l'analyse critique comparative"
-                  }
+                  disabled={loadingMore}
+                  onClick={loadMore}
                 >
-                  {analyzing ? "Analyse en cours…" : "🔬 Analyser la sélection"}
+                  {loadingMore
+                    ? "Analyse en cours…"
+                    : `Analyser ${Math.min(50, deep.remaining!.length)} de plus`}
                 </button>
-                <button type="button" className="xmr-act" onClick={clearSelection}>
-                  Effacer
-                </button>
-              </span>
-            </div>
-          )}
+                <p className="meta" style={{ marginTop: 6 }}>
+                  {deep.remaining!.length} abstract(s) pré-filtré(s) restant(s) à juger.
+                </p>
+              </div>
+            )}
+          </>
+        )}
 
-          {/* Déroulé live de l'analyse codex. */}
-          {analyzing && <LiveEvents running variant="other" logs={analysisLogs} />}
-          {analysisError && (
-            <p className="xm-banner warn">⚠ {analysisError}</p>
-          )}
-          {analysis && <CritiquePanel result={analysis} order={analysisOrder} />}
+        <p className="xm-disclaimer">
+          Pertinence jugée par l’IA à partir des abstracts PubMed — un appui à la
+          lecture, pas une validation clinique.
+        </p>
+      </div>
 
-          <div>
-            {deep.results.map((r, i) => {
-              const d = resolveLang(r);
-              return (
-                <XMedResult
-                  key={`deep-${r.pmid}`}
-                  rank={i + 1}
-                  title={d.title}
-                  journal={r.journal}
-                  year={r.pub_year}
-                  level={r.evidence_level}
-                  relevance={
-                    r.score != null
-                      ? deepRelevance(r.score, r.relevance_pct)
-                      : undefined
-                  }
-                  contribution={r.reason}
-                  extraActions={
-                    <SelectButton
-                      selected={selected.includes(r.pmid)}
-                      disabled={
-                        !selected.includes(r.pmid) && selected.length >= MAX_COMPARE
-                      }
-                      onToggle={() => toggleSelected(r.pmid)}
-                    />
-                  }
-                  sourceTag={
-                    r.source === "both"
-                      ? "A · PubMed + B · local"
-                      : r.source === "pubmed"
-                        ? "A · PubMed"
-                        : "B · local"
-                  }
-                  pubmedUrl={r.pubmed_url}
-                  sourceTitle={r.title}
-                  revealLabel="Résumé structuré"
-                  revealBodyClassName="xmr-sections"
-                  revealHead={
-                    <LanguageToggle lang={lang} onChange={setLang} busy={translating} />
-                  }
-                  spoken={d.abstract ?? r.reason ?? undefined}
-                >
-                  {d.abstract ? (
-                    <StructuredAbstract abstract={d.abstract} translated={d.translated} />
-                  ) : undefined}
-                </XMedResult>
-              );
-            })}
-          </div>
-
-          {deep.judge === "codex" && (deep.remaining?.length ?? 0) > 0 && (
-            <div style={{ textAlign: "center", marginTop: 16 }}>
-              <button
-                type="button"
-                className="primary"
-                disabled={loadingMore}
-                onClick={loadMore}
-              >
-                {loadingMore
-                  ? "Analyse en cours…"
-                  : `Analyser ${Math.min(50, deep.remaining!.length)} de plus`}
-              </button>
-              <p className="meta" style={{ marginTop: 6 }}>
-                {deep.remaining!.length} abstract(s) pré-filtré(s) restant(s) à juger.
-              </p>
-            </div>
-          )}
-        </>
+      {/* Historique : recherches abouties du compte, rouvertes sans relancer
+          (le résultat complet attend en base — aucun nouvel appel codex). */}
+      {recentRuns.length > 0 && (
+        <RecentRail
+          runs={recentRuns}
+          disabled={loading || launching}
+          onOpen={(r) => void openRun(r)}
+        />
       )}
-
-      <p className="xm-disclaimer">
-        Pertinence jugée par l’IA à partir des abstracts PubMed — un appui à la
-        lecture, pas une validation clinique.
-      </p>
     </main>
   );
 }

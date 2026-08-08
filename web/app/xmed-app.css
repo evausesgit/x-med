@@ -1612,3 +1612,102 @@
   color: var(--text);
   background: var(--accent-soft);
 }
+
+/* ============ RAIL « RÉCENTES » (colonne de droite) ============
+   L'historique quittait le flux principal parce qu'il repoussait les premiers
+   résultats sous la ligne de flottaison : en rail collant à droite, la barre
+   de recherche, les premiers résultats ET les recherches récentes tiennent
+   ensemble à l'écran. Sous 1120px il n'y a plus la place : le rail cède la
+   place aux puces `.xm-recent-chips`, dans le flux comme avant. */
+.xm-recent-rail {
+  display: none;
+}
+.xm-recent-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+@media (min-width: 1121px) {
+  .xm-page-split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 236px;
+    column-gap: 30px;
+  }
+  .xm-col-main {
+    min-width: 0;
+  }
+  /* Colonne plus étroite : le titre garde sa ligne unique en rétrécissant. */
+  .xm-page-split .xm-hero {
+    font-size: 32px;
+    max-width: none;
+  }
+  /* Le rail occupe TOUTE la hauteur de la colonne (pas seulement celle de ses
+     cartes) : sans ça, `position: sticky` n'aurait aucune course et le rail
+     défilerait avec la page dès les premiers résultats. */
+  .xm-recent-rail {
+    display: block;
+    align-self: stretch;
+  }
+  .xm-recent-chips {
+    display: none;
+  }
+}
+
+.xm-recent-inner {
+  position: sticky;
+  top: 78px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: calc(100vh - 110px);
+  overflow-y: auto;
+  /* Aligné sur le haut de la barre de recherche, pas sur celui du titre. */
+  margin-top: 70px;
+}
+.xm-recent-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.xm-recent-item {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12.5px;
+  line-height: 1.35;
+  min-height: 0;
+  cursor: pointer;
+}
+.xm-recent-item:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  background: var(--surface-soft);
+}
+.xm-recent-item:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+/* Deux lignes maximum : une question longue ne fait pas grandir le rail. */
+.xm-recent-q {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.xm-recent-meta {
+  font-size: 11px;
+  color: var(--faint);
+}
