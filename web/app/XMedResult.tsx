@@ -43,6 +43,9 @@ export interface XMedResultProps {
   extraActions?: React.ReactNode;
   /** étiquette de provenance (« A · PubMed + B · local »…) */
   sourceTag?: string | null;
+  /** article publié hors de la fenêtre de dates demandée : affiché quand même
+      (il peut être le seul pertinent), signalé par un badge « hors période ». */
+  outOfWindow?: boolean;
   pubmedUrl: string;
   /** termes MeSH (chips toujours visibles) */
   mesh?: string[];
@@ -196,6 +199,7 @@ export default function XMedResult({
   contribution,
   extraActions,
   sourceTag,
+  outOfWindow,
   pubmedUrl,
   mesh,
   sourceTitle,
@@ -263,6 +267,14 @@ export default function XMedResult({
               </span>
             )}
             {ev && <span className={`xmr-ev ${ev.cls}`}>{ev.label}</span>}
+            {outOfWindow && (
+              <span
+                className="xmr-oow"
+                title="Publié hors de la période demandée — affiché parce que jugé pertinent sur votre question"
+              >
+                hors période
+              </span>
+            )}
           </div>
           <h3 className="xmr-title">
             <a href={pubmedUrl} target="_blank" rel="noreferrer">

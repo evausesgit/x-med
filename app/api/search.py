@@ -169,6 +169,11 @@ class DeepHit(BaseModel):
     abstract: str | None = None  # abstract original (EN), toujours fourni si dispo
     abstract_fr: str | None = None  # traduction FR (cache ou streamée), si dispo
     title_fr: str | None = None  # titre traduit FR (cache ou streamé), si dispo
+    # Article hors de la fenêtre de dates demandée. Purement INDICATIF : ce drapeau
+    # n'intervient ni dans le filtrage ni dans le tri (cf. le tri final, par
+    # pertinence seule), il sert au badge « hors période » qui dit au médecin que
+    # l'article est ancien. Toujours False si aucune fenêtre n'a été demandée.
+    out_of_window: bool = False
 
 
 class DeepSearchResponse(BaseModel):
@@ -194,6 +199,10 @@ class DeepMoreRequest(BaseModel):
     query: str  # PRM : même phrase clinique que la recherche initiale
     pmids: list[int]  # lot suivant à juger (le front en envoie ≤ judge_batch)
     min_score: int = 2
+    # Fenêtre de la recherche initiale — sert uniquement à marquer les articles
+    # « hors période » comme dans le premier lot (jamais à filtrer ici).
+    date_from: str | None = None
+    date_to: str | None = None
 
 
 class DeepMoreResponse(BaseModel):
@@ -237,7 +246,8 @@ def _window_keep(
     recall-first) : exclusion stricte quand `pub_date` PROUVE la sortie de fenêtre ;
     à date inconnue, on retombe sur l'année (exclusion seulement si l'année sort),
     et on signale le candidat comme invérifiable (compteur `local_date_unverified`).
-    Les candidats venus de PubMed (A) ne passent pas ici : esearch borne au jour.
+    Les candidats venus de PubMed (A) ne sont PAS écartés ici : esearch n'est plus
+    borné (rappel maximal), ils sont seulement marqués via `_out_of_window`.
     """
     d_from, d_to = _date_bound(date_from), _date_bound(date_to)
     if pub_date is not None:
@@ -254,6 +264,25 @@ def _window_keep(
         if yt is not None and year > yt:
             return False, unverified
     return True, unverified
+
+
+def _out_of_window(
+    pub_date: date | None,
+    pub_year: int | None,
+    date_from: str | None,
+    date_to: str | None,
+) -> bool:
+    """Article hors de la fenêtre demandée ? (False si aucune fenêtre demandée.)
+
+    Même politique de preuve que `_window_keep` — dont c'est la négation — mais
+    appliquée à l'AFFICHAGE et non au filtrage : un article ancien reste dans la
+    liste, avec un badge, au lieu d'être écarté. Une date invérifiable (année
+    seule, dans la fenêtre) n'est donc jamais signalée comme hors période.
+    """
+    if not (date_from or date_to):
+        return False
+    keep, _ = _window_keep(pub_date, pub_year, date_from, date_to)
+    return not keep
 
 
 def _prefilter_source(corpus: Session, date_from: str | None):
@@ -441,10 +470,17 @@ def _run_deep_search(
 
     emit("esearch", "🔎 Interrogation de PubMed (esearch)…")
     try:
-        _, a_pmids = eut.esearch(
-            term, retmax=req.k_pubmed,
-            mindate=req.date_from, maxdate=req.date_to,
-        )
+        # Rappel maximal : on n'envoie PLUS la fenêtre de dates à esearch. Sur un
+        # sujet dont toute la littérature est ancienne, le défaut « depuis 2025 »
+        # renvoyait 0 article là où PubMed en a (ex. floppy eyelid syndrome ×
+        # glaucome à pression normale : 12 articles, aucun après 2023 — la même
+        # recherche sur pubmed.ncbi.nlm.nih.gov aboutissait, la nôtre non).
+        # La fenêtre devient une simple INDICATION, plus un couperet amont : les
+        # articles hors fenêtre sont jugés, classés et affichés au mérite comme les
+        # autres, marqués `out_of_window` (badge « hors période »).
+        # Le vivier LOCAL, lui, reste borné : `_prefilter_source` s'appuie sur la
+        # borne basse pour rester sur la table chaude (~0,4 s vs ~150 s).
+        _, a_pmids = eut.esearch(term, retmax=req.k_pubmed)
     except Exception as e:
         raise HTTPException(502, f"PubMed indisponible : {e}")
     emit("esearch_done", f"📚 {len(a_pmids)} articles PubMed récupérés")
@@ -649,11 +685,24 @@ def _run_deep_search(
             relevance_pct=(j.relevance_pct if j else None),
             reason=(j.reason if j else None),
             abstract=_abstract(p),
+            out_of_window=_out_of_window(
+                (a.pub_date if a else None),
+                (a.pub_year if a else (m.pub_year if m else None)),
+                req.date_from,
+                req.date_to,
+            ),
         ))
 
-    # Tri final : TOUJOURS la pertinence évaluée par Codex (score → % → niveau de preuve
-    # → récence), quel que soit l'algo. RRF ne sert qu'à CHOISIR les candidats à juger ;
-    # il ne classe jamais ce que voit le médecin.
+    # Tri final : TOUJOURS la pertinence évaluée par Codex (score → % → niveau de
+    # preuve → récence), quel que soit l'algo. RRF ne sert qu'à CHOISIR les
+    # candidats à juger ; il ne classe jamais ce que voit le médecin.
+    # La fenêtre de dates n'entre PAS dans le tri : sur un sujet dont la
+    # littérature de référence est ancienne, trier la période en premier enterrait
+    # la vraie réponse (mesuré : les recommandations de traitement du syndrome de
+    # Susac, 98 % de pertinence, passaient sous un article de revue à 82 % dont le
+    # seul mérite était sa date). Les articles hors période sont donc classés au
+    # mérite comme les autres, et signalés à l'affichage par `out_of_window`
+    # (badge « hors période ») pour que le médecin sache toujours ce qu'il lit.
     hits.sort(key=lambda h: (
         -(h.score if h.score is not None else -1),
         -(h.relevance_pct if h.relevance_pct is not None else -1),
@@ -671,6 +720,12 @@ def _run_deep_search(
         if tr:
             h.abstract_fr = tr.abstract_fr
             h.title_fr = tr.title_fr or None
+
+    n_oow = sum(1 for h in hits if h.out_of_window)
+    if n_oow:
+        emit("out_of_window",
+             f"📅 {n_oow} article(s) retenu(s) hors de votre fenêtre de dates — "
+             "classés au mérite comme les autres, et signalés dans la liste.")
 
     emit("done", f"✅ {len(hits)} articles retenus")
 
@@ -699,6 +754,9 @@ def _run_deep_search(
             # compromis recall-first avant d'envisager pub_date dans article_search.
             "local_dropped_window": local_dropped,
             "local_date_unverified": local_unverified,
+            # Retenus HORS fenêtre (venus de PubMed, qu'esearch ne borne plus) :
+            # mesure directe de ce que le filtrage amont faisait disparaître.
+            "kept_out_of_window": n_oow,
         },
         results=hits,
         remaining=rest,
@@ -827,8 +885,16 @@ def _run_deep_more(
             relevance_pct=(j.relevance_pct if j else None),
             reason=(j.reason if j else None),
             abstract=_abstract(p),
+            out_of_window=_out_of_window(
+                (a.pub_date if a else None),
+                (a.pub_year if a else (m.pub_year if m else None)),
+                req.date_from,
+                req.date_to,
+            ),
         ))
 
+    # Même règle que la recherche initiale : pertinence seule, la fenêtre ne
+    # classe pas — sinon la fusion côté front mélangerait deux ordres.
     hits.sort(key=lambda h: (
         -(h.score if h.score is not None else -1),
         -(h.relevance_pct if h.relevance_pct is not None else -1),
@@ -1180,6 +1246,8 @@ def search_pubmed_deep_more_stream(
     query: str = Query(..., min_length=1),
     pmids: str = Query(..., description="PMID à juger, séparés par des virgules"),
     min_score: int = Query(default=2, ge=0, le=3),
+    date_from: str | None = Query(default=None),
+    date_to: str | None = Query(default=None),
 ):
     """Version SSE de /search/pubmed/deep/more : émet le déroulé puis `result`
     (forme DeepMoreResponse), comme le stream de la recherche initiale. Les
@@ -1207,7 +1275,10 @@ def search_pubmed_deep_more_stream(
             try:
                 with CorpusSessionLocal() as corpus_s, SessionLocal() as app_s:
                     result = _run_deep_more(
-                        DeepMoreRequest(query=query, pmids=pmid_list, min_score=min_score),
+                        DeepMoreRequest(
+                            query=query, pmids=pmid_list, min_score=min_score,
+                            date_from=date_from, date_to=date_to,
+                        ),
                         corpus_s,
                         app_s,
                         progress,

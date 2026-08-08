@@ -69,6 +69,7 @@ export function HitCard({
             ? "A · PubMed"
             : "B · local"
       }
+      outOfWindow={hit.out_of_window}
       pubmedUrl={hit.pubmed_url}
       sourceTitle={hit.title}
       revealLabel="Résumé structuré"
