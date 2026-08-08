@@ -160,6 +160,17 @@
 }
 
 /* ============================ SEARCH BAR ============================ */
+/* Ligne « barre de recherche + sauvegarde par profil » : la barre prend toute
+   la place restante, le bloc de sauvegarde se pose à sa droite. */
+.xm-searchrow {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+}
+.xm-searchrow > .xm-searchbar {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 .xm-searchbar {
   display: flex;
   align-items: center;
@@ -220,6 +231,50 @@
 .xm-explore-stop:hover:not(:disabled) {
   background: #a34a3f;
   border-color: #a34a3f;
+}
+
+/* Sauvegarde d'une recherche par profil, à droite de la barre de recherche. */
+.xm-save-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 auto;
+  max-width: 460px;
+  padding: 6px 12px;
+  background: var(--accent-soft);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.xm-save-label {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--muted);
+  flex: none;
+}
+.xm-save-inline select {
+  min-width: 150px;
+  max-width: 220px;
+  min-height: 0;
+  padding: 8px 10px;
+  font-size: 13.5px;
+}
+.xm-save-inline button.primary {
+  flex: none;
+  min-height: 0;
+  padding: 10px 14px;
+  font-size: 13.5px;
+  white-space: nowrap;
+}
+.xm-save-done,
+.xm-save-error {
+  font-size: 12.5px;
+  line-height: 1.3;
+}
+.xm-save-done {
+  color: var(--muted);
+}
+.xm-save-error {
+  color: #9b2f1f;
 }
 
 /* ============================ METHOD + DATES ============================ */
@@ -1245,6 +1300,23 @@
 
 /* ============================ RESPONSIVE ============================ */
 @media (max-width: 880px) {
+  /* Plus assez de largeur pour deux blocs côte à côte : la sauvegarde passe
+     sous la barre de recherche plutôt que de l'écraser. */
+  .xm-searchrow {
+    flex-wrap: wrap;
+  }
+  .xm-save-inline {
+    flex: 1 1 100%;
+    max-width: none;
+    flex-wrap: wrap;
+  }
+  .xm-save-inline select {
+    /* base courte : le select partage la ligne avec le bouton au lieu de le
+       renvoyer à la ligne suivante. */
+    flex: 1 1 160px;
+    min-width: 0;
+    max-width: none;
+  }
   .xmr-reveal-grid {
     grid-template-columns: minmax(0, 1fr);
   }
