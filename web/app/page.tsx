@@ -57,9 +57,6 @@ const dayShortFr = (iso: string) =>
     new Date(iso),
   );
 
-const truncate = (s: string, n: number) =>
-  s.length > n ? `${s.slice(0, n - 1)}…` : s;
-
 function CopyLinkButton() {
   const [copied, setCopied] = useState(false);
   return (
@@ -318,70 +315,132 @@ function LiveEvents({
   );
 }
 
-// Nombre de recherches récentes proposées (le rail vertical en tient plus que
-// l'ancienne ligne de puces).
-const RECENT_MAX = 12;
+// Nombre de recherches récentes listées dans le panneau latéral (il défile,
+// donc il en tient bien plus que l'ancienne ligne de puces).
+const RECENT_MAX = 30;
 
-type RecentProps = {
-  runs: SearchRunSummary[];
-  disabled: boolean;
-  onOpen: (run: SearchRunSummary) => void;
-};
+// Largeur à partir de laquelle le panneau tient à côté du contenu ; en dessous
+// il s'ouvre en tiroir par-dessus la page. À garder synchronisé avec le
+// `@media (min-width: 900px)` de xmed-app.css.
+const SIDE_WIDE = "(min-width: 900px)";
+const SIDE_PREF = "xm-side-open"; // choix desktop mémorisé
+
+// Icônes du panneau latéral : replier le panneau / démarrer une recherche
+// vierge — les deux gestes du haut de la barre latérale de ChatGPT.
+const PanelIcon = (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <rect x="3" y="4" width="18" height="16" rx="2.5" />
+    <path d="M9.5 4v16" />
+  </svg>
+);
+const NewSearchIcon = (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M12 5v14M5 12h14" />
+  </svg>
+);
 
 const recentTitle = (r: SearchRunSummary) =>
   `${r.query} · ${dayShortFr(r.created_at)} · ${r.n_results} article(s) retenu(s)`;
 
-// Rail « Récentes » : colonne de droite, collante sous la nav. Sortir
-// l'historique du flux principal garde la barre de recherche ET les premiers
-// résultats visibles ensemble, sans scroller.
-function RecentRail({ runs, disabled, onOpen }: RecentProps) {
-  return (
-    <aside className="xm-recent-rail" aria-label="Recherches récentes">
-      <div className="xm-recent-inner">
-        <span className="xm-method-label">RÉCENTES</span>
-        <ul className="xm-recent-list">
-          {runs.map((r) => (
-            <li key={r.id}>
-              <button
-                type="button"
-                className="xm-recent-item"
-                disabled={disabled}
-                title={recentTitle(r)}
-                onClick={() => onOpen(r)}
-              >
-                <span className="xm-recent-q">{r.query}</span>
-                <span className="xm-recent-meta">
-                  {dayShortFr(r.created_at)} · {r.n_results} article
-                  {r.n_results > 1 ? "s" : ""}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </aside>
-  );
+// Regroupement par ancienneté, comme la liste des conversations de ChatGPT :
+// la date quitte la ligne (qui n'affiche plus que la question) pour devenir un
+// intertitre. Les runs arrivent du plus récent au plus ancien, donc un simple
+// parcours suffit à former des paquets contigus.
+function groupRuns(runs: SearchRunSummary[]) {
+  const DAY = 86_400_000;
+  const midnight = (d: Date) =>
+    new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const today = midnight(new Date());
+  const groups: { label: string; runs: SearchRunSummary[] }[] = [];
+  for (const r of runs) {
+    const age = today - midnight(new Date(r.created_at));
+    const label =
+      age <= 0
+        ? "Aujourd’hui"
+        : age <= DAY
+          ? "Hier"
+          : age <= 7 * DAY
+            ? "7 derniers jours"
+            : age <= 30 * DAY
+              ? "30 derniers jours"
+              : "Plus ancien";
+    const last = groups[groups.length - 1];
+    if (last && last.label === label) last.runs.push(r);
+    else groups.push({ label, runs: [r] });
+  }
+  return groups;
 }
 
-// Même historique, repli pour écran étroit : la ligne de puces d'origine.
-function RecentChips({ runs, disabled, onOpen }: RecentProps) {
+type SidebarProps = {
+  runs: SearchRunSummary[];
+  disabled: boolean;
+  open: boolean;
+  activeId: string | null;
+  onOpen: (run: SearchRunSummary) => void;
+  onNew: () => void;
+  onClose: () => void;
+};
+
+// Panneau « Recherches » : colonne de gauche pleine hauteur sur desktop,
+// tiroir coulissant sur mobile — même disposition que ChatGPT. L'historique
+// hors du flux principal garde la barre de recherche ET les premiers résultats
+// visibles ensemble, sans scroller.
+function RecentSidebar({
+  runs,
+  disabled,
+  open,
+  activeId,
+  onOpen,
+  onNew,
+  onClose,
+}: SidebarProps) {
   return (
-    <div className="xm-recent-chips">
-      <span className="xm-method-label">RÉCENTES</span>
-      {runs.slice(0, 8).map((r) => (
+    <aside className={`xm-side${open ? " open" : ""}`} aria-label="Recherches récentes">
+      <div className="xm-side-head">
         <button
-          key={r.id}
           type="button"
-          className="xmr-act"
-          disabled={disabled}
-          title={recentTitle(r)}
-          onClick={() => onOpen(r)}
+          className="xm-icon-btn"
+          onClick={onClose}
+          title="Masquer le panneau"
+          aria-label="Masquer le panneau"
         >
-          {truncate(r.query, 40)}
-          <span style={{ color: "var(--faint)" }}> · {dayShortFr(r.created_at)}</span>
+          {PanelIcon}
         </button>
-      ))}
-    </div>
+        <button
+          type="button"
+          className="xm-icon-btn"
+          onClick={onNew}
+          disabled={disabled}
+          title="Nouvelle recherche"
+          aria-label="Nouvelle recherche"
+        >
+          {NewSearchIcon}
+        </button>
+      </div>
+      <div className="xm-side-scroll">
+        {runs.length === 0 ? (
+          <p className="xm-side-empty">Vos recherches s’afficheront ici.</p>
+        ) : (
+          groupRuns(runs).map((g) => (
+            <div className="xm-side-group" key={g.label}>
+              <div className="xm-side-group-label">{g.label}</div>
+              {g.runs.map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  className={`xm-side-item${activeId === r.id ? " on" : ""}`}
+                  disabled={disabled}
+                  title={recentTitle(r)}
+                  onClick={() => onOpen(r)}
+                >
+                  {r.query}
+                </button>
+              ))}
+            </div>
+          ))
+        )}
+      </div>
+    </aside>
   );
 }
 
@@ -487,11 +546,16 @@ function SaveSearchBar({
   );
 }
 
-// Icône loupe de la barre de recherche.
-const SearchIcon = (
-  <svg viewBox="0 0 24 24" className="icon">
-    <circle cx="11" cy="11" r="7" />
-    <path d="M21 21l-4.3-4.3" />
+// Bouton d'envoi du composer : flèche montante quand on peut lancer, carré
+// plein quand la recherche tourne et qu'on peut l'arrêter.
+const SendIcon = (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M12 19V6M6 12l6-6 6 6" />
+  </svg>
+);
+const StopIcon = (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <rect x="7.5" y="7.5" width="9" height="9" rx="1.8" fill="currentColor" />
   </svg>
 );
 
@@ -541,6 +605,11 @@ export default function Home() {
     () => history?.runs.slice(0, RECENT_MAX) ?? [],
     [history],
   );
+  // Panneau latéral : ouvert par défaut sur desktop (choix mémorisé), fermé sur
+  // mobile où il s'ouvre en tiroir par-dessus la page.
+  const [sideOpen, setSideOpen] = useState(false);
+  // Recherche de l'historique actuellement affichée (ligne surlignée).
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
   // Verrou du POST /search/runs : un double-clic lancerait deux recherches
   // (la 2e prendrait un 409 mais démarrerait sa propre boucle de polling).
   const [launching, setLaunching] = useState(false);
@@ -581,6 +650,71 @@ export default function Home() {
       critiqueRef.current?.close();
     };
   }, []);
+
+  // La page d'accueil passe le shell en pleine largeur (la nav s'aligne sur le
+  // panneau latéral au lieu de rester centrée sur 1100px) ; les autres pages
+  // gardent la nav centrée, d'où la classe posée puis retirée sur <body>.
+  useEffect(() => {
+    document.body.classList.add("xm-chat-body");
+    return () => document.body.classList.remove("xm-chat-body");
+  }, []);
+
+  // Le panneau commence juste sous la nav collante, dont la hauteur varie (les
+  // liens passent à la ligne sur écran étroit) : on la mesure au lieu de la
+  // figer, sinon un filet de fond apparaît entre les deux.
+  useEffect(() => {
+    const nav = document.querySelector<HTMLElement>(".xm-nav");
+    if (!nav) return;
+    const apply = () =>
+      document.documentElement.style.setProperty(
+        "--xm-nav-h",
+        `${nav.offsetHeight}px`,
+      );
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(nav);
+    return () => {
+      ro.disconnect();
+      document.documentElement.style.removeProperty("--xm-nav-h");
+    };
+  }, []);
+
+  // Ouverture initiale : desktop = dernier choix (ouvert par défaut), mobile =
+  // fermé. Fait après montage, donc jamais de désaccord d'hydratation.
+  useEffect(() => {
+    if (!window.matchMedia(SIDE_WIDE).matches) return;
+    setSideOpen(window.localStorage.getItem(SIDE_PREF) !== "0");
+  }, []);
+
+  // Ne mémorise que le choix desktop : sur mobile, le tiroir se referme après
+  // usage, ce n'est pas une préférence.
+  const toggleSide = useCallback((v: boolean) => {
+    setSideOpen(v);
+    if (window.matchMedia(SIDE_WIDE).matches)
+      window.localStorage.setItem(SIDE_PREF, v ? "1" : "0");
+  }, []);
+
+  // Échap referme le tiroir (mobile) — réflexe attendu d'un panneau modal.
+  useEffect(() => {
+    if (!sideOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !window.matchMedia(SIDE_WIDE).matches)
+        setSideOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [sideOpen]);
+
+  // Composer : la zone de saisie grandit avec la question (jusqu'à ~6 lignes)
+  // au lieu de la faire défiler dans une ligne unique. Recalculé à chaque
+  // changement de `q`, y compris quand c'est l'historique qui le remplit.
+  const composerRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = composerRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 168)}px`;
+  }, [q]);
 
   const refreshHistory = useCallback(async (): Promise<SearchRunHistory | null> => {
     const h = await getSearchRunHistory().catch(() => null);
@@ -911,6 +1045,9 @@ export default function Home() {
   async function openRun(summary: SearchRunSummary) {
     if (loading || launching) return;
     const runId = ++runIdRef.current;
+    setActiveRunId(summary.id);
+    // Mobile : le tiroir a fait son office, il libère l'écran pour le résultat.
+    if (!window.matchMedia(SIDE_WIDE).matches) setSideOpen(false);
     setError(null);
     setLogs([]);
     setSavedHit(null);
@@ -942,6 +1079,26 @@ export default function Home() {
     }
   }
 
+  // « Nouvelle recherche » : remet la page à blanc (question, résultat, déroulé)
+  // sans rien relancer — l'équivalent du « nouveau chat » de ChatGPT. Ne touche
+  // ni aux dates ni au tri : ce sont des réglages, pas un contenu.
+  function newSearch() {
+    if (loading || launching) return;
+    runIdRef.current++;
+    setActiveRunId(null);
+    setQ("");
+    setDeep(null);
+    setLogs([]);
+    setError(null);
+    setSavedHit(null);
+    setLoadingMore(false);
+    clearSelection();
+    moreRef.current?.close();
+    syncUrl("");
+    if (!window.matchMedia(SIDE_WIDE).matches) setSideOpen(false);
+    composerRef.current?.focus();
+  }
+
   // `opts.query`/`dateFrom`/`dateTo` : valeurs explicites pour les appels qui
   // ne peuvent pas lire l'état React à jour (ex. relance depuis un handler).
   // Seul déclencheur : une action utilisateur — jamais un chargement de page.
@@ -957,6 +1114,7 @@ export default function Home() {
     // s'afficher, quoi que fasse le sélecteur ensuite.
     const sort = algoRef.current;
     setResultSort(sort);
+    setActiveRunId(null); // ce qui s'affiche n'est plus une entrée de l'historique
     setLoading(true);
     setRunStartedAt(Date.now());
     setError(null);
@@ -1067,49 +1225,113 @@ export default function Home() {
   }
 
   return (
-    <main className="xm-page xm-page-split">
-      {/* Colonne principale : titre, barre de recherche, réglages, résultats.
-          Le rail « Récentes » vit à droite pour ne pas repousser les premiers
-          résultats sous la ligne de flottaison. */}
+    <main className={`xm-page xm-chat-shell${sideOpen ? " side-on" : ""}`}>
+      {/* Historique à gauche (tiroir sur mobile) : hors du flux principal, il
+          ne repousse plus la barre de recherche ni les premiers résultats. */}
+      <RecentSidebar
+        runs={recentRuns}
+        disabled={loading || launching}
+        open={sideOpen}
+        activeId={activeRunId}
+        onOpen={(r) => void openRun(r)}
+        onNew={newSearch}
+        onClose={() => toggleSide(false)}
+      />
+      {/* Voile du tiroir mobile (masqué dès que le panneau tient à côté). */}
+      {sideOpen && (
+        <div
+          className="xm-side-scrim"
+          aria-hidden="true"
+          onClick={() => setSideOpen(false)}
+        />
+      )}
+
+      {/* Colonne principale : titre, composer, réglages, résultats. */}
       <div className="xm-col-main">
+        {/* Barre d'en-tête façon ChatGPT : ouvrir l'historique, repartir à
+            blanc. Disparaît sur desktop quand le panneau est déjà ouvert. */}
+        <div className="xm-main-top">
+          <button
+            type="button"
+            className="xm-icon-btn"
+            onClick={() => toggleSide(true)}
+            title="Recherches récentes"
+            aria-label="Afficher les recherches récentes"
+          >
+            {PanelIcon}
+          </button>
+          <button
+            type="button"
+            className="xm-icon-btn"
+            onClick={newSearch}
+            disabled={loading || launching}
+            title="Nouvelle recherche"
+            aria-label="Nouvelle recherche"
+          >
+            {NewSearchIcon}
+          </button>
+        </div>
+
         <h1 className="xm-hero">Que recherchez-vous aujourd’hui, Docteur&nbsp;?</h1>
 
         <form
-          className="xm-searchbar"
+          className="xm-composer"
           onSubmit={(e) => {
             e.preventDefault();
             if (justStopped) return; // voir handleStopSearch : anti double-clic/Entrée
             runSearch();
           }}
         >
-          {SearchIcon}
-          <input
-            type="text"
+          <textarea
+            ref={composerRef}
+            className="xm-composer-input"
+            rows={1}
             placeholder="Décrivez votre question clinique en français…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => {
+              // Entrée lance, Maj+Entrée passe à la ligne — comme ChatGPT.
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                if (justStopped || loading) return;
+                runSearch();
+              }
+            }}
           />
           {loading ? (
-            // Pendant une recherche PubMed + IA, « Explorer » devient « Arrêter » :
-            // on peut abandonner à tout moment pour corriger ou reformuler.
+            // Pendant une recherche PubMed + IA, le bouton d'envoi devient un
+            // bouton d'arrêt : on abandonne à tout moment pour reformuler.
             <button
               type="button"
-              className="xm-explore xm-explore-stop"
+              className="xm-send stop"
               onClick={handleStopSearch}
               disabled={stoppingRun}
               title="Arrêter la recherche en cours (pour corriger ou changer votre question)"
+              aria-label="Arrêter la recherche en cours"
             >
-              {stoppingRun ? "⏹ Arrêt…" : "⏹ Arrêter"}
+              {StopIcon}
             </button>
           ) : justStopped ? (
             // Fenêtre de garde : le bouton reste visiblement « arrêté » un court
             // instant plutôt que de redevenir aussitôt cliquable au même endroit.
-            <button type="button" className="xm-explore" disabled>
-              ⏹ Arrêté
+            <button
+              type="button"
+              className="xm-send"
+              disabled
+              title="Recherche arrêtée"
+              aria-label="Recherche arrêtée"
+            >
+              {StopIcon}
             </button>
           ) : (
-            <button type="submit" className="xm-explore" disabled={loading}>
-              {loading ? "…" : "Explorer →"}
+            <button
+              type="submit"
+              className="xm-send"
+              disabled={!q.trim()}
+              title="Explorer"
+              aria-label="Explorer"
+            >
+              {SendIcon}
             </button>
           )}
         </form>
@@ -1195,16 +1417,6 @@ export default function Home() {
           (mots-clés + MeSH), puis GPT-5.6 lit et juge uniquement ces candidats —
           rapide, insensible à la largeur de la période.
         </p>
-
-        {/* Écran étroit : le rail de droite disparaît, l'historique revient en
-            ligne sous les réglages (même données, même action). */}
-        {recentRuns.length > 0 && (
-          <RecentChips
-            runs={recentRuns}
-            disabled={loading || launching}
-            onOpen={(r) => void openRun(r)}
-          />
-        )}
 
         {codexLimit && (
           <div className="xm-banner error" role="alert">
@@ -1434,16 +1646,6 @@ export default function Home() {
           lecture, pas une validation clinique.
         </p>
       </div>
-
-      {/* Historique : recherches abouties du compte, rouvertes sans relancer
-          (le résultat complet attend en base — aucun nouvel appel codex). */}
-      {recentRuns.length > 0 && (
-        <RecentRail
-          runs={recentRuns}
-          disabled={loading || launching}
-          onOpen={(r) => void openRun(r)}
-        />
-      )}
     </main>
   );
 }
