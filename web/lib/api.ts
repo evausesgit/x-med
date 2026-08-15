@@ -17,9 +17,63 @@ export interface Judgement {
 export interface PubmedLog {
   phase: string;
   msg: string;
+  elapsed_s?: number; // temps écoulé depuis le début du run, en secondes
   pubmed_query?: string;
   mesh_terms?: string[];
   judgements?: Judgement[]; // jalon `judge_detail` uniquement
+}
+
+// Un jalon prêt à afficher dans le déroulé : temps CUMULÉ depuis le début du
+// run et ÉCART avec le jalon précédent (le temps qu'a coûté cette étape).
+export interface TimedLog extends PubmedLog {
+  text: string; // msg nettoyé du suffixe « (12.3s) » des runs d'avant
+  elapsed: number | null; // cumulé
+  delta: number | null; // écart avec le jalon précédent
+}
+
+// Runs enregistrés avant que le temps ne devienne une donnée du jalon : il
+// n'existait que collé au texte. On le récupère et on le retire du message,
+// sinon la même durée s'afficherait deux fois.
+const TRAILING_ELAPSED = /\s*\((\d+(?:\.\d+)?)s\)\s*$/;
+
+export function withTimings(logs: PubmedLog[]): TimedLog[] {
+  let prev = 0; // dernier cumulé affiché
+  let offset = 0; // décalage du flux courant (voir plus bas)
+  let lastRaw = 0; // dernier temps brut reçu
+  return logs.map((l) => {
+    const msg = l.msg ?? "";
+    const legacy = TRAILING_ELAPSED.exec(msg);
+    const raw =
+      typeof l.elapsed_s === "number"
+        ? l.elapsed_s
+        : legacy
+          ? parseFloat(legacy[1])
+          : null;
+    const text = legacy ? msg.slice(0, legacy.index) : msg;
+    let elapsed: number | null = null;
+    if (raw !== null) {
+      // « Analyser 50 de plus » ouvre un NOUVEAU flux, dont le chrono repart de
+      // zéro alors que ses jalons s'ajoutent au même déroulé : un temps brut qui
+      // recule signale ce passage, on enchaîne à partir du cumulé courant plutôt
+      // que de faire redescendre la colonne.
+      if (raw < lastRaw) offset = prev;
+      lastRaw = raw;
+      elapsed = offset + raw;
+    }
+    // Le premier jalon a pour écart le temps écoulé depuis le début (prev = 0).
+    const delta = elapsed === null ? null : Math.max(0, elapsed - prev);
+    if (elapsed !== null) prev = elapsed;
+    return { ...l, text, elapsed, delta };
+  });
+}
+
+// « 4,2 s » / « 1 min 07 s » — durée courte lisible d'un coup d'œil.
+export function fmtSeconds(s: number): string {
+  if (s >= 60) {
+    const m = Math.floor(s / 60);
+    return `${m} min ${String(Math.round(s % 60)).padStart(2, "0")} s`;
+  }
+  return `${s.toFixed(1).replace(".", ",")} s`;
 }
 
 
@@ -40,6 +94,10 @@ export interface DeepHit {
   abstract: string | null; // abstract original (EN)
   abstract_fr: string | null; // traduction FR (cache ou streamée)
   title_fr?: string | null; // titre traduit FR (cache ou streamé)
+  /** hors de la fenêtre de dates demandée : PubMed n'est plus borné par les
+      dates (rappel maximal), donc un article ancien peut remonter s'il est le
+      seul pertinent — affiché avec un badge « hors période ». */
+  out_of_window?: boolean;
 }
 
 export interface DeepSearchResponse {
@@ -357,8 +415,14 @@ export function searchPubmedDeepMoreStream(
   query: string,
   pmids: number[],
   handlers: DeepStreamHandlers<DeepMoreResponse>,
+  dateFrom?: string,
+  dateTo?: string,
 ): EventSource {
+  // Les dates ne filtrent pas ce lot : elles servent à marquer « hors période »
+  // les articles anciens, exactement comme dans la recherche initiale.
   const sp = new URLSearchParams({ query, pmids: pmids.join(",") });
+  if (dateFrom) sp.set("date_from", dateFrom);
+  if (dateTo) sp.set("date_to", dateTo);
   const es = new EventSource(
     `${API_BASE}/search/pubmed/deep/more/stream?${sp.toString()}`,
   );

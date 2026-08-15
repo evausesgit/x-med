@@ -453,6 +453,30 @@
   color: var(--accent);
   margin-right: 8px;
 }
+/* Horodatage d'un jalon : cumulé depuis le début du run, puis écart avec le
+   jalon précédent. Largeurs fixes → les deux colonnes s'alignent verticalement
+   et le regard descend le déroulé sans sauter. */
+.xm-live-clock {
+  display: inline-flex;
+  gap: 6px;
+  margin-right: 10px;
+}
+.xm-live-cum,
+.xm-live-delta {
+  display: inline-block;
+  /* Assez large pour « 1 min 42 s » : sinon les lignes longues décalent le
+     début du message et la colonne de texte ondule. */
+  min-width: 6.3em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.xm-live-cum {
+  color: var(--muted);
+}
+.xm-live-delta {
+  color: var(--accent);
+  opacity: 0.75;
+}
 .xm-live-query {
   margin: 8px 0 0;
   padding: 10px 12px;
@@ -708,6 +732,19 @@
   border-radius: 5px;
   font-size: 11.5px;
   font-weight: 600;
+}
+/* « hors période » : l'article sort de la fenêtre de dates demandée mais reste
+   affiché et classé au mérite (PubMed n'est plus borné par les dates, et la
+   date n'entre pas dans le tri). Ton neutre-ambré : c'est une information de
+   contexte, pas une alerte. */
+.xmr-oow {
+  padding: 2px 9px;
+  border-radius: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  background: #f3ead9;
+  color: #7a5a1a;
+  border: 1px solid #e2d2b4;
 }
 .xmr-ev1 {
   background: #e0efe6;
