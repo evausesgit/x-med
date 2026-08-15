@@ -29,6 +29,7 @@ import type {
   SearchSort,
 } from "@/lib/api";
 import Link from "next/link";
+import { consumeHistoryRequest, HISTORY_EVENT } from "@/lib/history-panel";
 import XMedResult, { deepRelevance, StructuredAbstract } from "./XMedResult";
 import { CritiquePanel, MAX_COMPARE, SelectButton } from "./Critique";
 import { LanguageToggle, useDisplayLang, useTranslatedHits } from "./lang";
@@ -693,6 +694,16 @@ export default function Home() {
     if (window.matchMedia(SIDE_WIDE).matches)
       window.localStorage.setItem(SIDE_PREF, v ? "1" : "0");
   }, []);
+
+  // Le menu du header ouvre le panneau : par évènement quand on est déjà sur
+  // l'accueil, par drapeau de session quand il a fallu y revenir. Placé après
+  // l'effet d'ouverture initiale, dont il doit avoir le dernier mot.
+  useEffect(() => {
+    const open = () => toggleSide(true);
+    window.addEventListener(HISTORY_EVENT, open);
+    if (consumeHistoryRequest()) open();
+    return () => window.removeEventListener(HISTORY_EVENT, open);
+  }, [toggleSide]);
 
   // Échap referme le tiroir (mobile) — réflexe attendu d'un panneau modal.
   useEffect(() => {

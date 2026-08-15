@@ -135,6 +135,26 @@
 .xm-menu-item:hover {
   background: var(--surface-soft);
 }
+/* Même rendu pour l'entrée « bouton » du menu (l'historique ouvre un panneau,
+   ce n'est pas un lien) : on neutralise le style global des <button>. */
+button.xm-menu-item {
+  width: 100%;
+  min-height: 0;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  font-weight: 400;
+  text-align: left;
+}
+button.xm-menu-item:hover {
+  border-color: transparent;
+  background: var(--surface-soft);
+}
+.xm-menu-sep {
+  height: 1px;
+  margin: 7px 4px 3px;
+  background: var(--line);
+}
 .xm-menu-tag {
   font-family: var(--font-mono);
   font-size: 10px;
