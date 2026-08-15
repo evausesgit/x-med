@@ -93,16 +93,55 @@ min_score     = 2       → seuil pour garder un article (note IA de 0 à 3)
 ```
 FONCTION recherche(PRM, date_from, date_to):
 
-  # ---- 1a. L'IA traduit la question FR en requête PubMed experte ----
-  # Pourquoi : envoyer la phrase française brute à PubMed donne de mauvais
-  # résultats (les mots banals « et », « par » dominent). GPT-5.4 traduit
-  # les CONCEPTS en anglais, ajoute synonymes/molécules, pose les tags.
+  # ---- 1a. L'IA décrit le SENS, le programme rédige la requête ----
+  # Pourquoi une IA : envoyer la phrase française brute à PubMed donne de
+  # mauvais résultats (les mots banals « et », « par » dominent). L'IA traduit
+  # les CONCEPTS en anglais et trouve les synonymes et noms de molécules.
+  # Pourquoi PAS l'IA pour la requête elle-même : une chaîne PubMed est un objet
+  # à syntaxe libre (quel concept en [MeSH] ou [tiab], quelles parenthèses, quel
+  # ordre) — des centaines de formes sont valides et le modèle en tirait une au
+  # sort à chaque appel. Mesuré en août 2026 sur 3 appels IDENTIQUES : 12,4
+  # articles communs sur 20 seulement, et jusqu'à 5,6x d'écart sur le nombre de
+  # résultats. Un contre-témoin a écarté la piste du modèle (l'écart entre deux
+  # modèles n'est pas distinguable de l'écart entre deux appels identiques,
+  # p = 0,32) : la cause était la liberté laissée, pas le modèle. Le CLI codex
+  # n'ayant ni température ni graine, le déterminisme ne peut venir que du
+  # RÉTRÉCISSEMENT DE L'ESPACE DE SORTIE.
   ESSAYER:
-      {pubmed_query, mesh_terms, keywords_en} = CODEX_construire_requete(PRM)
+      concepts = CODEX_decouper_en_concepts(PRM)
+      # ex. [{mesh: ["Glaucoma, Angle-Closure"],
+      #       synonyms_en: ["angle closure glaucoma", "acute angle-closure", ...]},
+      #      {mesh: ["Hydroxyzine"], synonyms_en: ["hydroxyzine", "atarax", ...]}]
+      #
+      # Trois règles portées par le prompt :
+      #   FIDÉLITÉ  — ne jamais remplacer un concept par sa version générale
+      #               (« IC à FEVG préservée » ≠ « insuffisance cardiaque ») ;
+      #   ENTITÉS   — pas de concept méthodologique (efficacité, résultat,
+      #               tolérance…) : ces mots sont dans presque tous les articles,
+      #               ne filtrent rien de fiable et faisaient varier le nombre de
+      #               résultats d'un facteur 10 ; c'est le juge qui tranchera.
+      #               Et pas de bloc redondant (« mélanome stade III » ET
+      #               « mélanome » ne restreint rien et écarte des articles) ;
+      #   LARGEUR   — dans un concept, toutes les formes courantes d'abord, puis
+      #               les rares : elles sont en OU, un synonyme rare ne coûte
+      #               rien et ramène parfois l'article que personne ne trouve.
+
+      # Chaque descripteur MeSH est VALIDÉ contre la table `mesh_descriptors`
+      # (~30 600 descripteurs vus à l'ingestion). Un descripteur inventé renvoie
+      # 0 SILENCIEUSEMENT sur PubMed — « Photodynamic Therapy »[MeSH] = 0 contre
+      # « Photochemotherapy »[MeSH] = 32 408 — et les [tiab] en OU masquaient la
+      # perte. Trois réécritures automatiques (tag collé, qualificatif /therapy,
+      # inversion « Adjuvant Chemotherapy » → « Chemotherapy, Adjuvant ») ;
+      # ce qui reste introuvable est rétrogradé en [tiab] au lieu de rendre 0.
+      # Les molécules récentes ne SONT PAS des descripteurs (aflibercept[MeSH]
+      # = 0, [tiab] = 4 276) : elles passent naturellement par ce chemin.
+      {pubmed_query, mesh_terms, keywords_en, concepts_en} = ASSEMBLER(concepts)
       # ex. pubmed_query = ("Glaucoma, Angle-Closure"[MeSH] OR "angle closure"[tiab])
-      #                     AND (hydroxyzine[tiab] OR atarax[tiab])
-      #     mesh_terms   = ["Glaucoma, Angle-Closure", "Hydroxyzine"]
-      #     keywords_en  = ["angle closure glaucoma", "hydroxyzine", "atarax", ...]
+      #                     AND ("Hydroxyzine"[MeSH] OR "atarax"[tiab])
+      # Termes cités et TRIÉS dans chaque bloc : les guillemets ne changent aucun
+      # compte PubMed (vérifié, troncature comprise) et le tri supprime une
+      # variation gratuite. L'ordre des CONCEPTS, lui, est conservé : il pilote
+      # l'échelle de relâchement du pré-filtre local.
       builder = "codex"
       term    = pubmed_query
   SINON (codex KO ou quota dépassé):

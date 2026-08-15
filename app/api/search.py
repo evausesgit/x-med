@@ -625,7 +625,9 @@ def _run_deep_search(
     concepts: list[list[str]] = []  # mots-clés groupés par concept → ET local
     emit("codex", "🚀 Construction de la requête PubMed (GPT-5.6)…")
     try:
-        pq, qb_usage = build_pubmed_query(req.query)
+        # `corpus` porte le thésaurus MeSH : les descripteurs proposés y sont
+        # validés, et ce qui n'existe pas repart en [tiab] au lieu de rendre 0.
+        pq, qb_usage = build_pubmed_query(req.query, session=corpus)
         pubmed_query = pq["pubmed_query"]
         mesh = pq.get("mesh_terms", [])
         keywords = pq.get("keywords_en", [])

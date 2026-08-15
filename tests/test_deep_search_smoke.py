@@ -121,7 +121,7 @@ class _Spy:
 def spy(monkeypatch, corpus):
     s = _Spy()
 
-    def fake_build(question, timeout=180):
+    def fake_build(question, timeout=180, session=None):
         return (
             {
                 "pubmed_query": f"{LOCAL_TERM}[tiab]",
@@ -400,7 +400,7 @@ def test_local_floor_reserves_slots_in_the_real_pipeline(session, app_db, spy, c
 
 
 def test_query_builder_failure_falls_back_to_the_raw_question(session, app_db, spy, monkeypatch):
-    def boom(question, timeout=180):
+    def boom(question, timeout=180, session=None):
         raise QueryBuildError("codex indisponible")
 
     monkeypatch.setattr(query_builder, "build_pubmed_query", boom)
@@ -423,7 +423,7 @@ def test_the_and_of_concepts_actually_restricts_the_pool(session, app_db, spy, m
     C'est la propriété qui rend le pré-filtre rapide : chaque concept ajouté
     réduit le nombre de lignes que `ORDER BY ts_rank` doit détoaster.
     """
-    def two_concepts(question, timeout=180):
+    def two_concepts(question, timeout=180, session=None):
         return (
             {
                 "pubmed_query": f"{LOCAL_TERM}[tiab]",
