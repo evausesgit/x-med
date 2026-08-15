@@ -6,6 +6,8 @@ import json
 import time
 from collections.abc import Callable
 from datetime import date
+from functools import reduce
+from itertools import zip_longest
 from queue import Empty, Queue
 from threading import Thread
 from typing import Literal
@@ -26,13 +28,19 @@ from app.services.usage_log import record_usage
 
 router = APIRouter()
 
-# Garde-fou latence du pré-filtre local : la base miroir compte ~25 M articles ;
-# sur un sujet à termes courants, le filtre FTS+MeSH matche des millions de lignes
-# et le tri ts_rank peut prendre plusieurs minutes. Au-delà de ce délai, on renonce
-# au vivier local (repli PubMed) plutôt que de faire attendre le médecin.
-# Valeur dans Settings (env LOCAL_SEARCH_TIMEOUT_MS) — montée à 2 min pour l'essai
-# « mesurer le vrai temps », avec bouton stop côté front en complément.
+# Garde-fou latence du pré-filtre local, budget TOTAL de l'échelle de relâchement
+# (toutes tentatives confondues, voir _local_prefilter). Depuis que le pré-filtre
+# interroge les concepts en ET, une requête saine tient en quelques secondes :
+# au-delà, ce n'est plus « le sujet est large », c'est une anomalie, et mieux vaut
+# rendre la main vite avec les seuls résultats PubMed. Valeur dans Settings (env
+# LOCAL_SEARCH_TIMEOUT_MS) ; bouton stop côté front en complément.
 LOCAL_SEARCH_TIMEOUT_MS = settings.local_search_timeout_ms
+
+# Vivier local jugé suffisant : en dessous, on relâche d'un cran (_local_prefilter).
+# Ordre de grandeur voulu — le lot jugé par codex fait `judge_batch` (50 par défaut)
+# et le vivier local n'est qu'une des deux sources, donc quelques dizaines suffisent
+# à peser dans la fusion RRF sans déclencher un élargissement à chaque recherche.
+LOCAL_MIN_POOL = 30
 
 # Recherches locales en cours, annulables depuis le front (bouton stop) :
 # token (fourni par le front) → PID du backend Postgres qui exécute la requête FTS.
@@ -303,6 +311,176 @@ def _prefilter_source(corpus: Session, date_from: str | None):
     return ArticleSearch if yf >= min_year else Article
 
 
+def _concept_groups(
+    concepts: list[list[str]], keywords: list[str]
+) -> list[list[str]]:
+    """Groupes de synonymes du pré-filtre local, du plus fiable au dernier recours.
+
+    - `concepts_en` de codex : un groupe par concept → ET des groupes (rapide) ;
+    - à défaut `keywords_en` : un seul groupe, donc un OU à plat — c'est l'ancien
+      comportement, lent dès qu'un mot banal traîne dans la liste. Il ne sert que
+      si codex n'a pas honoré le schéma, et le garde-fou le coupe vite ;
+    - rien d'exploitable : le pré-filtre est SAUTÉ. On n'envoie jamais la question
+      FRANÇAISE à un index anglais — `websearch_to_tsquery('english', …)` n'en tire
+      quasi aucun lexème utile et le vivier local retombait à 0 sans le dire.
+    """
+    from app.services.query_builder import normalize_concepts
+
+    groups = normalize_concepts(concepts)
+    if groups:
+        return groups
+    kw = [t.strip() for t in keywords or [] if t and t.strip()]
+    return [kw] if kw else []
+
+
+def _local_tsquery(groups: list[list[str]]):
+    """tsquery = ET des concepts, chaque concept = OU de ses synonymes.
+
+    **C'est le point clé de la performance du pré-filtre.** Le coût d'une requête
+    FTS n'est pas dominé par la taille de la table mais par le NOMBRE DE LIGNES QUI
+    MATCHENT : `ORDER BY ts_rank` doit détoaster le tsvector de chacune. Aplatir
+    les concepts en un seul OU (« endometriosis OR cyst OR surgery OR pain ») revient
+    à payer le mot le plus banal de la liste. Mesuré sur la fenêtre 2025-2026 :
+    268 137 lignes en 92,8 s pour le OU à plat, contre 1 546 lignes en 21 ms pour
+    le ET des mêmes concepts. Et le défaut est pervers : plus la question clinique
+    est précise, plus codex émet de concepts, donc plus le risque qu'un mot banal
+    (`pain` seul = 103 611 articles sur 2025-2026) fasse exploser le temps est grand.
+
+    Postgres : `tsquery && tsquery` = ET. SQLAlchemy parenthèse l'expression, donc
+    le `@@` de l'appelant ne capture pas le premier opérande (`fts @@ (a && b)`).
+    """
+    return reduce(
+        lambda a, b: a.op("&&")(b),
+        [func.websearch_to_tsquery("english", " OR ".join(g)) for g in groups],
+    )
+
+
+def _run_prefilter(
+    corpus: Session,
+    Src,
+    groups: list[list[str]],
+    conditions: list,
+    limit: int,
+    timeout_ms: int,
+    token: str | None,
+) -> tuple[list[int], str]:
+    """Une tentative de pré-filtre, bornée dans sa propre transaction.
+
+    Retourne (pmids, état) avec état ∈ {"ok", "timeout", "stopped"}.
+
+    SET LOCAL vit jusqu'à la FIN DE LA TRANSACTION : on borne donc la requête FTS
+    dans sa propre transaction, fermée des deux côtés — rollback() si Postgres
+    l'annule (timeout ou bouton stop, seul le message d'erreur distingue les deux :
+    « statement timeout » vs « user request »), commit() sinon. Sans cette borne,
+    le timeout contaminerait les requêtes corpus suivantes (fetch abstracts…) de la
+    même transaction. La session corpus n'écrit jamais : commit/rollback y sont sans
+    autre effet que de clore la transaction. (Un savepoint ne suffisait pas : le
+    RELEASE d'un savepoint réussi ne réinitialise PAS un SET LOCAL.)
+
+    Enregistre le PID Postgres pour le bouton stop mais ne le retire PAS : c'est
+    l'appelant qui le fait, à la fin de l'échelle. Sinon le jeton disparaîtrait
+    entre deux tentatives et le bouton n'aurait rien à annuler.
+    """
+    tsq = _local_tsquery(groups)
+    try:
+        corpus.execute(
+            sql_text(f"SET LOCAL statement_timeout = '{max(timeout_ms, 1)}ms'")
+        )
+        if token:
+            _LOCAL_SEARCH_PIDS[token] = corpus.scalar(sql_text("SELECT pg_backend_pid()"))
+        pmids = list(
+            corpus.scalars(
+                select(Src.pmid)
+                .where(Src.fts.op("@@")(tsq), *conditions)
+                .order_by(func.ts_rank(Src.fts, tsq).desc())
+                .limit(limit)
+            ).all()
+        )
+    except OperationalError as e:
+        corpus.rollback()
+        return [], "stopped" if "user request" in str(e) else "timeout"
+    else:
+        corpus.commit()
+        return pmids, "ok"
+
+
+def _interleave(head: list[int], lists: list[list[int]], limit: int) -> list[int]:
+    """`head` en tête, puis les autres listes en tourniquet, sans doublon.
+
+    Chaque variante du palier de relâchement est classée par SON ts_rank : les
+    mettre bout à bout laisserait la première remplir toutes les places. Le
+    tourniquet donne à chaque relâchement sa part du vivier. `head` (le palier
+    strict, le plus précis) garde la tête : c'est lui qui doit peser dans la
+    fusion RRF en aval.
+    """
+    out = list(dict.fromkeys(head))[:limit]
+    seen = set(out)
+    for row in zip_longest(*lists):
+        for pmid in row:
+            if pmid is not None and pmid not in seen:
+                seen.add(pmid)
+                out.append(pmid)
+                if len(out) >= limit:
+                    return out
+    return out
+
+
+def _local_prefilter(
+    corpus: Session,
+    Src,
+    groups: list[list[str]],
+    conditions: list,
+    limit: int,
+    token: str | None,
+    emit: Callable[..., None],
+) -> tuple[list[int], str]:
+    """Pré-filtre local avec échelle de relâchement. Retourne (pmids, état).
+
+    Le ET de tous les concepts est rapide mais parfois trop sévère : un article
+    pertinent peut ne pas employer le vocabulaire d'un des concepts. On relâche
+    alors d'un cran — chaque variante retire UN concept et garde les autres en ET —
+    et on fusionne. Mesuré sur « kystes d'endométriose » (2025-2026, 3 concepts) :
+    236 articles en 1,9 s pour le ET strict, 348 en 0,4 s et 1 488 en 1,3 s pour
+    les variantes. On reste donc à quelques secondes là où le OU à plat dépassait
+    les 120 s de garde-fou.
+
+    Deux invariants :
+    - **jamais moins de 2 concepts en ET** dans une variante — en dessous on
+      retombe sur les centaines de milliers de lignes que ce code corrige ;
+    - **le budget total** reste `LOCAL_SEARCH_TIMEOUT_MS`, réparti entre les
+      tentatives : relâcher ne doit pas rallonger l'attente du médecin.
+    """
+    t0 = time.monotonic()
+
+    def left() -> int:
+        return LOCAL_SEARCH_TIMEOUT_MS - int((time.monotonic() - t0) * 1000)
+
+    try:
+        pmids, state = _run_prefilter(
+            corpus, Src, groups, conditions, limit, left(), token
+        )
+        if state != "ok" or len(pmids) >= LOCAL_MIN_POOL or len(groups) < 3:
+            return pmids, state
+
+        emit("filter_relax",
+             f"🪜 Vivier local étroit ({len(pmids)} articles) — on relâche un concept "
+             "à la fois pour élargir…")
+        variants: list[list[int]] = []
+        for i in range(len(groups)):
+            if left() <= 1_000:  # plus de budget : on s'arrête sur ce qu'on a
+                break
+            sub = [g for j, g in enumerate(groups) if j != i]
+            got, st = _run_prefilter(corpus, Src, sub, conditions, limit, left(), token)
+            if st == "stopped":  # bouton stop : on rend le palier strict, déjà acquis
+                return pmids, "ok" if pmids else "stopped"
+            if got:
+                variants.append(got)
+        return _interleave(pmids, variants, limit), "ok"
+    finally:
+        if token:
+            _LOCAL_SEARCH_PIDS.pop(token, None)
+
+
 def _candidate_order(
     a_pmids: list[int], local_pmids: list[int], rrf: bool, k: int = 60
 ) -> list[int]:
@@ -444,12 +622,14 @@ def _run_deep_search(
     pubmed_query: str | None = None
     mesh: list[str] = []
     keywords: list[str] = []
+    concepts: list[list[str]] = []  # mots-clés groupés par concept → ET local
     emit("codex", "🚀 Construction de la requête PubMed (GPT-5.6)…")
     try:
         pq, qb_usage = build_pubmed_query(req.query)
         pubmed_query = pq["pubmed_query"]
         mesh = pq.get("mesh_terms", [])
         keywords = pq.get("keywords_en", [])
+        concepts = pq.get("concepts_en", [])
         term = pubmed_query
         codex_tokens["query"] = qb_usage.total_tokens
         emit("codex_done", f"🧠 Requête PubMed construite · {_fmt_tokens(qb_usage)}",
@@ -486,79 +666,52 @@ def _run_deep_search(
     emit("esearch_done", f"📚 {len(a_pmids)} articles PubMed récupérés")
 
     # --- Étape 2 : même requête sur la base locale (FTS) → B ---
-    # La base locale miroir de PubMed compte désormais ~25 M d'articles : on signale
-    # l'étape AVANT de lancer la requête (et pas seulement après) pour que le médecin
-    # voie qu'on fouille le fonds documentaire, plutôt qu'un écran figé.
-    emit("filter_start",
-         "🗄️ Recherche dans la base locale PubMed (~25 M d'articles)…")
-    ts = " OR ".join(keywords) if keywords else req.query
-    tsq = func.websearch_to_tsquery("english", ts)
-    # Pré-filtre = FTS seul (index GIN + tri ts_rank) : ~0,4 s sur 25 M lignes.
+    # Pré-filtre = FTS seul (index GIN + tri ts_rank), sur les CONCEPTS de codex
+    # combinés en ET (voir _local_tsquery : c'est ce qui tient le temps de réponse).
     # /!\ On N'AJOUTE PLUS `OR mesh_terms && ARRAY[...]` : un descripteur MeSH courant
     # (ex. « Heart Failure ») matche des millions d'articles que ts_rank doit tous
     # trier → la MÊME requête passait de 0,4 s à ~206 s. Les mots-clés EN de codex sont
     # déjà exhaustifs (synonymes cliniques + noms de molécules) et codex re-juge ensuite,
     # donc le gain de rappel du MeSH était marginal pour un coût prohibitif. `mesh` reste
     # utilisé pour la requête PubMed (esearch), pas pour le vivier local.
-    # Table étroite récente (chaude) si la recherche tient dans la fenêtre, sinon
-    # la table complète. `Src` a les mêmes colonnes (pmid, pub_year, fts).
-    Src = _prefilter_source(corpus, req.date_from)
-    cond = Src.fts.op("@@")(tsq)
-    conditions = [cond]
-    yf, yt = _year(req.date_from), _year(req.date_to)
-    if yf is not None:
-        conditions.append(Src.pub_year >= yf)
-    if yt is not None:
-        conditions.append(Src.pub_year <= yt)
-    # SET LOCAL vit jusqu'à la FIN DE LA TRANSACTION : on borne donc la requête FTS
-    # dans sa propre transaction, fermée des deux côtés — rollback() si Postgres
-    # l'annule (timeout ou bouton stop, seul le message d'erreur distingue les deux :
-    # « statement timeout » vs « user request »), commit() sinon. Sans cette borne,
-    # le timeout contaminerait les requêtes corpus suivantes (fetch abstracts…) de la
-    # même transaction. La session corpus n'écrit jamais : commit/rollback y sont sans
-    # autre effet que de clore la transaction. (Un savepoint ne suffisait pas : le
-    # RELEASE d'un savepoint réussi ne réinitialise PAS un SET LOCAL.)
+    groups = _concept_groups(concepts, keywords)
     local_pmids: list[int] = []
-    local_timed_out = False
-    local_stopped = False
-    t_local = time.monotonic()
-    try:
-        corpus.execute(
-            sql_text(f"SET LOCAL statement_timeout = '{LOCAL_SEARCH_TIMEOUT_MS}ms'")
-        )
-        if req.local_token:
-            pid = corpus.scalar(sql_text("SELECT pg_backend_pid()"))
-            _LOCAL_SEARCH_PIDS[req.local_token] = pid
-        local_pmids = list(
-            corpus.scalars(
-                select(Src.pmid)
-                .where(*conditions)
-                .order_by(func.ts_rank(Src.fts, tsq).desc())
-                .limit(req.max_local)
-            ).all()
-        )
-    except OperationalError as e:
-        corpus.rollback()
-        if "user request" in str(e):
-            local_stopped = True
-        else:
-            local_timed_out = True
+    local_state = "skipped"
+    local_s = 0.0
+    if not groups:
+        emit("filter_skipped",
+             "⏭️ Base locale non interrogée : pas de mots-clés anglais "
+             "(construction de requête indisponible) — on s'appuie sur PubMed.")
     else:
-        corpus.commit()
-    finally:
-        if req.local_token:
-            _LOCAL_SEARCH_PIDS.pop(req.local_token, None)
-    local_s = time.monotonic() - t_local
-    if local_stopped:
+        # La base locale miroir de PubMed compte ~25 M d'articles : on signale
+        # l'étape AVANT de lancer la requête (et pas seulement après) pour que le
+        # médecin voie qu'on fouille le fonds, plutôt qu'un écran figé.
+        emit("filter_start",
+             "🗄️ Recherche dans la base locale PubMed (~25 M d'articles)…")
+        # Table étroite récente (chaude) si la recherche tient dans la fenêtre, sinon
+        # la table complète. `Src` a les mêmes colonnes (pmid, pub_year, fts).
+        Src = _prefilter_source(corpus, req.date_from)
+        conditions = []
+        yf, yt = _year(req.date_from), _year(req.date_to)
+        if yf is not None:
+            conditions.append(Src.pub_year >= yf)
+        if yt is not None:
+            conditions.append(Src.pub_year <= yt)
+        t_local = time.monotonic()
+        local_pmids, local_state = _local_prefilter(
+            corpus, Src, groups, conditions, req.max_local, req.local_token, emit
+        )
+        local_s = time.monotonic() - t_local
+    if local_state == "stopped":
         emit("filter_stopped",
              f"⏹️ Recherche locale interrompue au bout de {local_s:.1f}s — on "
              "continue avec les seuls résultats PubMed.")
-    elif local_timed_out:
+    elif local_state == "timeout":
         emit("filter_timeout",
-             f"⏱️ Sujet trop large pour la base locale (délai de "
+             f"⏱️ Recherche locale abandonnée (délai de "
              f"{LOCAL_SEARCH_TIMEOUT_MS / 1000:.0f}s dépassé) — on s'appuie "
              "sur les résultats PubMed pour cette recherche.")
-    else:
+    elif local_state == "ok":
         emit("filter",
              f"🧮 {len(local_pmids)} candidats locaux "
              f"(filtre lexical FTS · {local_s:.1f}s)")
