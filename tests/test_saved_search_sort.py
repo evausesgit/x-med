@@ -3,16 +3,18 @@
 Une même question, triée « v1 · score IA » ou « v2 · fusion RRF », donne deux
 classements différents : ce sont deux snapshots distincts, et le `lookup` (qui
 sert à éviter un appel codex payant) ne doit jamais servir l'un pour l'autre.
-Tests purs sur les helpers de `app/api/saved_searches.py` — pas de base.
+Tests purs sur les helpers de `app/services/saved_search_store.py` (l'identité
+d'une recherche, partagée par le lookup et la sauvegarde automatique) — pas de
+base.
 """
 
 from __future__ import annotations
 
-from app.api.saved_searches import (
+from app.services.saved_search_store import (
     DEFAULT_SORT,
-    _params_match,
-    _sort_of,
-    _with_sort,
+    params_match as _params_match,
+    sort_of as _sort_of,
+    with_sort as _with_sort,
 )
 
 

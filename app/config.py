@@ -72,6 +72,15 @@ class Settings(BaseSettings):
     # vite que faire attendre le médecin 2 min pour un abandon.
     local_search_timeout_ms: int = 15_000
 
+    # Historique des recherches (`saved_searches`). Toute recherche aboutie y
+    # est sauvegardée automatiquement : la table doit donc être bornée, sinon
+    # elle grossit sans fin — chaque ligne porte le snapshot complet du
+    # résultat (jusqu'à quelques centaines de Ko d'abstracts). Deux limites,
+    # appliquées ensemble par `scripts/cleanup_saved_searches.py` ; 0 désactive
+    # la limite correspondante.
+    saved_search_retention_days: int = 90
+    saved_search_max_rows: int = 500
+
     # Notification Hermes/Telegram lorsqu'une recherche PubMed/Codex est lancée.
     # `telegram` cible le home channel Hermes, donc le DM Eva par défaut sur cette machine.
     search_notify_enabled: bool = True

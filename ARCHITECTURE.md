@@ -318,7 +318,35 @@ GET    /search/runs/{id}           état d'un run de recherche (pollé)
 GET    /search/runs                historique : run actif + dernières
                                    recherches abouties du compte
 POST   /search/runs/{id}/stop      arrêt de la recherche en cours
+GET    /saved-searches             historique des recherches (snapshots),
+                                   récent d'abord — vue partagée
+GET    /saved-searches/lookup      un snapshot identique existe-t-il déjà ?
+                                   (même question, mêmes dates, même tri) —
+                                   sert à ne PAS relancer codex
+GET    /saved-searches/{id}        une recherche + son résultat complet
+DELETE /saved-searches/{id}        suppression manuelle
+POST   /saved-searches             enregistrement explicite — laissé ouvert
+                                   pour les outils et les tests, le front ne
+                                   l'appelle plus (sauvegarde automatique)
 ```
+
+**Sauvegarde automatique des recherches.** Il n'y a pas de bouton
+« sauvegarder » : à la fin d'un run de recherche `complete`, le hook
+`on_complete` de `services/run_store.py` enregistre le snapshot dans
+`saved_searches` (`services/saved_search_store.py`), rattaché au profil du
+compte. `saved_searches` est donc l'historique complet des recherches, et non
+plus une collection choisie à la main. Deux conséquences de design :
+
+- **une ligne par recherche distincte** — la clé est (question normalisée +
+  méthode + fenêtre de dates + tri + profil) ; relancer la même recherche
+  rafraîchit la ligne au lieu d'empiler un doublon. La même définition sert au
+  `lookup`, sinon la sauvegarde écrirait des lignes que le lookup ne
+  retrouverait jamais ;
+- **historique borné** — chaque ligne porte le `payload` complet (~17 ko en
+  moyenne, jusqu'à quelques centaines de Ko). `scripts/cleanup_saved_searches.py`
+  élague par âge (`SAVED_SEARCH_RETENTION_DAYS`, défaut 90 j) et par nombre
+  (`SAVED_SEARCH_MAX_ROWS`, défaut 500), à brancher en tâche planifiée sur le
+  worker Coolify comme `prune_article_search`.
 
 La recherche principale et le digest ne sont PLUS en SSE : les tables
 `search_runs` / `digest_runs` sont la source de vérité et le front les polle —
@@ -379,6 +407,8 @@ PUBMED_API_KEY=xxxxxxxxxxxx          # NIH, gratuit
 FTP_HOST=ftp.ncbi.nlm.nih.gov
 FTP_PUBMED_PATH=/pubmed/updatefiles/
 DATA_DIR=/data/incoming
+SAVED_SEARCH_RETENTION_DAYS=90       # historique des recherches : âge max (0 = illimité)
+SAVED_SEARCH_MAX_ROWS=500            # …et nombre max (0 = illimité)
 ```
 
 ---

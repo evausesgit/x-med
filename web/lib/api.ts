@@ -654,22 +654,9 @@ export interface SavedSearchDetail extends SavedSearchSummary {
   payload: DeepSearchResponse;
 }
 
-export async function saveSearch(body: {
-  query: string;
-  payload: DeepSearchResponse;
-  doctor_id?: string | null;
-  method?: string;
-  params?: Record<string, unknown> | null;
-  sort?: SearchSort;
-}): Promise<SavedSearchDetail> {
-  const res = await fetch(`${API_BASE}/saved-searches`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
-  return res.json();
-}
+// Pas de client POST /saved-searches : les recherches sont enregistrées côté
+// serveur à la fin du run (app/services/saved_search_store.py). L'endpoint
+// existe toujours pour les outils et les tests, le front ne l'appelle plus.
 
 export async function listSavedSearches(): Promise<SavedSearchSummary[]> {
   const res = await fetch(`${API_BASE}/saved-searches`);
