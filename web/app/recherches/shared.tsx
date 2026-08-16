@@ -20,6 +20,7 @@ import {
 } from "../lang";
 import XMedResult, { deepRelevance, StructuredAbstract } from "../XMedResult";
 import { CritiquePanel, MAX_COMPARE, SelectButton } from "../Critique";
+import SearchQueryDetails from "../SearchQueryDetails";
 
 export function fmtDate(iso: string) {
   try {
@@ -149,23 +150,13 @@ export function ResultDetail({ payload }: { payload: DeepSearchResponse }) {
 
   return (
     <div className="saved-detail">
-      {payload.pubmed_query && (
-        <details className="explanation">
-          <summary>Requête PubMed générée + mots-clés</summary>
-          <p className="abstract" style={{ fontFamily: "monospace", fontSize: 13 }}>
-            {payload.pubmed_query}
-          </p>
-          {payload.keywords_en?.length > 0 && (
-            <div className="tags">
-              {payload.keywords_en.slice(0, 12).map((t) => (
-                <span className="tag" key={t}>
-                  {t}
-                </span>
-              ))}
-            </div>
-          )}
-        </details>
-      )}
+      <SearchQueryDetails
+        pubmedQuery={payload.pubmed_query}
+        keywordsEn={payload.keywords_en}
+        conceptsEn={payload.concepts_en}
+        localState={payload.local_state}
+        localCount={payload.counts?.local}
+      />
       {payload.results.length === 0 ? (
         <p className="notice">Aucun article dans cette recherche sauvegardée.</p>
       ) : (

@@ -31,6 +31,7 @@ import type {
 import Link from "next/link";
 import XMedResult, { deepRelevance, StructuredAbstract } from "./XMedResult";
 import { CritiquePanel, MAX_COMPARE, SelectButton } from "./Critique";
+import SearchQueryDetails from "./SearchQueryDetails";
 import { LanguageToggle, useDisplayLang, useTranslatedHits } from "./lang";
 
 // Durée d'une recherche PubMed + IA (jugement codex). En pratique 30–90 s ; le
@@ -1251,23 +1252,13 @@ export default function Home() {
             />
           )}
 
-          {deep.pubmed_query && (
-            <details className="explanation">
-              <summary>Requête PubMed générée + mots-clés</summary>
-              <p className="abstract" style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}>
-                {deep.pubmed_query}
-              </p>
-              {deep.keywords_en.length > 0 && (
-                <div className="tags">
-                  {deep.keywords_en.slice(0, 12).map((t) => (
-                    <span className="tag" key={t}>
-                      {t}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </details>
-          )}
+          <SearchQueryDetails
+            pubmedQuery={deep.pubmed_query}
+            keywordsEn={deep.keywords_en}
+            conceptsEn={deep.concepts_en}
+            localState={deep.local_state}
+            localCount={deep.counts.local}
+          />
 
           {deep.judge === "skipped" && (
             <p className="xm-banner warn">
