@@ -104,6 +104,9 @@ class _Spy:
     def __init__(self):
         self.judged_pmids: list[int] = []
         self.judge_calls = 0
+        # Bornes de dates reçues par esearch — doivent rester None (cf. le test
+        # `test_esearch_is_not_date_bounded`).
+        self.esearch_dates: tuple[str | None, str | None] | None = None
         self.events: list[tuple[str, str]] = []
         # Données portées par les jalons (le jalon `judge_detail` transporte le
         # verdict de chaque abstract soumis).
@@ -118,18 +121,22 @@ class _Spy:
 def spy(monkeypatch, corpus):
     s = _Spy()
 
-    def fake_build(question, timeout=180):
+    def fake_build(question, timeout=180, session=None):
         return (
             {
                 "pubmed_query": f"{LOCAL_TERM}[tiab]",
                 "mesh_terms": ["Neoplasms"],
                 "keywords_en": [LOCAL_TERM],
+                # Mots-clés groupés par concept : c'est cette structure que le
+                # pré-filtre local rejoue en ET (voir _local_tsquery).
+                "concepts_en": [[LOCAL_TERM]],
             },
             CodexUsage(input_tokens=100, output_tokens=20),
         )
 
     def fake_esearch(term, retmax=20, sort="relevance", reldate=None,
                      mindate=None, maxdate=None):
+        s.esearch_dates = (mindate, maxdate)
         pmids = corpus["a_pmids"][:retmax]
         return len(pmids), pmids
 
@@ -199,11 +206,136 @@ def test_results_are_sorted_by_judged_relevance(session, app_db, spy):
     assert keys == sorted(keys), "le tri final doit rester le score du juge"
 
 
-def test_date_window_is_respected(session, app_db, spy):
+def test_esearch_is_not_date_bounded(session, app_db, spy):
+    """PubMed est interrogé SANS bornes de dates, même quand la recherche en a.
+
+    Régression : avec le défaut « depuis 2025 », un sujet à littérature ancienne
+    (floppy eyelid syndrome × glaucome à pression normale) renvoyait 0 article
+    alors que PubMed en a une douzaine. La fenêtre ne filtre plus le rappel, elle
+    ne sert plus qu'à signaler les articles hors période.
+    """
+    _run_deep_search(_req(rrf=True), session, app_db, spy.progress)
+    assert spy.esearch_dates == (None, None), (
+        "esearch ne doit plus recevoir mindate/maxdate : le filtrage amont "
+        f"vidait les résultats des sujets anciens (reçu : {spy.esearch_dates})"
+    )
+
+
+def test_local_only_candidates_stay_date_bounded(session, app_db, spy):
+    """Le vivier LOCAL reste borné : `_prefilter_source` s'appuie sur la borne
+    basse pour rester sur la table chaude. Seul PubMed est débridé."""
     resp = _run_deep_search(_req(rrf=True), session, app_db, spy.progress)
     for h in resp.results:
-        if h.pub_year is not None:
+        if h.source == "local" and h.pub_year is not None:
             assert 2025 <= h.pub_year <= 2026, f"{h.pmid} hors fenêtre : {h.pub_year}"
+        assert h.out_of_window is False, (
+            f"{h.pmid} ({h.pub_year}) est dans la fenêtre, il ne doit pas être marqué"
+        )
+
+
+def test_ranking_follows_relevance_even_when_the_best_is_out_of_window(
+    session, app_db, spy, corpus, monkeypatch
+):
+    """Le plus pertinent est premier, même publié hors de la fenêtre demandée.
+
+    Mesuré en conditions réelles : trier la période demandée en premier enterrait
+    la vraie réponse sur les sujets à littérature ancienne (les recommandations de
+    traitement du syndrome de Susac, 98 % de pertinence, passaient sous un article
+    à 82 % dont le seul mérite était sa date). La date n'entre donc pas dans le
+    tri, elle est signalée par `out_of_window`.
+
+    Le cas est DISCRIMINANT : on donne à l'article ancien le MEILLEUR score
+    (3 contre 2), et on le place en tête de la liste PubMed. S'il repassait
+    dernier, c'est qu'une clé de date se serait réintroduite dans le tri.
+    """
+    OLD_PMID = 999_000_002
+
+    def with_old(term, retmax=20, sort="relevance", reldate=None,
+                 mindate=None, maxdate=None):
+        return 1, [OLD_PMID, *corpus["a_pmids"][:retmax - 1]]
+
+    def judge_old_best(query, items):
+        scores = {
+            i["pmid"]: Judgement(
+                score=3 if i["pmid"] == OLD_PMID else 2,
+                reason="doublure",
+                relevance_pct=99 if i["pmid"] == OLD_PMID else 50,
+            )
+            for i in items
+        }
+        return scores, CodexUsage(input_tokens=500, output_tokens=50)
+
+    monkeypatch.setattr(codex_judge, "judge_articles", judge_old_best)
+    monkeypatch.setattr(pubmed_eutils, "esearch", with_old)
+    monkeypatch.setattr(
+        pubmed_eutils, "esummary",
+        lambda pmids: {
+            OLD_PMID: pubmed_eutils.PubmedHit(
+                pmid=OLD_PMID, title="Article ancien mais pertinent",
+                journal="J. Ancien", pub_year=1997, doi=None,
+            )
+        },
+    )
+    monkeypatch.setattr(
+        pubmed_eutils, "efetch_abstracts",
+        lambda pmids: {OLD_PMID: "Un abstract jugé aussi pertinent que les autres."},
+    )
+
+    resp = _run_deep_search(_req(rrf=False), session, app_db, spy.progress)
+
+    ordre = [(h.pmid, h.pub_year, h.out_of_window) for h in resp.results]
+    assert resp.results[0].pmid == OLD_PMID, (
+        "l'article de 1997 est le mieux jugé (score 3 / 99 %) : il doit être PREMIER "
+        f"malgré sa date, sinon la fenêtre s'est réinvitée dans le tri — {ordre}"
+    )
+    assert resp.results[0].out_of_window is True, (
+        "…et il doit rester marqué « hors période » : on le montre en tête, mais on "
+        "ne cache pas au médecin qu'il est ancien"
+    )
+    flags = [h.out_of_window for h in resp.results]
+    assert any(not f for f in flags), "le test n'a pas de témoin dans la fenêtre"
+
+
+def test_out_of_window_pubmed_article_is_kept_and_flagged(
+    session, app_db, spy, monkeypatch
+):
+    """Un article PubMed ANCIEN, jugé pertinent, est rendu — marqué, pas écarté.
+
+    C'est la contrepartie du débridage d'esearch : plutôt qu'une page vide, le
+    médecin voit l'article de 1997 avec un badge « hors période ».
+    """
+    OLD_PMID, OLD_YEAR = 999_000_001, 1997
+
+    def only_old(term, retmax=20, sort="relevance", reldate=None,
+                 mindate=None, maxdate=None):
+        spy.esearch_dates = (mindate, maxdate)
+        return 1, [OLD_PMID]
+
+    monkeypatch.setattr(pubmed_eutils, "esearch", only_old)
+    monkeypatch.setattr(
+        pubmed_eutils, "esummary",
+        lambda pmids: {
+            OLD_PMID: pubmed_eutils.PubmedHit(
+                pmid=OLD_PMID, title="Floppy eyelid syndrome and normal tension glaucoma",
+                journal="Ophthalmology", pub_year=OLD_YEAR, doi=None,
+            )
+        },
+    )
+    monkeypatch.setattr(
+        pubmed_eutils, "efetch_abstracts",
+        lambda pmids: {OLD_PMID: "Association between floppy eyelid syndrome and NTG."},
+    )
+
+    resp = _run_deep_search(_req(rrf=False, max_local=0), session, app_db, spy.progress)
+
+    hit = next((h for h in resp.results if h.pmid == OLD_PMID), None)
+    assert hit is not None, "l'article hors fenêtre a été écarté au lieu d'être rendu"
+    assert hit.pub_year == OLD_YEAR
+    assert hit.out_of_window is True, "il doit porter le badge « hors période »"
+    assert resp.counts["kept_out_of_window"] == 1
+    assert any(p == "out_of_window" for p, _ in spy.events), (
+        "le déroulé doit annoncer les articles retenus hors fenêtre"
+    )
 
 
 def test_sources_are_labelled(session, app_db, spy, corpus):
@@ -268,7 +400,7 @@ def test_local_floor_reserves_slots_in_the_real_pipeline(session, app_db, spy, c
 
 
 def test_query_builder_failure_falls_back_to_the_raw_question(session, app_db, spy, monkeypatch):
-    def boom(question, timeout=180):
+    def boom(question, timeout=180, session=None):
         raise QueryBuildError("codex indisponible")
 
     monkeypatch.setattr(query_builder, "build_pubmed_query", boom)
@@ -277,6 +409,38 @@ def test_query_builder_failure_falls_back_to_the_raw_question(session, app_db, s
     assert resp.query_builder == "fallback"
     assert resp.judge == "codex"
     assert resp.results, "un échec du constructeur ne doit pas vider la recherche"
+    # Sans codex il n'y a pas de mot-clé ANGLAIS : le pré-filtre local est sauté
+    # au lieu d'envoyer la question FRANÇAISE à un index anglais (vivier 0 muet).
+    phases = [p for p, _ in spy.events]
+    assert "filter_skipped" in phases
+    assert "filter_start" not in phases
+    assert resp.counts["local"] == 0
+
+
+def test_the_and_of_concepts_actually_restricts_the_pool(session, app_db, spy, monkeypatch):
+    """Deux concepts en ET ⊂ un concept seul — le ET filtre vraiment (vraie base).
+
+    C'est la propriété qui rend le pré-filtre rapide : chaque concept ajouté
+    réduit le nombre de lignes que `ORDER BY ts_rank` doit détoaster.
+    """
+    def two_concepts(question, timeout=180, session=None):
+        return (
+            {
+                "pubmed_query": f"{LOCAL_TERM}[tiab]",
+                "mesh_terms": [],
+                "keywords_en": [LOCAL_TERM, PUBMED_ONLY_TERM],
+                "concepts_en": [[LOCAL_TERM], [PUBMED_ONLY_TERM]],
+            },
+            CodexUsage(input_tokens=100, output_tokens=20),
+        )
+
+    wide = _run_deep_search(_req(rrf=True), session, app_db, spy.progress)
+    monkeypatch.setattr(query_builder, "build_pubmed_query", two_concepts)
+    narrow = _run_deep_search(_req(rrf=True), session, app_db, spy.progress)
+
+    assert wide.counts["local"] > 0, "le pré-filtre FTS local n'a rien trouvé"
+    # Les deux sujets sont disjoints (dermatologie / gynécologie) : leur ET est vide.
+    assert narrow.counts["local"] < wide.counts["local"]
 
 
 def test_judge_failure_degrades_without_losing_results(session, app_db, spy, monkeypatch):
