@@ -5,14 +5,11 @@ import {
   analyzeCompareStream,
   createSearchRun,
   DeepSearchResponse,
-  Doctor,
   fmtSeconds,
   getSearchRun,
   getSearchRunHistory,
-  listDoctors,
   lookupSavedSearch,
   PubmedLog,
-  saveSearch,
   searchPubmedDeepMoreStream,
   SORT_LABEL,
   stopLocalSearch,
@@ -453,100 +450,6 @@ const runSort = (run: SearchRunSummary): SearchSort => (run.params.rrf ? "v2" : 
 // est reconnu — sinon on retombe sur le tri par défaut du sélecteur.
 const asSort = (v: string | null | undefined): SearchSort | null =>
   v === "v1" || v === "v2" ? v : null;
-
-// Sauvegarde du résultat v2 courant : snapshot complet rattaché à un profil.
-// `sort` = tri du résultat AFFICHÉ (pas la position courante du sélecteur, qui
-// ne s'appliquera qu'à la prochaine recherche) : la même question peut ainsi
-// être sauvegardée deux fois, une par tri, sans que l'une écrase l'autre.
-function SaveSearchBar({
-  deep,
-  query,
-  dateFrom,
-  dateTo,
-  sort,
-  alreadySavedId,
-}: {
-  deep: DeepSearchResponse;
-  query: string;
-  dateFrom: string;
-  dateTo: string;
-  sort: SearchSort;
-  alreadySavedId?: string;
-}) {
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [doctorId, setDoctorId] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [savedId, setSavedId] = useState<string | null>(alreadySavedId ?? null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    listDoctors().then(setDoctors);
-  }, []);
-
-  useEffect(() => {
-    setSavedId(alreadySavedId ?? null);
-    setError(null);
-  }, [query, sort, alreadySavedId]);
-
-  async function save() {
-    setBusy(true);
-    setError(null);
-    try {
-      const s = await saveSearch({
-        query,
-        payload: deep,
-        doctor_id: doctorId || null,
-        method: "v2",
-        sort,
-        params: { date_from: dateFrom, date_to: dateTo },
-      });
-      setSavedId(s.id);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Échec de la sauvegarde");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div className="save-bar">
-      <label className="save-bar-label">Profil</label>
-      <select
-        value={doctorId}
-        onChange={(e) => setDoctorId(e.target.value)}
-        disabled={busy || !!savedId}
-      >
-        <option value="">— Aucun profil —</option>
-        {doctors.map((d) => (
-          <option key={d.id} value={d.id}>
-            {d.name}
-            {d.profile?.specialty_main ? ` · ${d.profile.specialty_main}` : ""}
-          </option>
-        ))}
-      </select>
-      {savedId ? (
-        <span className="meta" style={{ margin: 0 }}>
-          ✓ Sauvegardée — <Link href="/recherches">voir mes recherches</Link>
-        </span>
-      ) : (
-        <button
-          type="button"
-          className="primary"
-          onClick={save}
-          disabled={busy}
-          title={`La même question sauvegardée avec l'autre tri fera une seconde entrée (ici : ${SORT_LABEL[sort]})`}
-        >
-          {busy ? "…" : `💾 Sauvegarder cette recherche (${SORT_LABEL[sort]})`}
-        </button>
-      )}
-      {error && (
-        <span className="error" style={{ margin: 0 }}>
-          {error}
-        </span>
-      )}
-    </div>
-  );
-}
 
 // Bouton d'envoi du composer : flèche montante quand on peut lancer, carré
 // plein quand la recherche tourne et qu'on peut l'arrêter.
@@ -1502,19 +1405,22 @@ export default function Home() {
               <CopyLinkButton />
             </div>
 
-            {savedHit && (
+            {savedHit ? (
+              // Résultat ressorti de l'historique : la recherche avait déjà été
+              // faite (et donc sauvegardée d'office), on ne rappelle pas codex.
               <p
                 className="xm-banner info"
                 style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}
               >
                 <span>
-                  💾 Résultat déjà sauvegardé le{" "}
+                  💾 Recherche déjà effectuée le{" "}
                   {new Date(savedHit.created_at).toLocaleDateString("fr-FR", {
                     day: "numeric",
                     month: "long",
                     year: "numeric",
                   })}{" "}
-                  — affiché sans relancer codex.
+                  — résultat repris de{" "}
+                  <Link href="/recherches">vos recherches</Link>, sans relancer codex.
                 </span>
                 <button
                   type="button"
@@ -1524,17 +1430,16 @@ export default function Home() {
                   Relancer quand même
                 </button>
               </p>
-            )}
-
-            {!loading && deep.results.length > 0 && (
-              <SaveSearchBar
-                deep={deep}
-                query={q.trim()}
-                dateFrom={dateFrom}
-                dateTo={dateTo}
-                sort={resultSort}
-                alreadySavedId={savedHit?.id}
-              />
+            ) : (
+              !loading &&
+              deep.results.length > 0 && (
+                // Plus de bouton « sauvegarder » : la recherche est enregistrée
+                // toute seule à la fin du run, on dit juste où la retrouver.
+                <p className="meta" style={{ margin: "10px 2px 0" }}>
+                  💾 Recherche enregistrée automatiquement dans{" "}
+                  <Link href="/recherches">vos recherches</Link>.
+                </p>
+              )
             )}
 
             <SearchQueryDetails

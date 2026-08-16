@@ -29,7 +29,7 @@ from app.api.me import Identity, _find_doctor, current_identity, ensure_doctor
 from app.api.search import DeepSearchRequest
 from app.db import CorpusSessionLocal, SessionLocal
 from app.models import SearchRun
-from app.services import run_store, search_cancel
+from app.services import run_store, saved_search_store, search_cancel
 from app.services.run_store import ACTIVE_STATUSES, PARIS
 from app.services.usage_log import record_usage
 
@@ -139,6 +139,7 @@ def create_search_run(
             raise
         session.refresh(run)
         summary = SearchRunSummary.model_validate(run)
+        doctor_id = doctor.id  # lu avant la fermeture de la session
 
     record_usage(
         request, "search.deep", query=query,
@@ -161,12 +162,27 @@ def create_search_run(
         # Le run id sert de jeton d'annulation (stop + pg_cancel du FTS local).
         local_token=str(summary.id),
     )
+    # Sauvegarde automatique : une recherche aboutie entre d'office dans
+    # l'historique partagé (`saved_searches`), rattachée au profil du compte.
+    # Il n'y a plus de bouton « sauvegarder » — et comme le lookup se sert de
+    # cet historique, reposer la même question ne rappelle plus codex.
+    def autosave(payload: dict) -> None:
+        saved_search_store.autosave(
+            query=query,
+            payload=payload,
+            doctor_id=doctor_id,
+            date_from=req.date_from,
+            date_to=req.date_to,
+            sort=saved_search_store.sort_of_run({"rrf": body.rrf}),
+        )
+
     try:
         if cancel_state is None:  # impossible : le run id est un UUID neuf
             raise RuntimeError("jeton de recherche déjà utilisé")
         Thread(
             target=run_store.run_deep_job,
             args=(SearchRun, summary.id, req, query, ident.email, cancel_state),
+            kwargs={"on_complete": autosave},
             daemon=True,
         ).start()
     except Exception as exc:

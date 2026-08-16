@@ -162,6 +162,7 @@ def run_deep_job(
     strip_log_keys: tuple[str, ...] = (),
     strip_metric_keys: tuple[str, ...] = (),
     keep_result_on_stop: bool = False,
+    on_complete: Callable[[dict], None] | None = None,
 ) -> None:
     """Corps d'un run, exécuté dans un thread détaché de la requête HTTP.
 
@@ -179,6 +180,10 @@ def run_deep_job(
     True (digest) : le résultat déjà acquis n'est pas perdu, le run finit
     `complete` sans les traductions ; False (recherche) : l'arrêt est honoré,
     le run finit `stopped` (le payload posé en `translating` reste en base).
+    `on_complete` : appelé avec le payload final UNE fois le run réellement
+    passé `complete` — c'est là que la recherche s'enregistre toute seule dans
+    l'historique (`saved_searches`). Best-effort : un échec y est avalé, la
+    recherche est déjà en base et ne doit pas être perdue pour autant.
 
     Volontairement indépendant du thread qui le porte : basculer un jour sur
     un vrai worker (Celery/RQ) reviendra à appeler cette fonction ailleurs.
@@ -253,12 +258,20 @@ def run_deep_job(
                 if t:
                     h.title_fr = t.get("title_fr") or h.title_fr
                     h.abstract_fr = t.get("abstract_fr") or h.abstract_fr
-            set_run(
+            payload = result.model_dump()
+            completed = set_run(
                 model, run_id,
                 status="complete",
-                payload=result.model_dump(),
+                payload=payload,
                 finished_at=datetime.now(PARIS),
             )
+            # `completed == 0` : le run avait déjà été arrêté ou requalifié en
+            # zombie — rien n'a été écrit, donc rien à archiver non plus.
+            if completed and on_complete is not None:
+                try:
+                    on_complete(payload)
+                except Exception:
+                    pass
     except SearchCancelled:
         # Arrêt volontaire (bouton stop) : pas une erreur.
         if not notified:

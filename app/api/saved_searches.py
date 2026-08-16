@@ -1,5 +1,9 @@
-"""Recherches sauvegardées : enregistrer le résultat d'une recherche pour y
-revenir, le relire et le réutiliser plus tard.
+"""Recherches sauvegardées : l'historique des résultats, à relire et réutiliser.
+
+Toute recherche aboutie y est enregistrée **automatiquement** à la fin du run
+(voir `app/services/saved_search_store.py`) : il n'y a plus de bouton
+« sauvegarder ». Cet endpoint POST reste ouvert pour un enregistrement explicite
+(outils, tests), mais le front ne s'en sert plus.
 
 On stocke un snapshot complet (`payload`, forme `DeepSearchResponse`) : rouvrir
 une recherche n'appelle donc PAS codex à nouveau. Pour l'instant pas de contrôle
@@ -10,7 +14,8 @@ Le **tri** utilisé (sélecteur « TRI » : `v1` = score IA, `v2` = fusion RRF) 
 partie de l'identité d'une recherche : la MÊME question triée autrement donne un
 autre classement, donc un autre snapshot. Il est rangé dans `params["sort"]`
 (pas de colonne dédiée : `params` est déjà le sac des réglages de la recherche)
-et entre dans la comparaison du `lookup`.
+et entre dans la comparaison du `lookup`. Cette définition de l'identité vit
+dans le store, partagée avec la sauvegarde automatique.
 """
 
 from __future__ import annotations
@@ -26,6 +31,12 @@ from sqlalchemy.orm import Session
 
 from app.db import get_session
 from app.models import Doctor, SavedSearch
+from app.services.saved_search_store import (
+    n_results as _n_results,
+    params_match as _params_match,
+    sort_of as _sort_of,
+    with_sort as _with_sort,
+)
 
 router = APIRouter()
 
@@ -61,58 +72,6 @@ class SavedSearchDetail(SavedSearchSummary):
 
 def _doctor_name(s: SavedSearch) -> str | None:
     return s.doctor.name if s.doctor is not None else None
-
-
-def _n_results(payload: dict[str, Any]) -> int:
-    results = payload.get("results")
-    return len(results) if isinstance(results, list) else 0
-
-
-def _norm(v: Any) -> str | None:
-    """Normalise une valeur de paramètre pour la comparaison : "" → None."""
-    return (str(v).strip() or None) if v is not None else None
-
-
-DEFAULT_SORT = "v1"  # tri historique du sélecteur « TRI » (score IA)
-
-
-def _sort_of(params: dict[str, Any] | None) -> str | None:
-    """Tri d'une recherche sauvegardée, ou None pour les lignes d'avant ce champ."""
-    return _norm((params or {}).get("sort"))
-
-
-def _with_sort(params: dict[str, Any] | None, sort: str | None) -> dict[str, Any] | None:
-    """Range le tri dans `params` (le champ explicite de l'appelant gagne)."""
-    if sort is None:
-        return params
-    return {**(params or {}), "sort": sort}
-
-
-def _sort_match(stored: str | None, wanted: str | None) -> bool:
-    """Deux recherches ne partagent un snapshot que si elles ont le MÊME tri.
-
-    Les lignes sauvegardées avant l'introduction du champ n'ont pas de tri : on
-    les rattache au tri par défaut du sélecteur, celui avec lequel elles ont
-    presque toujours été produites. Elles restent donc réutilisables en `v1`
-    sans jamais être servies à la place d'un vrai résultat `v2`.
-    """
-    return (stored or DEFAULT_SORT) == (wanted or DEFAULT_SORT)
-
-
-def _params_match(
-    stored: dict[str, Any] | None,
-    date_from: str | None,
-    date_to: str | None,
-    sort: str | None = None,
-) -> bool:
-    """Une recherche est « la même » si la fenêtre de dates ET le tri coïncident
-    (vide == absent)."""
-    stored = stored or {}
-    return (
-        _norm(stored.get("date_from")) == _norm(date_from)
-        and _norm(stored.get("date_to")) == _norm(date_to)
-        and _sort_match(_sort_of(stored), sort)
-    )
 
 
 def _summary(s: SavedSearch) -> SavedSearchSummary:
