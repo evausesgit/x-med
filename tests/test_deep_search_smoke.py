@@ -194,6 +194,33 @@ def test_v1_runs_end_to_end(session, app_db, spy, corpus):
     assert resp.counts["judged"] == len(spy.judged_pmids)
     assert resp.results, "aucun article retenu alors que la doublure note tout à 3"
     assert spy.judge_calls == 1
+    # Auditabilité du vivier local : ce qui a tourné en local, et son verdict.
+    assert resp.concepts_en == [[LOCAL_TERM]]
+    assert resp.local_state == "ok"
+
+
+def test_a_skipped_prefilter_says_so_instead_of_looking_empty(session, app_db, spy,
+                                                              monkeypatch):
+    """Sans mot-clé anglais le pré-filtre est sauté — l'état doit le dire.
+
+    Sinon `counts["local"] == 0` se lit comme « la base n'a rien trouvé » alors que
+    la base n'a jamais été interrogée : deux pannes très différentes.
+    """
+    from app.services import query_builder
+
+    def no_keywords(question, timeout=180, session=None):
+        return (
+            {"pubmed_query": "x[tiab]", "mesh_terms": [], "keywords_en": [],
+             "concepts_en": []},
+            CodexUsage(input_tokens=1, output_tokens=1),
+        )
+
+    monkeypatch.setattr(query_builder, "build_pubmed_query", no_keywords)
+    resp = _run_deep_search(_req(rrf=False), session, app_db, spy.progress)
+
+    assert resp.local_state == "skipped"
+    assert resp.concepts_en == []
+    assert resp.counts["local"] == 0
 
 
 def test_results_are_sorted_by_judged_relevance(session, app_db, spy):

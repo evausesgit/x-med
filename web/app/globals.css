@@ -497,6 +497,106 @@ button:disabled {
   font-size: 12px;
 }
 
+/* Repli « ce qui a été cherché » (SearchQueryDetails) : deux sections, PubMed
+   et base locale, qui ne cherchent pas la même chose. */
+.sqd-block + .sqd-block {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--line);
+}
+
+.sqd-title {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 10px 0 0;
+  color: var(--faint);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sqd-query {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  overflow-x: auto;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.sqd-state {
+  padding: 2px 8px;
+  border-radius: 5px;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.sqd-state.ok {
+  background: #dff1e8;
+  color: #1d5b43;
+}
+
+.sqd-state.warn {
+  background: var(--amber-soft);
+  color: #7a4b00;
+}
+
+.sqd-state.bad {
+  background: var(--red-soft);
+  color: #9b2f1f;
+}
+
+.sqd-state.muted {
+  background: var(--surface-soft);
+  color: var(--muted);
+}
+
+.sqd-count {
+  color: var(--muted);
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.sqd-hint {
+  margin-bottom: 4px;
+}
+
+.sqd-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+/* Le « ET » se lit comme un opérateur entre deux lignes de synonymes, pas comme
+   une étiquette de la ligne qui suit : d'où sa propre ligne, en retrait. */
+.sqd-op {
+  display: block;
+  margin: 2px 0 2px 2px;
+  color: var(--faint);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+}
+
+.sqd-syn {
+  margin-top: 0;
+}
+
+/* Le fond du bloc est déjà `--surface-soft` : sans bordure, les étiquettes s'y
+   fondent et ne se lisent plus comme des termes distincts. */
+.sqd-block .tag {
+  border-color: var(--line);
+}
+
 .explanation-grid {
   display: grid;
   gap: 8px;

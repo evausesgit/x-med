@@ -106,6 +106,8 @@ def _sanitize_digest_payload(label: str):
         result.pubmed_query = None
         result.mesh_terms = []
         result.keywords_en = []
+        result.concepts_en = []  # mêmes termes cliniques, groupés : à retirer aussi
+        # `local_state` reste : c'est un état d'exécution, il ne dit rien du profil.
 
     return sanitize
 

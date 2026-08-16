@@ -105,6 +105,11 @@ export interface DeepSearchResponse {
   pubmed_query: string | null;
   mesh_terms: string[];
   keywords_en: string[];
+  // Ce que le vivier local a cherché : groupes de synonymes combinés en ET, SANS
+  // les descripteurs MeSH — donc différent de `pubmed_query`. `local_state` dit
+  // si l'échelle de relâchement a dû retirer un concept.
+  concepts_en?: string[][];
+  local_state?: "skipped" | "ok" | "relaxed" | "timeout" | "stopped";
   query_builder: "codex" | "fallback";
   judge: "codex" | "skipped";
   codex_limit?: boolean;

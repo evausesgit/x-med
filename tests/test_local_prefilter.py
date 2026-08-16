@@ -198,7 +198,23 @@ def test_a_narrow_pool_relaxes_one_concept_at_a_time(monkeypatch):
     assert all(len(g) == 2 for g in fake.calls[1:]), "toujours 2 concepts en ET"
     assert set(pmids) == {1, 2, 3, 4}
     assert pmids[:3] == [1, 2, 3], "le palier strict garde la tête"
-    assert state == "ok"
+    assert state == "relaxed", "l'état doit dire que l'échelle a tourné"
+    assert "filter_relax" in events
+
+
+def test_a_fruitless_ladder_is_still_reported_as_relaxed(monkeypatch):
+    """L'échelle a tourné sans rien ramener de plus : l'état le dit quand même.
+
+    C'est le cas qu'on veut pouvoir constater après coup — sinon un vivier maigre
+    MALGRÉ le relâchement est indistinguable d'un vivier maigre tout court, et on
+    cherche la panne au mauvais endroit.
+    """
+    _, pmids, state, events = _ladder(
+        monkeypatch, {3: ([1, 2], "ok"), 2: ([], "ok")}
+    )
+
+    assert pmids == [1, 2], "rien de plus que le palier strict"
+    assert state == "relaxed"
     assert "filter_relax" in events
 
 
