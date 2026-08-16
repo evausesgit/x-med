@@ -123,10 +123,11 @@ def _fetch_articles(corpus: Session, pmids: list[int]) -> dict[int, Article]:
 ProgressCallback = Callable[[str, str, dict], None]
 
 
-# --- Méthode v2 « PubMed + codex » : filtre lexical/MeSH → codex lit & juge ---
+# --- Méthode v2 « PubMed + codex » : filtre lexical FTS → codex lit & juge ---
 # Voir PLAN_RECHERCHE_PUBMED_CODEX.md. Étapes :
-#   1. GPT-5.6 → requête structurée (keywords_en + mesh_terms) → PubMed = A
-#   2. même requête sur la base locale (FTS + MeSH) → candidats bornés → B
+#   1. GPT-5.6 → concepts → requête PubMed assemblée par le code → PubMed = A
+#   2. les MÊMES concepts en ET sur la base locale (FTS seul, SANS MeSH —
+#      `_local_tsquery` explique pourquoi) → candidats bornés → B
 #   3. fusion A+B, dédup PMID, codex lit les abstracts et score (0-3),
 #      tri pertinence → qualité (evidence_level) → récence = C
 # Le pré-tri sémantique par vecteurs, essayé au début du projet, a été abandonné :
@@ -189,6 +190,16 @@ class DeepSearchResponse(BaseModel):
     pubmed_query: str | None
     mesh_terms: list[str]
     keywords_en: list[str]
+    # Ce que le vivier LOCAL a réellement cherché — et qui n'est PAS lisible dans
+    # `pubmed_query`. Deux écarts, tous deux invisibles sans ces champs :
+    #   - les groupes n'ont pas les descripteurs MeSH (`build_from_concepts` les
+    #     écarte du local : « Heart Failure » matcherait des millions de lignes) ;
+    #   - l'échelle de relâchement a pu retirer un concept en cours de route.
+    # Sans ça, une recherche dont le vivier local est vide ou étrange n'est pas
+    # diagnosticable après coup : on ne voit que la requête PubMed, qui dit autre
+    # chose. `local_state` porte le verdict (voir `_local_prefilter`).
+    concepts_en: list[list[str]] = []
+    local_state: Literal["skipped", "ok", "relaxed", "timeout", "stopped"] = "skipped"
     query_builder: Literal["codex", "fallback"]
     judge: Literal["codex", "skipped"]
     codex_limit: bool = False  # quota GPT-5.6 atteint (résultats dégradés)
@@ -436,6 +447,12 @@ def _local_prefilter(
 ) -> tuple[list[int], str]:
     """Pré-filtre local avec échelle de relâchement. Retourne (pmids, état).
 
+    État ∈ {"ok", "relaxed", "timeout", "stopped"}. `"relaxed"` dit que l'échelle
+    s'est déclenchée — y compris quand elle n'a rien ramené de plus, car c'est
+    justement le cas qu'on veut pouvoir constater après coup : un vivier maigre
+    malgré le relâchement ne se distingue autrement pas d'un vivier maigre tout
+    court. Le palier strict seul reste `"ok"`.
+
     Le ET de tous les concepts est rapide mais parfois trop sévère : un article
     pertinent peut ne pas employer le vocabulaire d'un des concepts. On relâche
     alors d'un cran — chaque variante retire UN concept et garde les autres en ET —
@@ -475,7 +492,7 @@ def _local_prefilter(
                 return pmids, "ok" if pmids else "stopped"
             if got:
                 variants.append(got)
-        return _interleave(pmids, variants, limit), "ok"
+        return _interleave(pmids, variants, limit), "relaxed"
     finally:
         if token:
             _LOCAL_SEARCH_PIDS.pop(token, None)
@@ -713,10 +730,11 @@ def _run_deep_search(
              f"⏱️ Recherche locale abandonnée (délai de "
              f"{LOCAL_SEARCH_TIMEOUT_MS / 1000:.0f}s dépassé) — on s'appuie "
              "sur les résultats PubMed pour cette recherche.")
-    elif local_state == "ok":
+    elif local_state in ("ok", "relaxed"):
+        relax = " · après relâchement d'un concept" if local_state == "relaxed" else ""
         emit("filter",
              f"🧮 {len(local_pmids)} candidats locaux "
-             f"(filtre lexical FTS · {local_s:.1f}s)")
+             f"(filtre lexical FTS{relax} · {local_s:.1f}s)")
 
     # --- Rassembler les candidats (A ∪ B) + récupérer titres/abstracts ---
     a_set, local_set = set(a_pmids), set(local_pmids)
@@ -889,6 +907,8 @@ def _run_deep_search(
         pubmed_query=pubmed_query,
         mesh_terms=mesh,
         keywords_en=keywords,
+        concepts_en=groups,  # ce qui a réellement tourné en local, pas `concepts`
+        local_state=local_state,
         query_builder=builder,
         judge=judge_mode,
         codex_limit=codex_limit,
@@ -921,11 +941,15 @@ def _run_deep_search(
 def _deep_metrics(result: DeepSearchResponse) -> dict:
     """Métriques v2 pour la notification Hermes (vrais tokens GPT-5.6)."""
     return {
-        "method": "v2 (filtre lexical/MeSH + jugement codex)",
+        "method": "v2 (filtre lexical FTS + jugement codex)",
         "pubmed_query": result.pubmed_query,
         "pubmed_total_hits": result.counts.get("pubmed"),
         "merged_candidates": result.counts.get("merged"),
         "local_abstracts": result.counts.get("local"),
+        # Sans ça, un `local_abstracts` à 0 est illisible dans la notification :
+        # base non interrogée, requête annulée, délai dépassé, ou vivier
+        # réellement vide ? Quatre pannes différentes, un seul chiffre.
+        "local_state": result.local_state,
         "judged": result.counts.get("judged"),
         "codex_tokens": result.codex_tokens.get("total"),
         "relevant_total": result.counts.get("kept"),
@@ -1116,7 +1140,7 @@ def search_pubmed_deep(
             status="error",
             query=req.query,
             duration_s=time.monotonic() - t0,
-            metrics={"method": "v2 (filtre lexical/MeSH + jugement codex)"},
+            metrics={"method": "v2 (filtre lexical FTS + jugement codex)"},
             progress_events=progress_events,
             error=str(exc),
             user=user,

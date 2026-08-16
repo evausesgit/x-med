@@ -32,6 +32,7 @@ import Link from "next/link";
 import { consumeHistoryRequest, HISTORY_EVENT } from "@/lib/history-panel";
 import XMedResult, { deepRelevance, StructuredAbstract } from "./XMedResult";
 import { CritiquePanel, MAX_COMPARE, SelectButton } from "./Critique";
+import SearchQueryDetails from "./SearchQueryDetails";
 import { LanguageToggle, useDisplayLang, useTranslatedHits } from "./lang";
 
 // Durée d'une recherche PubMed + IA (jugement codex). En pratique 30–90 s ; le
@@ -1439,9 +1440,10 @@ export default function Home() {
           className="meta"
           style={{ margin: "12px 2px 0", color: "var(--faint)", fontSize: 12.5 }}
         >
-          L’IA construit une requête experte, on pré-filtre la base en local
-          (mots-clés + MeSH), puis GPT-5.6 lit et juge uniquement ces candidats —
-          rapide, insensible à la largeur de la période.
+          L’IA dégage les concepts de votre question, le code en compose une requête
+          experte, on pré-filtre la base en local (recherche plein-texte), puis GPT-5.6
+          lit et juge uniquement ces candidats — rapide, insensible à la largeur de la
+          période.
         </p>
 
         {codexLimit && (
@@ -1535,23 +1537,13 @@ export default function Home() {
               />
             )}
 
-            {deep.pubmed_query && (
-              <details className="explanation">
-                <summary>Requête PubMed générée + mots-clés</summary>
-                <p className="abstract" style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}>
-                  {deep.pubmed_query}
-                </p>
-                {deep.keywords_en.length > 0 && (
-                  <div className="tags">
-                    {deep.keywords_en.slice(0, 12).map((t) => (
-                      <span className="tag" key={t}>
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </details>
-            )}
+            <SearchQueryDetails
+              pubmedQuery={deep.pubmed_query}
+              keywordsEn={deep.keywords_en}
+              conceptsEn={deep.concepts_en}
+              localState={deep.local_state}
+              localCount={deep.counts.local}
+            />
 
             {deep.judge === "skipped" && (
               <p className="xm-banner warn">
