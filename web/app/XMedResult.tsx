@@ -34,6 +34,10 @@ export interface XMedResultProps {
   journal?: string | null;
   year?: number | null;
   level?: number | null;
+  /** recommandation de société savante : pastille dédiée, avant le niveau de
+      preuve. Le niveau seul ne suffit pas — « Niv. 1 » ne dit pas au médecin
+      qu'il a sous les yeux le texte de référence de sa pratique. */
+  guideline?: boolean;
   relevance?: Relevance;
   /** « apport » de l'article (ce qu'il apporte au lecteur). Affiché en ligne
       surlignée sous le journal, sans rétrograder le titre (qui reste le héros). */
@@ -192,6 +196,7 @@ export default function XMedResult({
   journal,
   year,
   level,
+  guideline,
   relevance,
   contribution,
   extraActions,
@@ -260,6 +265,11 @@ export default function XMedResult({
               >
                 <span className="dot" style={{ background: chip.dot }} />
                 {relevance.label}
+              </span>
+            )}
+            {guideline && (
+              <span className="xmr-ev xmr-guideline" title="Recommandation ou consensus de société savante">
+                📋 Recommandation
               </span>
             )}
             {ev && <span className={`xmr-ev ${ev.cls}`}>{ev.label}</span>}

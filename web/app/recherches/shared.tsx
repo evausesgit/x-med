@@ -57,6 +57,7 @@ export function HitCard({
       journal={hit.journal}
       year={hit.pub_year}
       level={hit.evidence_level}
+      guideline={hit.is_guideline}
       relevance={
         hit.score != null ? deepRelevance(hit.score, hit.relevance_pct) : undefined
       }

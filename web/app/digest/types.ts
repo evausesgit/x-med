@@ -18,6 +18,7 @@ export interface Article {
   year: number | null;
   /** Niveau de preuve 1..4 (1 = méta-analyse/RCT … 4 = avis) ; null si inconnu */
   level: number | null;
+  guideline?: boolean;
   /** Pertinence pour le profil, 0..100 (jauge + barre) */
   match: number;
   /** Temps de lecture estimé, ex. "4 min" */

@@ -21,6 +21,9 @@ export interface DeepHit {
   in_db: boolean;
   source: "pubmed" | "local" | "both";
   evidence_level: number | null;
+  // Recommandation de société savante (ESC, AHA/ACC, CNGOF, AAO…) : un type de
+  // document, pas un cran de la pyramide des preuves.
+  is_guideline?: boolean;
   score: number | null; // 0–3 (tri stable)
   relevance_pct?: number | null; // 0–100 (affichage fin de l'anneau)
   reason: string | null; // « apport » : ce que l'article apporte au lecteur
