@@ -23,6 +23,7 @@ from app.config import settings
 from app.db import CorpusSessionLocal, SessionLocal, get_corpus_session, get_session
 from app.models import Article, ArticleSearch
 from app.services import search_cancel
+from app.services.doc_kind import effective_evidence_level, is_guideline
 from app.services.explainability import explain_article
 from app.services.usage_log import record_usage
 
@@ -61,6 +62,9 @@ class ArticleResult(BaseModel):
     journal: str | None
     pub_year: int | None
     evidence_level: int | None
+    # Recommandation de société savante (ESC, AHA/ACC…) : un type de document,
+    # pas un cran de la pyramide des preuves. Voir app/services/doc_kind.py.
+    is_guideline: bool = False
     mesh_terms: list[str] | None
     abstract_snippet: str | None
     doi: str | None
@@ -87,7 +91,8 @@ def _to_result(
         title=row.title,
         journal=row.journal,
         pub_year=row.pub_year,
-        evidence_level=row.evidence_level,
+        evidence_level=effective_evidence_level(row.evidence_level, row.publication_types),
+        is_guideline=is_guideline(row.publication_types),
         mesh_terms=row.mesh_terms,
         abstract_snippet=snippet,
         doi=row.doi,
@@ -172,6 +177,7 @@ class DeepHit(BaseModel):
     in_db: bool
     source: Literal["pubmed", "local", "both"]
     evidence_level: int | None = None
+    is_guideline: bool = False
     score: int | None = None  # 0-3 (None si non jugé) — clé de tri stable
     relevance_pct: int | None = None  # 0-100 (None si non jugé) — affichage fin
     reason: str | None = None  # « apport » : ce que l'article apporte au lecteur
@@ -798,7 +804,10 @@ def _run_deep_search(
             "abstract": _abstract(p),
             "journal": (a.journal if a else (m.journal if m else None)),
             "pub_year": (a.pub_year if a else (m.pub_year if m else None)),
-            "evidence_level": (a.evidence_level if a else None),
+            "evidence_level": (
+                effective_evidence_level(a.evidence_level, a.publication_types) if a else None
+            ),
+            "is_guideline": (is_guideline(a.publication_types) if a else False),
         }
 
     # Candidats jugeables = ceux qui ont un abstract (codex doit lire le texte).
@@ -853,7 +862,10 @@ def _run_deep_search(
             pubmed_url=f"https://pubmed.ncbi.nlm.nih.gov/{p}/",
             in_db=a is not None,
             source=source,
-            evidence_level=(a.evidence_level if a else None),
+            evidence_level=(
+                effective_evidence_level(a.evidence_level, a.publication_types) if a else None
+            ),
+            is_guideline=(is_guideline(a.publication_types) if a else False),
             score=score,
             relevance_pct=(j.relevance_pct if j else None),
             reason=(j.reason if j else None),
@@ -1011,7 +1023,10 @@ def _run_deep_more(
             "abstract": _abstract(p),
             "journal": (a.journal if a else (m.journal if m else None)),
             "pub_year": (a.pub_year if a else (m.pub_year if m else None)),
-            "evidence_level": (a.evidence_level if a else None),
+            "evidence_level": (
+                effective_evidence_level(a.evidence_level, a.publication_types) if a else None
+            ),
+            "is_guideline": (is_guideline(a.publication_types) if a else False),
         }
 
     judgeable = [p for p in pmids if (_abstract(p) or "").strip()]

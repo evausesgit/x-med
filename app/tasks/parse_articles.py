@@ -17,6 +17,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.models import Article, MeshDescriptor
+from app.services.doc_kind import GUIDELINE_EVIDENCE
 
 # --- Dérivation du niveau de preuve (1 = plus haut) ---
 _EVIDENCE_BY_TYPE = {
@@ -31,6 +32,11 @@ _EVIDENCE_BY_TYPE = {
     "Multicenter Study": 2,
     "Observational Study": 2,
     "Case Reports": 3,
+    # Recommandations de sociétés savantes (ESC, AHA/ACC, HAS…) : sans elles,
+    # `min(levels) if levels else 4` les classait au niveau 4, à égalité avec un
+    # éditorial — alors que PRESENTATION_MEDECINS.md les promet aux médecins.
+    # Table de vérité dans app/services/doc_kind.py.
+    **GUIDELINE_EVIDENCE,
 }
 # Tout le reste (Review, Editorial, Letter, Comment, Journal Article…) → 4
 
