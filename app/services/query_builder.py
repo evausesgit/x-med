@@ -30,7 +30,14 @@ _PROMPT = (
     "efficace et ciblée : traduis les concepts en anglais ; ajoute les synonymes "
     "utiles (noms de molécules, codes de développement, variantes) ; utilise les "
     "tags [MeSH] et [tiab] et les opérateurs AND/OR ; reste précis sans "
-    "sur-élargir. Question : {q}. Réponds uniquement via le schéma JSON imposé."
+    "sur-élargir. "
+    "Si la question porte sur les RECOMMANDATIONS, référentiels, consensus ou "
+    "guidelines d'une société savante, ajoute le filtre de type de publication "
+    "(\"Practice Guideline\"[pt] OR \"Guideline\"[pt] OR "
+    "\"Consensus Development Conference\"[pt]) — sans lui, PubMed ne renvoie "
+    "que les articles qui PARLENT de recommandations, pas les recommandations "
+    "elles-mêmes. Ne l'ajoute pas autrement : il exclurait les essais. "
+    "Question : {q}. Réponds uniquement via le schéma JSON imposé."
 )
 
 

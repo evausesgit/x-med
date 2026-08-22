@@ -97,3 +97,15 @@ def test_le_digest_ne_demande_plus_au_juge_d_enterrer_les_recommandations():
     assert "Privilégier les" in query  # consigne existante conservée
     assert "recommandations et consensus de sociétés savantes" in query
     assert "ESC" in query and "HAS" in query
+
+
+def test_le_constructeur_de_requete_sait_filtrer_sur_le_type_de_publication():
+    # Sans cette consigne, une question « recommandations sur X » ne ramène que
+    # les articles qui PARLENT de recommandations : le prompt d'origine
+    # n'orientait que vers [MeSH] et [tiab].
+    from app.services.query_builder import _PROMPT
+
+    assert '"Practice Guideline"[pt]' in _PROMPT
+    assert '"Guideline"[pt]' in _PROMPT
+    # Le filtre ne doit pas être appliqué par défaut : il exclurait les essais.
+    assert "Ne l'ajoute pas autrement" in _PROMPT
