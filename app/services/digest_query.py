@@ -56,6 +56,12 @@ def build_digest_query(doctor: Doctor, profile: DoctorProfile) -> str:
             f"Privilégier les {_EVIDENCE_LABELS[profile.min_evidence_level]}."
         )
     lines.append(
+        "Retenir systématiquement les recommandations et consensus de sociétés "
+        "savantes du domaine (ESC, AHA/ACC, HAS, sociétés françaises de "
+        "spécialité…) : ce sont les textes de référence de la pratique, ils "
+        "priment sur la consigne de niveau de preuve ci-dessus."
+    )
+    lines.append(
         "Les types d'études, journaux et niveaux de preuve ci-dessus sont des "
         "préférences de PRIORISATION, pas des filtres bloquants : ne pas les "
         "transformer en clauses restrictives de la requête PubMed."
