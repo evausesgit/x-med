@@ -12,7 +12,7 @@ Tout vit aujourd'hui dans une seule base (`x-med-db-1`, base `xmed`) : les 25 mi
 d'articles PubMed **et** les comptes médecins, leurs profils, leurs recherches
 sauvegardées. Trois conséquences :
 
-1. **On ne peut pas développer sans les 63 Go.** Impossible de cloner l'environnement
+1. **On ne peut pas développer sans les 75 Go.** Impossible de cloner l'environnement
    sur un autre poste, ou de démarrer une base de test rapidement.
 2. **Le corpus fait tomber le reste.** Charger la baseline PubMed complète fait crasher
    Postgres — et ça emporte *tout*, y compris les comptes utilisateurs.
@@ -197,7 +197,7 @@ il suffit de repointer `DATABASE_URL` sur l'ancienne base.
 
 C'est le bénéfice principal, au-delà du rangement.
 
-### Développement local sans les 63 Go
+### Développement local sans les 75 Go
 
 `CORPUS_DATABASE_URL` peut pointer soit vers le vrai corpus, soit vers un **corpus
 échantillon** de quelques dizaines de milliers d'articles. La base app, elle, tient dans
@@ -207,7 +207,7 @@ deux secondes.
 ### Previews de PR sans dupliquer le corpus
 
 Aujourd'hui, une preview de PR devrait soit partager la base de prod (risqué : une
-migration en cours de revue s'applique aux vraies données), soit disposer de 63 Go à
+migration en cours de revue s'applique aux vraies données), soit disposer de 75 Go à
 elle. Avec deux bases :
 
 - **le corpus est partagé en lecture seule** entre la prod et toutes les previews —

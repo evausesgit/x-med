@@ -9,6 +9,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { requestHistoryPanel } from "@/lib/history-panel";
 
 type MenuItem = { label: string; href: string; tag?: string };
 
@@ -88,6 +89,31 @@ export default function Nav() {
             </button>
             {open && (
               <div className="xm-menu" id="xm-more-menu">
+                {/* L'historique des recherches n'est pas une page : c'est le
+                    panneau de l'accueil, qu'on ouvre d'ici. Depuis une autre
+                    page, on y retourne d'abord (le drapeau fait le reste). */}
+                <div className="xm-menu-head">Historique</div>
+                {isSearch ? (
+                  <button
+                    type="button"
+                    className="xm-menu-item"
+                    onClick={() => {
+                      requestHistoryPanel(true);
+                      setOpen(false);
+                    }}
+                  >
+                    Recherches récentes
+                  </button>
+                ) : (
+                  <Link
+                    href="/"
+                    className="xm-menu-item"
+                    onClick={() => requestHistoryPanel(false)}
+                  >
+                    Recherches récentes
+                  </Link>
+                )}
+                <div className="xm-menu-sep" />
                 <div className="xm-menu-head">Plus de pages</div>
                 {MENU.map((item) => (
                   <Link key={item.href} className="xm-menu-item" href={item.href}>

@@ -53,3 +53,39 @@ def test_usage_label_is_compact_without_full_profile():
     label = digest_usage_label(_profile(), days=30)
     assert label == "Digest on-demand · Cardiologie · 30 j"
     assert "Fibrillation" not in label
+
+
+def test_sanitized_digest_payload_leaks_no_clinical_term():
+    """Le payload du digest est PERSISTÉ : aucun terme clinique ne doit y survivre.
+
+    Le test balaie la réponse **sérialisée** plutôt que trois champs nommés : un
+    futur champ qui transporterait les termes du profil (c'est exactement ce qui
+    vient d'arriver avec `concepts_en`) fera échouer ce test au lieu de fuiter en
+    silence dans une ligne de base de données.
+    """
+    from app.api.digest import _sanitize_digest_payload
+    from app.api.search import DeepSearchResponse
+
+    secrets = ["Atrial Fibrillation", "ablation", "anticoagulant"]
+    resp = DeepSearchResponse(
+        query="fibrillation atriale et ablation chez le sujet âgé",
+        pubmed_query='"Atrial Fibrillation"[MeSH] AND "ablation"[tiab]',
+        mesh_terms=["Atrial Fibrillation"],
+        keywords_en=["ablation", "anticoagulant"],
+        concepts_en=[["Atrial Fibrillation"], ["ablation", "anticoagulant"]],
+        local_state="relaxed",
+        query_builder="codex",
+        judge="codex",
+        counts={"local": 3},
+        results=[],
+    )
+
+    _sanitize_digest_payload("Digest on-demand · Cardiologie · 30 j")(resp)
+
+    blob = resp.model_dump_json().lower()
+    for term in secrets:
+        assert term.lower() not in blob, f"« {term} » survit dans le payload persisté"
+    assert resp.query == "Digest on-demand · Cardiologie · 30 j"
+    # L'état d'exécution, lui, doit rester : il ne dit rien du profil clinique et
+    # c'est ce qui permet de diagnostiquer un digest au vivier local vide.
+    assert resp.local_state == "relaxed"

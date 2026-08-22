@@ -119,7 +119,7 @@ C'est probablement **ce qui avait bloqué « à l'époque »** — à confirmer 
 ## 7. Rollout — décidé et en cours (2026-07-05)
 
 **Décisions prises** : périmètre = **API seule dans Coolify** (db/redis restent en
-compose : `restart: always` suffit, et migrer le volume pgdata de 63 Go est un risque
+compose : `restart: always` suffit, et migrer le volume pgdata de 75 Go est un risque
 pour peu de gain). Transition = **parallèle puis bascule**.
 
 ### 7.1 L'image (`Dockerfile` à la racine — livré)

@@ -2,11 +2,78 @@
 // fonctionnent quel que soit l'hôte depuis lequel le navigateur ouvre le site.
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "/api";
 
+// Verdict de codex sur UN article soumis au juge — y compris les rejetés, qui
+// n'apparaissent nulle part ailleurs (ni dans les résultats, ni dans le reste
+// du vivier). `score: null` = article soumis mais absent de la réponse de codex.
+export interface Judgement {
+  pmid: number;
+  title: string;
+  score: number | null; // 0–3
+  relevance_pct: number | null; // 0–100
+  reason: string | null;
+  kept: boolean; // score ≥ seuil de conservation
+}
+
 export interface PubmedLog {
   phase: string;
   msg: string;
+  elapsed_s?: number; // temps écoulé depuis le début du run, en secondes
   pubmed_query?: string;
   mesh_terms?: string[];
+  judgements?: Judgement[]; // jalon `judge_detail` uniquement
+}
+
+// Un jalon prêt à afficher dans le déroulé : temps CUMULÉ depuis le début du
+// run et ÉCART avec le jalon précédent (le temps qu'a coûté cette étape).
+export interface TimedLog extends PubmedLog {
+  text: string; // msg nettoyé du suffixe « (12.3s) » des runs d'avant
+  elapsed: number | null; // cumulé
+  delta: number | null; // écart avec le jalon précédent
+}
+
+// Runs enregistrés avant que le temps ne devienne une donnée du jalon : il
+// n'existait que collé au texte. On le récupère et on le retire du message,
+// sinon la même durée s'afficherait deux fois.
+const TRAILING_ELAPSED = /\s*\((\d+(?:\.\d+)?)s\)\s*$/;
+
+export function withTimings(logs: PubmedLog[]): TimedLog[] {
+  let prev = 0; // dernier cumulé affiché
+  let offset = 0; // décalage du flux courant (voir plus bas)
+  let lastRaw = 0; // dernier temps brut reçu
+  return logs.map((l) => {
+    const msg = l.msg ?? "";
+    const legacy = TRAILING_ELAPSED.exec(msg);
+    const raw =
+      typeof l.elapsed_s === "number"
+        ? l.elapsed_s
+        : legacy
+          ? parseFloat(legacy[1])
+          : null;
+    const text = legacy ? msg.slice(0, legacy.index) : msg;
+    let elapsed: number | null = null;
+    if (raw !== null) {
+      // « Analyser 50 de plus » ouvre un NOUVEAU flux, dont le chrono repart de
+      // zéro alors que ses jalons s'ajoutent au même déroulé : un temps brut qui
+      // recule signale ce passage, on enchaîne à partir du cumulé courant plutôt
+      // que de faire redescendre la colonne.
+      if (raw < lastRaw) offset = prev;
+      lastRaw = raw;
+      elapsed = offset + raw;
+    }
+    // Le premier jalon a pour écart le temps écoulé depuis le début (prev = 0).
+    const delta = elapsed === null ? null : Math.max(0, elapsed - prev);
+    if (elapsed !== null) prev = elapsed;
+    return { ...l, text, elapsed, delta };
+  });
+}
+
+// « 4,2 s » / « 1 min 07 s » — durée courte lisible d'un coup d'œil.
+export function fmtSeconds(s: number): string {
+  if (s >= 60) {
+    const m = Math.floor(s / 60);
+    return `${m} min ${String(Math.round(s % 60)).padStart(2, "0")} s`;
+  }
+  return `${s.toFixed(1).replace(".", ",")} s`;
 }
 
 
@@ -30,6 +97,10 @@ export interface DeepHit {
   abstract: string | null; // abstract original (EN)
   abstract_fr: string | null; // traduction FR (cache ou streamée)
   title_fr?: string | null; // titre traduit FR (cache ou streamé)
+  /** hors de la fenêtre de dates demandée : PubMed n'est plus borné par les
+      dates (rappel maximal), donc un article ancien peut remonter s'il est le
+      seul pertinent — affiché avec un badge « hors période ». */
+  out_of_window?: boolean;
 }
 
 export interface DeepSearchResponse {
@@ -37,6 +108,11 @@ export interface DeepSearchResponse {
   pubmed_query: string | null;
   mesh_terms: string[];
   keywords_en: string[];
+  // Ce que le vivier local a cherché : groupes de synonymes combinés en ET, SANS
+  // les descripteurs MeSH — donc différent de `pubmed_query`. `local_state` dit
+  // si l'échelle de relâchement a dû retirer un concept.
+  concepts_en?: string[][];
+  local_state?: "skipped" | "ok" | "relaxed" | "timeout" | "stopped";
   query_builder: "codex" | "fallback";
   judge: "codex" | "skipped";
   codex_limit?: boolean;
@@ -347,8 +423,14 @@ export function searchPubmedDeepMoreStream(
   query: string,
   pmids: number[],
   handlers: DeepStreamHandlers<DeepMoreResponse>,
+  dateFrom?: string,
+  dateTo?: string,
 ): EventSource {
+  // Les dates ne filtrent pas ce lot : elles servent à marquer « hors période »
+  // les articles anciens, exactement comme dans la recherche initiale.
   const sp = new URLSearchParams({ query, pmids: pmids.join(",") });
+  if (dateFrom) sp.set("date_from", dateFrom);
+  if (dateTo) sp.set("date_to", dateTo);
   const es = new EventSource(
     `${API_BASE}/search/pubmed/deep/more/stream?${sp.toString()}`,
   );
@@ -547,12 +629,31 @@ export async function updateProfile(id: string, profile: DoctorProfile): Promise
 // ---------- Recherches sauvegardées ----------
 // On enregistre le snapshot complet d'une recherche (la réponse v2 telle
 // qu'affichée) pour la rouvrir/relire plus tard sans relancer codex.
+// Le tri (sélecteur « TRI ») fait partie de l'identité de la recherche : la même
+// question peut être sauvegardée une fois en v1 et une fois en v2, chacune
+// retrouvée par son propre tri.
+export type SearchSort = "v1" | "v2";
+
+// Libellés du tri, identiques à ceux du sélecteur « TRI » de l'accueil. Ici
+// plutôt que dans une page : accueil, liste et lien partagé les affichent tous.
+export const SORT_LABEL: Record<SearchSort, string> = {
+  v1: "tri v1 · score IA",
+  v2: "tri v2 · fusion RRF",
+};
+
+// Tri d'une recherche sauvegardée, prêt à afficher. Les lignes d'avant le champ
+// n'en portent pas : on n'invente rien et on n'affiche alors aucune étiquette.
+export function sortLabel(sort: SearchSort | string | null | undefined): string | null {
+  return sort === "v1" || sort === "v2" ? SORT_LABEL[sort] : null;
+}
+
 export interface SavedSearchSummary {
   id: string;
   doctor_id: string | null;
   doctor_name: string | null;
   query: string;
   method: string;
+  sort: SearchSort | null; // null = sauvegardée avant l'ajout du tri
   n_results: number;
   created_at: string;
 }
@@ -561,21 +662,9 @@ export interface SavedSearchDetail extends SavedSearchSummary {
   payload: DeepSearchResponse;
 }
 
-export async function saveSearch(body: {
-  query: string;
-  payload: DeepSearchResponse;
-  doctor_id?: string | null;
-  method?: string;
-  params?: Record<string, unknown> | null;
-}): Promise<SavedSearchDetail> {
-  const res = await fetch(`${API_BASE}/saved-searches`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
-  return res.json();
-}
+// Pas de client POST /saved-searches : les recherches sont enregistrées côté
+// serveur à la fin du run (app/services/saved_search_store.py). L'endpoint
+// existe toujours pour les outils et les tests, le front ne l'appelle plus.
 
 export async function listSavedSearches(): Promise<SavedSearchSummary[]> {
   const res = await fetch(`${API_BASE}/saved-searches`);
@@ -584,16 +673,19 @@ export async function listSavedSearches(): Promise<SavedSearchSummary[]> {
 }
 
 // Avant de relancer une recherche v2 (coûteuse en tokens codex), on regarde si
-// un snapshot identique a déjà été sauvegardé. Renvoie le plus récent, ou null.
+// un snapshot identique a déjà été sauvegardé — même question, mêmes dates ET
+// même tri. Renvoie le plus récent, ou null.
 export async function lookupSavedSearch(params: {
   query: string;
   method?: string;
   date_from?: string;
   date_to?: string;
+  sort?: SearchSort;
 }): Promise<SavedSearchDetail | null> {
   const sp = new URLSearchParams({ query: params.query, method: params.method ?? "v2" });
   if (params.date_from) sp.set("date_from", params.date_from);
   if (params.date_to) sp.set("date_to", params.date_to);
+  if (params.sort) sp.set("sort", params.sort);
   const res = await fetch(`${API_BASE}/saved-searches/lookup?${sp.toString()}`);
   if (!res.ok) return null;
   return res.json();

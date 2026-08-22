@@ -34,7 +34,10 @@ Le système est un **pipeline de batch quotidien** orchestré par Celery Beat, e
 
 Deux idées structurantes :
 
-- **Matching en deux temps** (clé pour la maîtrise des coûts) : un **pré-filtre rapide** réduit le corpus à quelques dizaines de candidats *avant* tout appel au LLM. Ce pré-filtre est une **recherche plein-texte** (index GIN + tri `ts_rank`), sur la table étroite `article_search` quand la fenêtre de dates le permet (~0,4 s) et sur `articles` sinon. L'intersection d'arrays MeSH a été retirée du vivier local : un descripteur courant matchait des millions de lignes et faisait passer la requête de 0,4 s à ~200 s. Seuls les candidats pré-filtrés passent au jugement par l'IA.
+- **Matching en deux temps** (clé pour la maîtrise des coûts) : un **pré-filtre rapide** réduit le corpus à quelques dizaines de candidats *avant* tout appel au LLM. Ce pré-filtre est une **recherche plein-texte** (index GIN + tri `ts_rank`), sur la table étroite `article_search` quand la fenêtre de dates le permet (~0,1 s) et sur `articles` sinon. Seuls les candidats pré-filtrés passent au jugement par l'IA.
+  - **Le coût d'une requête FTS est dominé par le NOMBRE DE LIGNES QUI MATCHENT**, pas par la taille de la table : `ORDER BY ts_rank` doit détoaster le tsvector de chacune. D'où deux règles qui ont chacune coûté une régression :
+    - la requête locale interroge les **concepts de codex combinés en ET** (chaque concept = OU de ses synonymes), jamais un OU à plat de tous les mots-clés — mesuré 268 137 lignes en 92,8 s contre 1 546 lignes en 21 ms ;
+    - l'**intersection d'arrays MeSH** a été retirée du vivier local : un descripteur courant matchait des millions de lignes et faisait passer la requête de 0,4 s à ~200 s.
 - **Deux sources PubMed distinctes** : le **FTP NLM** (flux bulk quotidien, source principale du pipeline) et l'**API E-utilities** (`esearch`/`efetch`, pour la recherche ponctuelle à la demande depuis l'API FastAPI). Ne pas confondre les deux usages.
 
 ## Démarrer / redémarrer le backend proprement

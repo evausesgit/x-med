@@ -6,16 +6,40 @@ services:
     # parallèles / gros tris de Postgres sur la table `articles` (26 M+ lignes), d'où des
     # « could not resize shared memory segment: No space left on device ». 1 Go = large.
     shm_size: "1gb"
-    # Tuning pour une base de 63 Go / 25 M articles sur un hôte à 62 Go de RAM.
-    # Les défauts Postgres (shared_buffers=128 Mo, work_mem=4 Mo) sont dérisoires :
-    # l'index plein-texte pèse 5,7 Go à lui seul, d'où des requêtes locales à ~13 s
-    # à froid (0,8 s à chaud). On garde davantage en cache Postgres + on hint le
-    # planificateur sur le cache OS. Valeurs volontairement modérées : l'hôte fait
-    # aussi tourner d'autres conteneurs (Coolify, etc.).
+    # Tuning pour une base de 75 Go / 25 M articles sur un hôte à 62 Go de RAM.
+    #
+    # ⚠️ Le stockage de cette machine est du DISQUE MÉCANIQUE : 2× Seagate Exos
+    # ST4000NM0245 (7200 tr/min) en RAID1 (md2), `rotational=1`. Mesuré en O_DIRECT
+    # sur ces disques : lecture aléatoire de 8 Ko = 6,14 ms, séquentielle = 0,076 ms
+    # — un ratio de 81×. Tout le tuning ci-dessous découle de ce seul fait.
+    #
+    # Le goulot mesuré n'est ni le CPU ni la RAM (pressions cgroup `cpu.full` et
+    # `memory.full` restées à 0,00 pendant les requêtes lentes, aucune limite
+    # cgroup posée) mais le disque : 200/200 échantillons de `wait_event` sur une
+    # requête lente en `IO/DataFileRead`, et EXPLAIN attribue 94,5 % du temps
+    # d'exécution à `I/O Timings: shared read`.
+    #
+    # Cause précise : le `ORDER BY ts_rank(fts, tsq)` du pré-filtre oblige le Bitmap
+    # Heap Scan à relire CHAQUE ligne qui matche pour calculer son rang. Sur
+    # « heart failure » → 38 136 lignes réparties sur 34 215 blocs distincts, soit
+    # 1,1 ligne par bloc (dispersion maximale). L'index GIN ne coûte que 897 ms —
+    # tout le reste est de la lecture de heap.
+    #
+    # D'où la seule variable qui compte vraiment : ce qui tient en cache. Même
+    # requête, même plan, mesures du 2026-08-03 sur `article_search` :
+    #     à froid ............ 88 718 ms  (33 959 blocs lus, 83 866 ms d'I/O)
+    #     après pg_prewarm ... 11 141 ms  ( 2 528 blocs lus, 10 813 ms d'I/O)
+    #     pleinement chaud ...    222 ms  (     0 bloc lu,        0 ms d'I/O)
+    # 400× d'écart pour la seule raison que les données sont en RAM ou non.
     command:
       - "postgres"
       - "-c"
-      - "shared_buffers=8GB"
+      # 8 Go auparavant. `article_search` (heap + TOAST + index) pèse 7 704 Mo : à
+      # 8 Go elle « rentrait juste », donc `articles` et le reste de l'activité
+      # l'évinçaient en permanence → retour au cas froid à 88 s. 14 Go lui laisse
+      # de la marge. Hôte à ~32 Go d'`available`, marge vérifiée avant application.
+      # `shared_memory_type=mmap` → n'utilise PAS /dev/shm, `shm_size` reste bon.
+      - "shared_buffers=14GB"
       - "-c"
       - "effective_cache_size=24GB"
       - "-c"
@@ -23,9 +47,33 @@ services:
       - "-c"
       - "maintenance_work_mem=1GB"
       - "-c"
-      - "random_page_cost=1.1"      # stockage SSD/NVMe : accès aléatoire ~ séquentiel
+      # ⚠️ L'ancien commentaire ici disait « stockage SSD/NVMe » : c'était FAUX
+      # (disques mécaniques, cf. ci-dessus). La valeur 1.1 est néanmoins CONSERVÉE
+      # car mesurément inerte sur nos chemins : 8 termes × 2 valeurs (1.1 et 4) sur
+      # la requête FTS → plans identiques 16/16 ; 3 tailles de liste de pmid × 2
+      # valeurs → plans identiques 6/6. Un index GIN ne sait produire QUE des
+      # bitmap scans, et un Bitmap Heap Scan trie déjà les TID en ordre physique :
+      # le planificateur fait déjà le mieux possible, `random_page_cost` n'a aucun
+      # levier ici. Ne la changer que si une mesure montre un plan qui bascule.
+      - "random_page_cost=1.1"
       - "-c"
-      - "shared_preload_libraries=pg_prewarm"  # précharge l'index FTS au démarrage
+      # NON MESURÉ — raisonnement seul (le cache était chaud au moment du test,
+      # impossible de le vider sur la prod). Ne pilote que le prefetch du Bitmap
+      # Heap Scan, c'est-à-dire précisément le goulot ci-dessus. RAID1 = 2 broches,
+      # + NCQ pour réordonner les seeks → 4. À valider à la prochaine mesure froide.
+      - "effective_io_concurrency=4"
+      - "-c"
+      # Permet à EXPLAIN de ventiler le temps disque (`I/O Timings`) : c'est ce qui
+      # a permis d'attribuer 94,5 % du temps au disque au lieu de le deviner.
+      # Coût négligeable sur noyau moderne.
+      - "track_io_timing=on"
+      - "-c"
+      # pg_prewarm : `autoprewarm` est actif (dump toutes les 300 s, restauré au
+      # démarrage) — c'est lui qui remonte le cache après un restart.
+      # pg_stat_statements : sans lui, impossible de savoir QUELLE requête a pris
+      # 40 s. Demande un `CREATE EXTENSION pg_stat_statements;` une fois après le
+      # premier démarrage avec cette lib préchargée.
+      - "shared_preload_libraries=pg_prewarm,pg_stat_statements"
     environment:
       POSTGRES_USER: xmed
       POSTGRES_PASSWORD: xmed

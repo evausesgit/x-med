@@ -99,13 +99,42 @@ def test_le_digest_ne_demande_plus_au_juge_d_enterrer_les_recommandations():
     assert "ESC" in query and "HAS" in query
 
 
-def test_le_constructeur_de_requete_sait_filtrer_sur_le_type_de_publication():
-    # Sans cette consigne, une question « recommandations sur X » ne ramène que
-    # les articles qui PARLENT de recommandations : le prompt d'origine
-    # n'orientait que vers [MeSH] et [tiab].
-    from app.services.query_builder import _PROMPT
+def test_le_filtre_recommandations_est_ecrit_par_le_code_pas_par_le_modele():
+    # Depuis « le modèle décrit le sens, le code rédige », le modèle n'écrit plus
+    # de requête : il ne fait que lever `guidelines_requested`, et c'est
+    # compose_pubmed_query qui pose le filtre de type de publication.
+    from app.services.query_builder import _PROMPT, _SCHEMA, compose_pubmed_query
 
-    assert '"Practice Guideline"[pt]' in _PROMPT
-    assert '"Guideline"[pt]' in _PROMPT
-    # Le filtre ne doit pas être appliqué par défaut : il exclurait les essais.
-    assert "Ne l'ajoute pas autrement" in _PROMPT
+    assert "guidelines_requested" in _SCHEMA["properties"]
+    assert "guidelines_requested" in _SCHEMA["required"]
+    assert "RÈGLE 5" in _PROMPT
+    # Le modèle ne doit surtout pas se remettre à écrire des tags.
+    assert "[pt]" not in _PROMPT
+
+    blocks = [(["Endometriosis"], ["endometriosis"])]
+    sans = compose_pubmed_query(blocks)
+    avec = compose_pubmed_query(blocks, guidelines=True)
+
+    # Par défaut, rien ne change : le filtre exclurait tous les essais.
+    assert "[pt]" not in sans
+    assert avec.startswith(sans + " AND ")
+    for pt in ("Practice Guideline", "Guideline", "Consensus Development Conference"):
+        assert f'"{pt}"[pt]' in avec
+
+
+def test_le_drapeau_recommandations_traverse_build_from_concepts():
+    from app.services.query_builder import build_from_concepts
+
+    concepts = [{"label_fr": "endométriose", "mesh": [], "synonyms_en": ["endometriosis"]}]
+    assert "[pt]" not in build_from_concepts(concepts)["pubmed_query"]
+    out = build_from_concepts(concepts, None, True)
+    assert '"Practice Guideline"[pt]' in out["pubmed_query"]
+    assert out["guidelines_requested"] is True
+
+
+def test_une_requete_sans_concept_ne_devient_pas_un_filtre_seul():
+    # Garde-fou : sans bloc de concept, ajouter le filtre produirait une requête
+    # qui ramène TOUTES les recommandations de PubMed, tous sujets confondus.
+    from app.services.query_builder import compose_pubmed_query
+
+    assert compose_pubmed_query([], guidelines=True) == ""

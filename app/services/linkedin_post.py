@@ -149,8 +149,13 @@ def fetch_studies(query: str, *, base_url: str | None = None) -> tuple[list[Stud
     """
     base = base_url or _api_base()
     with httpx.Client(base_url=base, timeout=1200.0) as client:
-        # 1) Réutiliser une recherche identique déjà sauvegardée.
-        r = client.get("/saved-searches/lookup", params={"query": query, "method": "v2"})
+        # 1) Réutiliser une recherche identique déjà sauvegardée. Le tri fait
+        # partie de la clé : on demande "v1", celui de la recherche lancée en 2)
+        # (`/search/pubmed/deep` sans `rrf` = v1, tri par score IA).
+        r = client.get(
+            "/saved-searches/lookup",
+            params={"query": query, "method": "v2", "sort": "v1"},
+        )
         if r.status_code == 200 and r.json():
             payload = r.json()["payload"]
             return _studies_from(payload), True
@@ -165,7 +170,12 @@ def fetch_studies(query: str, *, base_url: str | None = None) -> tuple[list[Stud
         try:
             client.post(
                 "/saved-searches",
-                json={"query": query, "payload": payload, "method": "v2"},
+                json={
+                    "query": query,
+                    "payload": payload,
+                    "method": "v2",
+                    "sort": "v1",
+                },
             )
         except Exception:
             pass  # la sauvegarde est un bonus, pas un bloquant

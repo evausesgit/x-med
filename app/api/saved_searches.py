@@ -1,10 +1,21 @@
-"""Recherches sauvegardées : enregistrer le résultat d'une recherche pour y
-revenir, le relire et le réutiliser plus tard.
+"""Recherches sauvegardées : l'historique des résultats, à relire et réutiliser.
+
+Toute recherche aboutie y est enregistrée **automatiquement** à la fin du run
+(voir `app/services/saved_search_store.py`) : il n'y a plus de bouton
+« sauvegarder ». Cet endpoint POST reste ouvert pour un enregistrement explicite
+(outils, tests), mais le front ne s'en sert plus.
 
 On stocke un snapshot complet (`payload`, forme `DeepSearchResponse`) : rouvrir
 une recherche n'appelle donc PAS codex à nouveau. Pour l'instant pas de contrôle
 d'accès — tout le monde voit toutes les recherches (le profil n'est qu'un
 classement). Voir le modèle `app/models/saved_search.py`.
+
+Le **tri** utilisé (sélecteur « TRI » : `v1` = score IA, `v2` = fusion RRF) fait
+partie de l'identité d'une recherche : la MÊME question triée autrement donne un
+autre classement, donc un autre snapshot. Il est rangé dans `params["sort"]`
+(pas de colonne dédiée : `params` est déjà le sac des réglages de la recherche)
+et entre dans la comparaison du `lookup`. Cette définition de l'identité vit
+dans le store, partagée avec la sauvegarde automatique.
 """
 
 from __future__ import annotations
@@ -20,6 +31,12 @@ from sqlalchemy.orm import Session
 
 from app.db import get_session
 from app.models import Doctor, SavedSearch
+from app.services.saved_search_store import (
+    n_results as _n_results,
+    params_match as _params_match,
+    sort_of as _sort_of,
+    with_sort as _with_sort,
+)
 
 router = APIRouter()
 
@@ -32,6 +49,9 @@ class SavedSearchIn(BaseModel):
     doctor_id: str | None = None
     method: str = "v2"
     params: dict[str, Any] | None = None
+    # Tri du résultat sauvegardé ("v1" score IA / "v2" fusion RRF). Champ à part
+    # pour l'appelant, rangé dans `params["sort"]` en base (cf. `_with_sort`).
+    sort: str | None = None
 
 
 class SavedSearchSummary(BaseModel):
@@ -40,6 +60,7 @@ class SavedSearchSummary(BaseModel):
     doctor_name: str | None
     query: str
     method: str
+    sort: str | None  # tri utilisé, lu dans params["sort"] (None = avant ce champ)
     n_results: int
     created_at: datetime
 
@@ -53,25 +74,6 @@ def _doctor_name(s: SavedSearch) -> str | None:
     return s.doctor.name if s.doctor is not None else None
 
 
-def _n_results(payload: dict[str, Any]) -> int:
-    results = payload.get("results")
-    return len(results) if isinstance(results, list) else 0
-
-
-def _norm(v: Any) -> str | None:
-    """Normalise une valeur de paramètre pour la comparaison : "" → None."""
-    return (str(v).strip() or None) if v is not None else None
-
-
-def _params_match(stored: dict[str, Any] | None, date_from: str | None, date_to: str | None) -> bool:
-    """Une recherche est « la même » si la fenêtre de dates coïncide (vide == absent)."""
-    stored = stored or {}
-    return (
-        _norm(stored.get("date_from")) == _norm(date_from)
-        and _norm(stored.get("date_to")) == _norm(date_to)
-    )
-
-
 def _summary(s: SavedSearch) -> SavedSearchSummary:
     return SavedSearchSummary(
         id=str(s.id),
@@ -79,6 +81,7 @@ def _summary(s: SavedSearch) -> SavedSearchSummary:
         doctor_name=_doctor_name(s),
         query=s.query,
         method=s.method,
+        sort=_sort_of(s.params),
         n_results=s.n_results,
         created_at=s.created_at,
     )
@@ -120,7 +123,7 @@ def create_saved_search(body: SavedSearchIn, session: Session = Depends(get_sess
         doctor_id=doctor_id,
         query=body.query,
         method=body.method,
-        params=body.params,
+        params=_with_sort(body.params, body.sort),
         payload=body.payload,
         n_results=_n_results(body.payload),
     )
@@ -145,11 +148,15 @@ def lookup_saved_search(
     method: str = "v2",
     date_from: str | None = None,
     date_to: str | None = None,
+    sort: str | None = None,
     session: Session = Depends(get_session),
 ):
     """Cherche une recherche déjà sauvegardée identique (même requête normalisée,
-    même méthode, même fenêtre de dates) pour éviter de relancer codex. Renvoie le
-    snapshot le plus récent, ou `null` si rien ne correspond.
+    même méthode, même fenêtre de dates, même tri) pour éviter de relancer codex.
+    Renvoie le snapshot le plus récent, ou `null` si rien ne correspond.
+
+    Le tri fait partie de la clé : la même question sauvegardée en `v1` et en
+    `v2` donne deux snapshots distincts, chacun retrouvé par son propre tri.
 
     ⚠ Doit rester déclarée AVANT `/saved-searches/{search_id}`, sinon « lookup »
     serait capturé comme un identifiant.
@@ -162,7 +169,7 @@ def lookup_saved_search(
         .order_by(SavedSearch.created_at.desc())
     ).all()
     for s in rows:
-        if _params_match(s.params, date_from, date_to):
+        if _params_match(s.params, date_from, date_to, sort):
             return _detail(s)
     return None
 

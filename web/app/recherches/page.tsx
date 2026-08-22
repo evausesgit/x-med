@@ -1,8 +1,11 @@
 "use client";
 
 // Recherches sauvegardées : liste partagée (pour l'instant tout le monde voit
-// tout) des résultats de recherche enregistrés. On peut rouvrir une recherche
-// pour relire ses articles — le snapshot est servi tel quel, sans relancer codex.
+// tout) des résultats de recherche enregistrés. Toute recherche aboutie y entre
+// AUTOMATIQUEMENT (il n'y a plus de bouton « sauvegarder ») : c'est l'historique
+// complet. On peut rouvrir une recherche pour relire ses articles — le snapshot
+// est servi tel quel, sans relancer codex — et supprimer celles qui n'ont plus
+// d'intérêt (le reste est élagué par scripts/cleanup_saved_searches.py).
 // Chaque recherche a aussi un lien direct partageable (/recherches/{id}).
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -12,6 +15,7 @@ import {
   getSavedSearch,
   listSavedSearches,
   SavedSearchSummary,
+  sortLabel,
 } from "@/lib/api";
 import { fmtDate, ResultDetail, ShareButton } from "./shared";
 
@@ -62,19 +66,19 @@ export default function SavedSearchesPage() {
       <h1>Recherches sauvegardées</h1>
       <p className="tagline">Vos résultats, à relire et réutiliser</p>
       <p className="subtitle">
-        Chaque recherche est enregistrée telle quelle (requête + articles
-        retenus). La rouvrir n&apos;appelle pas l&apos;IA à nouveau. Pour
-        l&apos;instant, toutes les recherches sont visibles de tous — le bouton
-        «&nbsp;🔗 Partager&nbsp;» copie un lien direct vers les résultats.
+        Chaque recherche que vous lancez est enregistrée automatiquement, telle
+        quelle (requête + articles retenus). La rouvrir n&apos;appelle pas
+        l&apos;IA à nouveau. Pour l&apos;instant, toutes les recherches sont
+        visibles de tous — le bouton «&nbsp;🔗 Partager&nbsp;» copie un lien
+        direct vers les résultats.
       </p>
 
       {loading ? (
         <p className="meta">Chargement…</p>
       ) : items.length === 0 ? (
         <p className="notice">
-          Aucune recherche sauvegardée pour l&apos;instant. Lancez une recherche
-          «&nbsp;PubMed + Filtre lexical + Codex&nbsp;» puis cliquez sur
-          «&nbsp;💾 Sauvegarder cette recherche&nbsp;».
+          Aucune recherche pour l&apos;instant. Lancez une recherche depuis la
+          page d&apos;accueil : elle s&apos;enregistrera ici toute seule.
         </p>
       ) : (
         <>
@@ -90,6 +94,9 @@ export default function SavedSearchesPage() {
                     👤 {s.doctor_name || "Sans profil"} · {s.n_results} article(s)
                     {" · "}
                     {fmtDate(s.created_at)}
+                    {/* Le tri distingue deux enregistrements d'une même
+                        question : sans lui, la liste montrerait des doublons. */}
+                    {sortLabel(s.sort) && <> · {sortLabel(s.sort)}</>}
                   </div>
                 </div>
                 <div className="saved-actions">

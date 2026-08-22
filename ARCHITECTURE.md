@@ -113,6 +113,28 @@ Voir `docs/plans/2026-08-22-recommandations-societes-savantes.md`.
 | Scheduler | Celery Beat |
 | API interne | FastAPI |
 | Déploiement | Docker Compose |
+| Stockage | **Disque mécanique** — 2× Seagate Exos 7200 tr/min, RAID1 (md2) |
+
+### La contrainte de stockage gouverne le tuning Postgres
+
+L'hôte n'a **pas de SSD**. Mesuré en O_DIRECT sur ces disques : lecture aléatoire de
+8 Ko = **6,14 ms**, séquentielle = **0,076 ms** — un ratio de **81×**. Toute décision de
+conception qui multiplie les accès aléatoires se paie donc au prix fort, et c'est la
+première chose à vérifier devant une lenteur.
+
+Corollaire mesuré le 2026-08-03 : sur le pré-filtre FTS, la seule variable qui compte
+est de savoir si les blocs sont en RAM. Même requête, même plan — **88 718 ms** à froid,
+**222 ms** pleinement chaud. Ni le CPU ni la RAM ne sont en cause (pressions cgroup
+`cpu.full` et `memory.full` à 0,00 pendant les requêtes lentes, 200/200 échantillons de
+`wait_event` en `IO/DataFileRead`).
+
+D'où le dimensionnement de `shared_buffers` à **14 Go** dans `docker-compose.yml` :
+`article_search` pèse 7 704 Mo et doit y tenir **avec de la marge**. Détail des
+paramètres et de leur justification : commentaires du `docker-compose.yml`.
+
+⚠️ Ne pas régler `random_page_cost` comme pour un SSD. Et attention aux plans qui
+relisent le heap pour chaque ligne matchée (`ORDER BY ts_rank`) : c'est la lecture du
+heap, pas l'index GIN, qui coûte.
 
 ---
 
@@ -340,7 +362,35 @@ GET    /search/runs/{id}           état d'un run de recherche (pollé)
 GET    /search/runs                historique : run actif + dernières
                                    recherches abouties du compte
 POST   /search/runs/{id}/stop      arrêt de la recherche en cours
+GET    /saved-searches             historique des recherches (snapshots),
+                                   récent d'abord — vue partagée
+GET    /saved-searches/lookup      un snapshot identique existe-t-il déjà ?
+                                   (même question, mêmes dates, même tri) —
+                                   sert à ne PAS relancer codex
+GET    /saved-searches/{id}        une recherche + son résultat complet
+DELETE /saved-searches/{id}        suppression manuelle
+POST   /saved-searches             enregistrement explicite — laissé ouvert
+                                   pour les outils et les tests, le front ne
+                                   l'appelle plus (sauvegarde automatique)
 ```
+
+**Sauvegarde automatique des recherches.** Il n'y a pas de bouton
+« sauvegarder » : à la fin d'un run de recherche `complete`, le hook
+`on_complete` de `services/run_store.py` enregistre le snapshot dans
+`saved_searches` (`services/saved_search_store.py`), rattaché au profil du
+compte. `saved_searches` est donc l'historique complet des recherches, et non
+plus une collection choisie à la main. Deux conséquences de design :
+
+- **une ligne par recherche distincte** — la clé est (question normalisée +
+  méthode + fenêtre de dates + tri + profil) ; relancer la même recherche
+  rafraîchit la ligne au lieu d'empiler un doublon. La même définition sert au
+  `lookup`, sinon la sauvegarde écrirait des lignes que le lookup ne
+  retrouverait jamais ;
+- **historique borné** — chaque ligne porte le `payload` complet (~17 ko en
+  moyenne, jusqu'à quelques centaines de Ko). `scripts/cleanup_saved_searches.py`
+  élague par âge (`SAVED_SEARCH_RETENTION_DAYS`, défaut 90 j) et par nombre
+  (`SAVED_SEARCH_MAX_ROWS`, défaut 500), à brancher en tâche planifiée sur le
+  worker Coolify comme `prune_article_search`.
 
 La recherche principale et le digest ne sont PLUS en SSE : les tables
 `search_runs` / `digest_runs` sont la source de vérité et le front les polle —
@@ -401,6 +451,8 @@ PUBMED_API_KEY=xxxxxxxxxxxx          # NIH, gratuit
 FTP_HOST=ftp.ncbi.nlm.nih.gov
 FTP_PUBMED_PATH=/pubmed/updatefiles/
 DATA_DIR=/data/incoming
+SAVED_SEARCH_RETENTION_DAYS=90       # historique des recherches : âge max (0 = illimité)
+SAVED_SEARCH_MAX_ROWS=500            # …et nombre max (0 = illimité)
 ```
 
 ---
