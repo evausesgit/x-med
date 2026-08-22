@@ -106,6 +106,65 @@ Décision bloquante pour cette étape : **quelle spécialité pour la liste de
 médecins de septembre ?** Si c'est la cardiologie, SFC + ESC et le terrain est
 facile ; en médecine générale, c'est HAS + CNGE et un autre chantier.
 
+## Spécialités pilotes : gynécologie-obstétrique et ophtalmologie
+
+Arbitrage du 22 août 2026 : les médecins de la liste de septembre sont des
+**gynécologues** et des **ophtalmologues**. Mesures faites sur le corpus le même
+jour (recherche plein-texte sur titre+abstract — donc **plancher**, une
+recommandation dont le résumé ne nomme pas sa société n'est pas comptée) :
+
+| Société | Publie dans | Dans le corpus | Le plus récent |
+|---|---|---|---|
+| ACOG (Practice Bulletins) | *Obstetrics & Gynecology* | 151 | 2026 |
+| **CNGOF** (RPC) | *Gynécologie Obstétrique Fertilité & Sénologie* | 38 | 2026 |
+| ESHRE (reproduction) | *Human Reproduction* | 238 | 2026 |
+| RCOG (Green-top) | *BJOG* | 26 | 2026 |
+| FIGO | *Int J Gynaecol Obstet* | 6 428 mentions* | 2026 |
+| **AAO** (Preferred Practice Patterns) | *Ophthalmology* | 87 | 2026 |
+
+\* Le chiffre FIGO compte toute mention du sigle (« FIGO staging » surtout), pas
+des recommandations : à ne pas lire comme les autres lignes.
+
+### Gynécologie-obstétrique : rien à ingérer
+
+Y compris pour le **français**. Le CNGOF publie ses Recommandations pour la
+Pratique Clinique chaque année dans *Gynécologie Obstétrique Fertilité &
+Sénologie* (Elsevier), **en français et en anglais**, méthodologie GRADE et
+grille AGREE II — et cette revue est indexée MEDLINE. Elles entrent donc déjà
+par le flux FTP quotidien.
+
+Le correctif de l'étape 1 suffit à les faire remonter : **aucun scraping n'est
+nécessaire pour cette spécialité**.
+
+Un point à vérifier avant de conclure : 38 occurrences pour le CNGOF paraît
+faible. Soit le sigle n'apparaît pas dans tous les titres et résumés (probable —
+le comptage est un plancher), soit la couverture est partielle. À trancher par
+un comptage sur le nom de la revue une fois l'index 0012 en place.
+
+### Ophtalmologie : international couvert, français à construire
+
+Les **Preferred Practice Patterns de l'AAO** — les textes de référence de la
+spécialité — paraissent dans *Ophthalmology* et sont donc déjà là (87, jusqu'à
+2026). ESCRS, EURETINA et RCOphth restent à mesurer.
+
+Côté français, l'asymétrie est nette : les **Rapports annuels de la SFO sont des
+ouvrages** (livres Elsevier), pas des articles — ils ne sont pas indexés, et les
+scraper donnerait des références de livres payants. Mauvais rapport
+effort/valeur, à écarter. Les recommandations françaises d'ophtalmologie passent
+principalement par la **HAS** (glaucome et hypertonie oculaire, élaborées avec la
+SFO).
+
+### Conséquence sur l'étape 4
+
+Pour ces deux spécialités pilotes, l'étape 4 se réduit à **l'adaptateur HAS
+seul** — le plus simple des trois (API de métadonnées, documents publics
+librement réutilisables). Le scraping des sociétés françaises, qui était le
+volet fragile du plan, **n'est pas nécessaire au démarrage**.
+
+L'ordre devient : étape 2 (surfacer ce qui est déjà là) → mesurer l'usage chez
+les gynécologues, qui sont couverts à 100 % sans nouveau code → n'ouvrir
+l'adaptateur HAS que si les ophtalmologues butent sur le manque de français.
+
 ## Étape 5 — l'axe produit
 
 C'est ici que la recommandation cesse d'être un résultat de plus.
