@@ -57,6 +57,48 @@ expliquer le score du reranker lorsqu'un tel modèle aura été évalué.
 
 ---
 
+### 3. Recommandations de sociétés savantes
+
+Les recommandations des grandes sociétés savantes internationales (ESC, AHA/ACC,
+ESMO, ADA, IDSA, KDIGO…) sont publiées dans des revues indexées MEDLINE : elles
+**arrivent déjà par la source 1**, porteuses d'un `PublicationType` dédié
+(`Practice Guideline`, `Guideline`, `Consensus Development Conference`).
+Estimation par échantillonnage de pages sur `articles` (août 2026) : **~26 000
+recommandations déjà en base**, soit ~0,10 % des 25 M de lignes, dont ~3 000 à
+5 000 depuis 2020.
+
+Ce n'est donc pas une source à ingérer mais un **type de document**, traité dans
+`app/services/doc_kind.py` :
+
+- `is_guideline(publication_types)` — exposé au front (`ArticleResult`,
+  `DeepHit`) et au juge codex, qui reçoit le marqueur « recommandation de
+  société savante » en plus du niveau de preuve ;
+- `effective_evidence_level(stored, publication_types)` — corrige le niveau **à
+  la lecture**. Les recommandations ingérées avant août 2026 portent
+  `evidence_level = 4` en base ; un `UPDATE` global sur 30 Go de heap n'étant pas
+  acceptable en production, la correction s'applique au moment de lire, depuis
+  `publication_types` déjà stocké. Aucun backfill, effet immédiat sur tout
+  l'historique.
+
+Le niveau attribué est une convention de **priorisation**, pas une affirmation
+méthodologique : une recommandation synthétise des essais, elle n'en est pas un.
+La grille `evidence_level` mélange de ce fait qualité de preuve et catégorie de
+document — une colonne `doc_kind` orthogonale serait plus propre le jour où la
+distinction devra être exposée au médecin.
+
+Index `ix_articles_pubtypes` (GIN sur `publication_types`, migration 0012) : sans
+lui, isoler les recommandations impose un scan séquentiel de 30 Go qui évincerait
+le cache dont dépend la latence de `article_search`.
+
+**Sources hors PubMed (non implémenté).** Les recommandations françaises (HAS,
+ANSM, SFC, CNGOF, SPILF, SFAR…) ne sont pas indexées : PDF sur site propre, pas
+de DOI, versionnées à la main. Elles demandent un ingesteur dédié et un modèle
+distinct de celui d'`articles` — un article est un événement immuable, une
+recommandation est un **état courant versionné** (ESC FA 2024 *remplace* 2020).
+Voir `docs/plans/2026-08-22-recommandations-societes-savantes.md`.
+
+---
+
 ## Stack technique
 
 | Composant | Technologie |
@@ -213,7 +255,9 @@ Pour chaque .xml.gz non encore parsé :
    a. Extraire : PMID, titre, abstract, auteurs, journal, ISSN, date
    b. Extraire MeSH terms (<DescriptorName>)
    c. Extraire publication types (<PublicationType>) → dériver evidence_level :
+        - Practice Guideline / Guideline            → niveau 1
         - RCT / Meta-Analysis / Systematic Review   → niveau 1
+        - Consensus Development Conference          → niveau 2
         - Cohort / Case-Control                     → niveau 2
         - Case Series / Case Report                 → niveau 3
         - Expert Opinion / Editorial                → niveau 4

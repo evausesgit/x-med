@@ -1519,6 +1519,7 @@ export default function Home() {
                     journal={r.journal}
                     year={r.pub_year}
                     level={r.evidence_level}
+                    guideline={r.is_guideline}
                     relevance={
                       r.score != null
                         ? deepRelevance(r.score, r.relevance_pct)

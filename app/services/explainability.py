@@ -58,6 +58,10 @@ _INTERVENTION_PATTERNS = (
 )
 
 _STUDY_TYPE_PRIORITY = (
+    # En tête : une recommandation qui cite un RCT n'est pas un RCT.
+    "Practice Guideline",
+    "Guideline",
+    "Consensus Development Conference",
     "Meta-Analysis",
     "Systematic Review",
     "Randomized Controlled Trial",

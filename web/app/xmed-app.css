@@ -179,8 +179,7 @@ button.xm-menu-item:hover {
   white-space: nowrap;
 }
 
-/* ============================ COMPOSER ============================
-   Barre de saisie au format du composer de ChatGPT : bloc très arrondi, zone
+/* ============================ COMPOSER =====================   Barre de saisie au format du composer de ChatGPT : bloc très arrondi, zone
    de texte qui grandit avec la question (hauteur pilotée en JS, plafonnée
    ici), bouton d'envoi rond à droite. Entrée lance, Maj+Entrée passe à la
    ligne. */
@@ -772,6 +771,11 @@ button.xm-menu-item:hover {
   border-radius: 5px;
   font-size: 11.5px;
   font-weight: 600;
+}
+.xmr-guideline {
+  background: #e6edfa;
+  color: #24418c;
+  border: 1px solid #c3d2f0;
 }
 /* « hors période » : l'article sort de la fenêtre de dates demandée mais reste
    affiché et classé au mérite (PubMed n'est plus borné par les dates, et la
@@ -1662,8 +1666,7 @@ button.xm-menu-item:hover {
 }
 
 
-/* ============ SHELL « CHAT » : COMPOSER + PANNEAU DES RECHERCHES ============
-   Disposition reprise de ChatGPT : historique dans une colonne de gauche
+/* ============ SHELL « CHAT » : COMPOSER + PANNEAU DES RECHERCHES =====   Disposition reprise de ChatGPT : historique dans une colonne de gauche
    pleine hauteur (desktop) ou en tiroir coulissant (mobile), contenu centré à
    droite. L'historique quittait le flux principal parce qu'il repoussait les
    premiers résultats sous la ligne de flottaison : en panneau latéral, la

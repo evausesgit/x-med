@@ -31,6 +31,7 @@ export function hitToArticle(h: DeepHit): Article {
     journal: h.journal ?? "Journal non renseigné",
     year: h.pub_year, // nullable : on n'invente ni année ni niveau de preuve
     level: h.evidence_level,
+    guideline: h.is_guideline,
     match: h.relevance_pct ?? (h.score ?? 0) * 33,
     read: estimateRead(h.abstract),
     pubmedUrl: h.pubmed_url,

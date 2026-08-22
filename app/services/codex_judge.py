@@ -99,6 +99,10 @@ def _render_articles(articles: list[dict]) -> str:
                 f"niveau de preuve {a['evidence_level']}"
                 if a.get("evidence_level")
                 else None,
+                # Dit explicitement au juge qu'il lit une recommandation : sans
+                # ce marqueur il ne voit qu'un « niveau de preuve 1 » de plus et
+                # ne peut pas la traiter comme le texte de référence qu'elle est.
+                "recommandation de société savante" if a.get("is_guideline") else None,
             )
             if v
         )
@@ -117,7 +121,7 @@ def judge_articles(
     """Score chaque article (par PMID) de 0 à 3 vis-à-vis de `PRM`.
 
     `articles` : liste de dicts {pmid, title, abstract} + métadonnées optionnelles
-    {journal, pub_year, evidence_level}. Retourne ({pmid: Judgement}, usage).
+    {journal, pub_year, evidence_level, is_guideline}. Retourne ({pmid: Judgement}, usage).
     Lève `JudgeError` si codex est indisponible / illisible.
     """
     if not articles:

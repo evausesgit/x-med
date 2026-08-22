@@ -61,6 +61,7 @@ function DigestCard({
       journal={a.journal}
       year={a.year}
       level={a.level}
+      guideline={a.guideline}
       relevance={digestRelevance(a.match)}
       contribution={t.stand}
       sourceTitle={a.en.title}

@@ -64,8 +64,11 @@ _SCHEMA = {
                 "required": ["label_fr", "mesh", "synonyms_en"],
             },
         },
+        # Intention, pas contenu : le modèle juge si la question demande des
+        # recommandations ; c'est `compose_pubmed_query` qui écrit le filtre.
+        "guidelines_requested": {"type": "boolean"},
     },
-    "required": ["concepts"],
+    "required": ["concepts", "guidelines_requested"],
 }
 
 # Deux consignes qui tirent dans des sens opposés, et c'est voulu :
@@ -126,6 +129,15 @@ _PROMPT = (
     "qualificatif (pas de « /therapy ») et sans tag. Dans le doute, laisse "
     "`mesh` vide : un descripteur inexistant ne remonte rien. Les molécules "
     "récentes ne sont pas des descripteurs — laisse-les dans `synonyms_en`.\n"
+    "\n"
+    "RÈGLE 5 — RECOMMANDATIONS. Mets `guidelines_requested` à true UNIQUEMENT "
+    "si la question réclame explicitement des recommandations, référentiels, "
+    "consensus ou guidelines de société savante. Une question de prise en "
+    "charge ordinaire reste à false : le filtre correspondant écarte les "
+    "essais cliniques, il ne doit pas s'appliquer par défaut. Ne l'exprime "
+    "pas comme un concept — « recommandation » n'est pas une entité "
+    "clinique, et la règle 2 l'interdit ; c'est le programme qui pose le "
+    "filtre de type de publication.\n"
     "\n"
     "N'écris ni tag [MeSH]/[tiab], ni opérateur AND/OR, ni parenthèses : la "
     "requête est assemblée par le programme. Classe les concepts du plus "
@@ -188,7 +200,19 @@ def normalize_concepts(concepts) -> list[list[str]]:
     return out
 
 
-def compose_pubmed_query(blocks: list[tuple[list[str], list[str]]]) -> str:
+# Types de publication des recommandations de sociétés savantes (cf.
+# app/services/doc_kind.py, qui porte la même liste pour le typage des articles).
+# Triés : la requête reste octet pour octet reproductible.
+_GUIDELINE_PT = (
+    "Consensus Development Conference",
+    "Guideline",
+    "Practice Guideline",
+)
+
+
+def compose_pubmed_query(
+    blocks: list[tuple[list[str], list[str]]], guidelines: bool = False
+) -> str:
     """Assemble `(bloc 1) AND (bloc 2)` à partir de (descripteurs, termes libres).
 
     Deux garanties, l'une de justesse et l'autre de reproductibilité :
@@ -212,10 +236,15 @@ def compose_pubmed_query(blocks: list[tuple[list[str], list[str]]]) -> str:
         clauses += [f'"{t}"[tiab]' for t in sorted(tiab, key=str.lower)]
         if clauses:
             parts.append("(" + " OR ".join(clauses) + ")")
+    # Sans ce filtre, « recommandations sur X » ramène les articles qui PARLENT
+    # de recommandations, pas les recommandations. Avec lui appliqué à tort, on
+    # perd tous les essais : d'où le drapeau, jamais une déduction du code.
+    if guidelines and parts:
+        parts.append("(" + " OR ".join(f'"{pt}"[pt]' for pt in _GUIDELINE_PT) + ")")
     return " AND ".join(parts)
 
 
-def build_from_concepts(concepts, session=None) -> dict:
+def build_from_concepts(concepts, session=None, guidelines: bool = False) -> dict:
     """Transforme la sortie du modèle en requête PubMed + viviers de mots-clés.
 
     Retourne le contrat attendu en aval : `pubmed_query` (assemblée ici, plus par
@@ -257,7 +286,8 @@ def build_from_concepts(concepts, session=None) -> dict:
         # Une dérive à la hausse signalerait un thésaurus périmé ou un prompt cassé.
         log.info("MeSH rétrogradés en [tiab] (inexistants au thésaurus) : %s", demoted)
     return {
-        "pubmed_query": compose_pubmed_query(blocks),
+        "pubmed_query": compose_pubmed_query(blocks, guidelines),
+        "guidelines_requested": bool(guidelines),
         "concepts_en": normalize_concepts(groups),
         "keywords_en": _clean([t for g in groups for t in g]),
         "mesh_terms": _clean(mesh_ok),
@@ -276,7 +306,9 @@ def build_pubmed_query(
         data, usage = run_codex(_PROMPT.format(q=question), _SCHEMA, timeout)
     except CodexCliError as e:
         raise QueryBuildError(str(e)) from e
-    out = build_from_concepts(data.get("concepts"), session)
+    out = build_from_concepts(
+        data.get("concepts"), session, bool(data.get("guidelines_requested"))
+    )
     if not out["pubmed_query"]:
         raise QueryBuildError("aucun concept exploitable dans la sortie codex")
     return out, usage
