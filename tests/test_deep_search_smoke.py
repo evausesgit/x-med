@@ -528,6 +528,50 @@ def test_judge_detail_traces_the_articles_dropped_by_the_judge(
     assert {r["pmid"] for r in rows if r["kept"]} == kept_pmids
 
 
+def test_articles_without_abstract_are_counted_not_hidden(
+    session, app_db, spy, corpus, monkeypatch
+):
+    """Un candidat sans résumé n'est pas jugeable (le juge lit le texte) — mais il
+    ne doit pas s'évaporer en silence.
+
+    Le cas vécu : « 20 articles PubMed récupérés » puis « 14 abstracts jugés », sans
+    un mot sur les 6 disparus. Or ces 6 étaient des recommandations de sociétés
+    savantes — le type de document que PubMed publie le plus souvent SANS résumé,
+    et exactement ce que le médecin demandait. L'écart doit être annoncé et compté.
+    """
+    pmid = session.scalar(
+        select(Article.pmid)
+        .where(Article.abstract.is_(None), Article.pub_year >= 2025)
+        .limit(1)
+    )
+    if pmid is None:  # pragma: no cover - dépend du corpus local
+        pytest.skip("aucun article sans résumé dans le corpus local")
+    a_pmids = [pmid, *corpus["a_pmids"]]
+
+    def esearch_with_a_silent_one(term, retmax=20, **kw):
+        return len(a_pmids), a_pmids[:retmax]
+
+    monkeypatch.setattr(pubmed_eutils, "esearch", esearch_with_a_silent_one)
+    resp = _run_deep_search(
+        _req(rrf=False, k_pubmed=len(a_pmids)), session, app_db, spy.progress
+    )
+
+    assert pmid not in spy.judged_pmids, "sans résumé : rien à soumettre au juge"
+    assert "no_abstract" in [p for p, _ in spy.events], (
+        "le médecin doit voir passer le jalon, pas seulement le total"
+    )
+    data = spy.event_data["no_abstract"]
+    assert pmid in data["pmids"]
+    assert len(data["titles"]) == len(data["pmids"]), (
+        "les titres accompagnent les PMID : un compteur nu ne dit pas CE qui manque"
+    )
+    assert resp.counts["no_abstract"] == len(data["pmids"])
+    # Le compte doit refermer l'écart affiché : fusionnés = jugeables + sans résumé.
+    assert (
+        resp.counts["judgeable"] + resp.counts["no_abstract"] == resp.counts["merged"]
+    )
+
+
 # --------------------------------------------------------------------------- #
 # Routage du pré-filtre (pas de requête exécutée : instantané)
 # --------------------------------------------------------------------------- #

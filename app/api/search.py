@@ -235,6 +235,7 @@ class DeepMoreResponse(BaseModel):
     codex_limit: bool = False
     codex_tokens: dict[str, int] = {}
     judged: int  # abstracts effectivement jugés dans ce lot
+    no_abstract: int = 0  # candidats du lot écartés faute de résumé
     kept: int  # retenus (score ≥ min_score) dans ce lot
     results: list[DeepHit]
 
@@ -814,6 +815,19 @@ def _run_deep_search(
     # On ne juge que le PREMIER lot (`judge_batch`) ; le reste (`remaining`) est
     # renvoyé au front, qui peut demander « 50 de plus » via le flux /more.
     judgeable = [p for p in candidate_pmids if (_abstract(p) or "").strip()]
+    # Ce qui tombe ici ne disparaît PAS en silence : un article sans résumé n'est
+    # pas jugeable (codex doit lire le texte), mais le médecin doit savoir qu'il y
+    # en avait — les recommandations de sociétés savantes sont justement le type de
+    # document le plus souvent publié sans abstract dans PubMed, et les compter à
+    # l'écran est le seul moyen de repérer qu'une réponse manque à l'appel.
+    judgeable_set = set(judgeable)
+    no_abstract = [p for p in candidate_pmids if p not in judgeable_set]
+    if no_abstract:
+        emit("no_abstract",
+             f"📄 {len(no_abstract)} article(s) sans résumé dans PubMed — non "
+             "soumis au jugement (le juge a besoin du texte).",
+             pmids=no_abstract,
+             titles=[_title(p) for p in no_abstract])
     # Lot jugé = les `judge_batch` premiers du vivier (ordre RRF en v2), MAIS on garantit
     # au moins `local_floor` articles locaux-seuls (curseur UI ; 0 = pas de plancher).
     first_batch = _pick_judge_batch(judgeable, a_set, req.judge_batch, req.local_floor)
@@ -930,6 +944,9 @@ def _run_deep_search(
             "local": len(local_set),
             "merged": len(candidate_pmids),
             "judgeable": len(judgeable),
+            # Candidats écartés faute de résumé : affiché dans le récap, pour que
+            # « 20 trouvés → 14 jugés » ne reste pas un écart inexpliqué.
+            "no_abstract": len(no_abstract),
             "judged": len(scores),
             "kept": len(hits),
             # Provenance des articles RETENUS (pour le récap « X PubMed · Y local »).
@@ -1030,6 +1047,11 @@ def _run_deep_more(
         }
 
     judgeable = [p for p in pmids if (_abstract(p) or "").strip()]
+    n_no_abstract = len(pmids) - len(judgeable)
+    if n_no_abstract:
+        emit("no_abstract",
+             f"📄 {n_no_abstract} article(s) sans résumé dans PubMed — non soumis "
+             "au jugement (le juge a besoin du texte).")
     emit("judge", f"🧬 GPT-5.6 lit et juge {len(judgeable)} abstracts de plus…")
 
     judge_mode: Literal["codex", "skipped"] = "codex"
@@ -1109,6 +1131,7 @@ def _run_deep_more(
         codex_limit=codex_limit,
         codex_tokens={**codex_tokens, "total": codex_tokens["judge"]},
         judged=len(scores),
+        no_abstract=n_no_abstract,
         kept=len(hits),
         results=hits,
     )

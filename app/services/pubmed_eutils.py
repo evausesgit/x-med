@@ -79,10 +79,15 @@ def esummary(pmids: list[int]) -> dict[int, PubmedHit]:
                     if a.get("idtype") == "doi"), None)
         pd = it.get("pubdate", "") or ""
         year = int(pd[:4]) if pd[:4].isdigit() else None
+        # Les **livres** (`doctype: book` — beaucoup de recommandations NICE et
+        # consorts) laissent `title` et `source` vides : leur titre est dans
+        # `booktitle` et leur « revue » est l'éditeur. Sans ce repli, le juge
+        # recevait un titre vide et le médecin voyait un PMID nu.
         out[int(uid)] = PubmedHit(
             pmid=int(uid),
-            title=(it.get("title", "") or "").rstrip(" ."),
-            journal=it.get("fulljournalname") or it.get("source"),
+            title=((it.get("title") or it.get("booktitle") or "").rstrip(" .")),
+            journal=(it.get("fulljournalname") or it.get("source")
+                     or it.get("publishername")),
             pub_year=year,
             doi=doi,
         )
@@ -100,8 +105,18 @@ def efetch_abstracts(pmids: list[int]) -> dict[int, str]:
         r.raise_for_status()
         root = etree.fromstring(r.content)
     out: dict[int, str] = {}
-    for art in root.findall(".//PubmedArticle"):
-        pmid_el = art.find(".//MedlineCitation/PMID")
+    # Deux enveloppes, pas une seule : PubMed publie aussi des **livres et
+    # chapitres** (`<PubmedBookArticle>`), et c'est sous cette forme qu'arrivent
+    # une bonne partie des recommandations de sociétés savantes — les guidelines
+    # NICE, par exemple. Ne parcourir que `<PubmedArticle>` les rendait invisibles :
+    # sans résumé, l'article était écarté avant le jugement, alors que PubMed en
+    # renvoyait bien un (mesuré sur « recommandations pour la bipolarité » :
+    # NICE « Bipolar disorder: assessment and management » jamais soumis au juge).
+    # Le PMID ne vit pas au même endroit dans les deux enveloppes ; l'abstract si.
+    articles = [(a, ".//MedlineCitation/PMID") for a in root.findall(".//PubmedArticle")]
+    articles += [(a, ".//BookDocument/PMID") for a in root.findall(".//PubmedBookArticle")]
+    for art, pmid_path in articles:
+        pmid_el = art.find(pmid_path)
         if pmid_el is None or not pmid_el.text:
             continue
         # Abstracts structurés : on préserve les sections (Label : texte, une par

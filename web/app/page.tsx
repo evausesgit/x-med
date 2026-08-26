@@ -853,6 +853,8 @@ export default function Home() {
             counts: {
               ...prev.counts,
               judged: (prev.counts.judged ?? 0) + res.judged,
+              no_abstract:
+                (prev.counts.no_abstract ?? 0) + (res.no_abstract ?? 0),
               kept: merged.length,
             },
           };
@@ -1382,6 +1384,12 @@ export default function Home() {
               <span className="xm-results-count">
                 {deep.counts.kept ?? 0} retenu(s) · {deep.counts.judged ?? 0} jugés codex ·{" "}
                 {deep.counts.merged ?? 0} fusionnés
+                {/* Écart « trouvés → jugés » rendu explicite : PubMed publie une
+                    partie des recommandations sans résumé, et le juge a besoin du
+                    texte. Sans ce compteur, ces articles disparaissaient sans un mot. */}
+                {(deep.counts.no_abstract ?? 0) > 0 && (
+                  <> · {deep.counts.no_abstract} sans résumé</>
+                )}
                 {deep.counts.kept_local != null && (
                   <>
                     {" · "}
