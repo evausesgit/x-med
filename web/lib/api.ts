@@ -129,6 +129,9 @@ export interface DeepMoreResponse {
   codex_limit?: boolean;
   codex_tokens?: Record<string, number>;
   judged: number;
+  // Candidats du lot écartés faute de résumé (PubMed n'en publie pas toujours,
+  // en particulier pour les recommandations) — cumulé dans le récap.
+  no_abstract?: number;
   kept: number;
   results: DeepHit[];
 }
